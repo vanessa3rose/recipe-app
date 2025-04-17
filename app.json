@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "RecipeApp",
+    "slug": "RecipeApp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vrose.recipeapp",
+      "config": {
+        "googleServicesFile": "./GoogleService-Info.plist"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "23200a3e-afdc-4493-9612-77c5357cd25c"
+      }
+    },
+    "owner": "vanessarose",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/23200a3e-afdc-4493-9612-77c5357cd25c"
+    }
+  }
+}
