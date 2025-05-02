@@ -10,6 +10,7 @@ import colors from '../../assets/colors';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 import CalendarModal from '../../components/Planning-Plan/CalendarModal';
+import SnackListModal from '../../components/Planning-Plan/SnackListModal';
 import MealDetailsModal from '../../components/Planning-Plan/MealDetailsModal';
 import MealSearchModal from '../../components/Planning-Plan/MealSearchModal';
 import MealOverviewModal from '../../components/Planning/MealOverviewModal';
@@ -125,6 +126,17 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
   const formatDateMed = (currDate) => {
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const dayName = days[currDate.getDay()];
+  
+    const mm = currDate.getMonth() + 1; // Months are 0-based
+    const dd = currDate.getDate();
+    const yy = currDate.getFullYear() % 100;
+    
+    return `${dayName} ${mm}/${dd}/${yy}`;
+  };
+
+  const formatDateMed2 = (currDate) => {
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const dayName = days[currDate.getDay()];
   
     const mm = currDate.getMonth() + 1; // Months are 0-based
@@ -355,7 +367,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           // gets the state's week data of the curr index
           const planDate = (new Date(weekRange[index])).toLocaleDateString('en-CA');
           const planData = weekData[index];
-
+          
           // prepares the doc data
           const docData = {
             date: planDate,
@@ -369,6 +381,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                 prepData: isDinnerChecked[index] ? selectedPrepData : planData?.meals?.dinner?.prepData ?? null,
               },
             },
+            ...(planData?.snacks && { snacks: planData.snacks }),
           };
 
           // adds the set operation to the batch if the data has changed
@@ -431,6 +444,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
               prepData: isDinnerChecked[index] ? null : planData?.meals?.dinner?.prepData ?? null,
             },
           },
+          ...(planData?.snacks && { snacks: planData.snacks }),
         };
 
         // adds the set operation to the batch if the data has changed
@@ -470,15 +484,15 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       for (let index = 0; index < 7; index++) {
         
         if (isLunchChecked[index] && !detailsOne) {
-          detailsOne = { date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), meal: "LUNCH", data: weekData[index].meals.lunch, otherData: weekData[index].meals.dinner };
+          detailsOne = { date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), meal: "LUNCH", data: weekData[index].meals.lunch, otherData: weekData[index].meals.dinner, snacks: weekData[index].snacks };
         } else if (isLunchChecked[index] && detailsOne) {
-          detailsTwo = { date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), meal: "LUNCH", data: weekData[index].meals.lunch, otherData: weekData[index].meals.dinner };
+          detailsTwo = { date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), meal: "LUNCH", data: weekData[index].meals.lunch, otherData: weekData[index].meals.dinner, snacks: weekData[index].snacks };
         }
         
         if (isDinnerChecked[index] && !detailsOne) {
-          detailsOne = { date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), meal: "DINNER", data: weekData[index].meals.dinner, otherData: weekData[index].meals.lunch };
+          detailsOne = { date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), meal: "DINNER", data: weekData[index].meals.dinner, otherData: weekData[index].meals.lunch, snacks: weekData[index].snacks };
         } else if (isDinnerChecked[index] && detailsOne) {
-          detailsTwo = { date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), meal: "DINNER", data: weekData[index].meals.dinner, otherData: weekData[index].meals.lunch };
+          detailsTwo = { date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), meal: "DINNER", data: weekData[index].meals.dinner, otherData: weekData[index].meals.lunch, snacks: weekData[index].snacks };
         }
       }
 
@@ -498,7 +512,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         } else if (detailsTwo.meal === "DINNER" && detailsTwo?.data?.prepId?.includes("DINNER")) {
           detailsTwo.data.prepId = detailsTwo.data.prepId.replace("DINNER", "LUNCH");
         }
-
+        
         // only one swap in the db is needed for a single day
         const swappedDay = {
           date: detailsOne.date,
@@ -506,6 +520,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
             lunch: detailsOne.meal === "LUNCH" ? detailsTwo.data : detailsOne.data,
             dinner: detailsOne.meal === "DINNER" ? detailsTwo.data : detailsOne.data,
           },
+          ...(detailsOne?.snacks && { snacks: detailsOne?.snacks }),
         };
 
         batch.set(doc(db, 'plans', detailsOne.date), swappedDay);
@@ -543,6 +558,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
             lunch: detailsOne.meal === "LUNCH" ? detailsTwo.data : detailsOne.otherData,
             dinner: detailsOne.meal === "DINNER" ? detailsTwo.data : detailsOne.otherData,
           },
+          ...(detailsOne?.snacks && { snacks: detailsOne?.snacks }),
         };
 
         // second day
@@ -552,6 +568,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
             lunch: detailsTwo.meal === "LUNCH" ? detailsOne.data : detailsTwo.otherData,
             dinner: detailsTwo.meal === "DINNER" ? detailsOne.data : detailsTwo.otherData,
           },
+          ...(detailsTwo?.snacks && { snacks: detailsTwo?.snacks }),
         };
         
         // swaps the id meal if the first lunch is custom
@@ -700,6 +717,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                 prepData: dinnerIndex === -1 ? planData.meals.dinner.prepData : prepsArray[dinnerIndex],
               },
             },
+            ...(planData?.snacks && { snacks: planData?.snacks }),
           };
           
           // stores the data in the week's state if the date matches
@@ -963,7 +981,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     // if there is already a meal prep there, remove it - LUNCH
     if (warningModalType === "LUNCH" && warningModalDocSnap.exists() && warningModalDocSnap.data().meals.lunch.prepId !== null && !warningModalDocSnap.data().meals.lunch.prepId.includes("LUNCH")) {
       updateDoc(doc(db, 'plans', (new Date(weekRange[warningModalIndex])).toLocaleDateString('en-CA')), { "meals.lunch.prepData": null, "meals.lunch.prepId": null });
-     
+      
     // DINNER
     } else if (warningModalType === "DINNER" && warningModalDocSnap.data().meals.dinner.prepId !== null && !warningModalDocSnap.data().meals.dinner.prepId.includes("DINNER")) {
       updateDoc(doc(db, 'plans', (new Date(weekRange[warningModalIndex])).toLocaleDateString('en-CA')), { "meals.dinner.prepData": null, "meals.dinner.prepId": null });
@@ -1025,6 +1043,40 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       setGotoDate({meal: selectedMeal, date: selectedDate});
     }
   };
+
+
+  ///////////////////////////////// SNACK MODAL /////////////////////////////////
+
+  const [snackModalVisible, setSnackModalVisible] = useState(false);
+  const [snackModalDate, setSnackModalDate] = useState(null);
+  const [snackModalDispDate, setSnackModalDispDate] = useState(null);
+  const [snackModalData, setSnackModalData] = useState(null);
+
+  // when a touchable opacity for a snack is clicked, store the data
+  const displaySnack = (index, data) => {
+
+    // creates a date string
+    const date = formatDateShort(new Date(weekRange[index]));
+    const dispDate = formatDateMed2(new Date(weekRange[index]));
+
+    // opens the modal and stores data if there is data
+    setSnackModalDate(date);
+    setSnackModalDispDate(dispDate);
+    setSnackModalData(data ? data : null);
+    setSnackModalVisible(true);
+  }
+
+  // for closing the snack modal after editing
+  const closeSnackModal = async () => {
+    
+    setSnackModalDate(null);
+    setSnackModalDispDate(null);
+    setSnackModalData(null);
+      
+    // updates the dropdown amounts and refreshes
+    fetchDropdownItems();
+    getCollectionPlans();
+  }
 
 
   ///////////////////////////////// HTML /////////////////////////////////
@@ -1148,6 +1200,15 @@ export default function WeeklyPlan ({ isSelectedTab }) {
               onPress={() => setIsAllChecked(!isAllChecked)}
             />
           </View>
+
+          {/* snack indicator */}
+          <View className="w-1/6 justify-center items-center bg-theme200">
+            <Icon
+              name="nutrition"
+              size={16}
+              color={colors.zinc700}
+            />
+          </View>
         </View>
       </View>
 
@@ -1171,7 +1232,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           {weekData.map((data, index) => (
             <View
               key={index}
-              className="flex flex-row justify-center items-center w-full h-[14.25%] border-b-2 border-black"
+              className="flex flex-row justify-center items-center w-full h-[14.28571429%] border-b-2 border-black"
             >
 
               {/* Date Display */}
@@ -1286,24 +1347,46 @@ export default function WeeklyPlan ({ isSelectedTab }) {
               
 
               {/* Details */}
-              <View className={`w-1/6 justify-center items-center h-full space-y-1 border-l border-black ${weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA') ? "bg-zinc500" : "bg-theme600"}`}>
+              <TouchableOpacity 
+                className={`w-1/6 justify-center items-center h-full space-y-1 border-l border-black ${weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA') ? "bg-zinc500" : "bg-theme600"}`}
+                activeOpacity={0.8}
+                onPress={() => displaySnack(index, data?.snacks)}
+              >
                 
                 {/* calories */}
                 <Text className="text-white text-[12px]">
-                { // if both meals' prepCal are valid (not NaN)
-                    !(isNaN((new Fractional(data?.meals?.lunch?.prepData?.prepCal)).numerator) && isNaN((new Fractional(data?.meals?.lunch?.prepData?.prepCal)).denominator)
-                    && isNaN((new Fractional(data?.meals?.dinner?.prepData?.prepCal)).numerator) && isNaN((new Fractional(data?.meals?.dinner?.prepData?.prepCal)).denominator)) 
-                    ? // case 1: only lunch prepCal is valid - only show lunch prepCal
-                      data?.meals?.lunch?.prepData?.prepCal && !data?.meals?.dinner?.prepData ? data?.meals?.lunch?.prepData?.prepCal
-                    : // case 2: only dinner prepCal is valid - only show dinner prepCal
-                      !data?.meals?.lunch?.prepData?.prepCal && data?.meals?.dinner?.prepData ? data?.meals?.dinner?.prepData?.prepCal
-                    : // case 3: both prepCal are valid - add both
-                      ((new Fractional(data?.meals?.lunch?.prepData?.prepCal).add(new Fractional(data?.meals?.dinner?.prepData?.prepCal))).numerator 
-                        / (new Fractional(data?.meals?.lunch?.prepData?.prepCal).add(new Fractional(data?.meals?.dinner?.prepData?.prepCal))).denominator)
-                        .toFixed(0)
-                    ?? // otherwise, 0
-                      "0" : "0"
-                    } {"cal"}
+                  { // if both meals' prepCal and snackCal are valid (not NaN)
+                  !(isNaN((new Fractional(data?.meals?.lunch?.prepData?.prepCal)).numerator) && isNaN((new Fractional(data?.meals?.lunch?.prepData?.prepCal)).denominator)
+                  && isNaN((new Fractional(data?.meals?.dinner?.prepData?.prepCal)).numerator) && isNaN((new Fractional(data?.meals?.dinner?.prepData?.prepCal)).denominator)
+                  && isNaN((new Fractional(data?.snacks?.snackCal)).numerator) && isNaN((new Fractional(data?.snacks?.snackCal)).denominator))
+                  ? // case 1: only lunch prepCal is valid - only show lunch prepCal
+                    data?.meals?.lunch?.prepData?.prepCal && !data?.meals?.dinner?.prepData?.prepCal && !data?.snacks?.snackCal ? data?.meals?.lunch?.prepData?.prepCal
+                  : // case 2: only dinner prepCal is valid - only show dinner prepCal
+                    !data?.meals?.lunch?.prepData?.prepCal && data?.meals?.dinner?.prepData?.prepCal && !data?.snacks?.snackCal ? data?.meals?.dinner?.prepData?.prepCal
+                  : // case 3: only snackCal is valid - only show snackCal
+                    !data?.meals?.lunch?.prepData?.prepCal && !data?.meals?.dinner?.prepData?.prepCal && data?.snacks?.snackCal ? data?.snacks?.snackCal
+                  : // case 4: both prepCal are valid - add both
+                    data?.meals?.lunch?.prepData?.prepCal && data?.meals?.dinner?.prepData?.prepCal && !data?.snacks?.snackCal ?
+                    ((new Fractional(data?.meals?.lunch?.prepData?.prepCal).add(new Fractional(data?.meals?.dinner?.prepData?.prepCal))).numerator 
+                      / (new Fractional(data?.meals?.lunch?.prepData?.prepCal).add(new Fractional(data?.meals?.dinner?.prepData?.prepCal))).denominator)
+                      .toFixed(0)
+                  : // case 5: lunch prepCal and snackCal are valid - add both
+                    data?.meals?.lunch?.prepData?.prepCal && !data?.meals?.dinner?.prepData?.prepCal && data?.snacks?.snackCal ?
+                    ((new Fractional(data?.meals?.lunch?.prepData?.prepCal).add(new Fractional(data?.snacks?.snackCal))).numerator 
+                      / (new Fractional(data?.meals?.lunch?.prepData?.prepCal).add(new Fractional(data?.snacks?.snackCal))).denominator)
+                      .toFixed(0)
+                  : // case 6: dinner prepCal and snackCal are valid - add both
+                    !data?.meals?.lunch?.prepData?.prepCal && data?.meals?.dinner?.prepData?.prepCal && data?.snacks?.snackCal ?
+                    ((new Fractional(data?.snacks?.snackCal).add(new Fractional(data?.meals?.dinner?.prepData?.prepCal))).numerator 
+                      / (new Fractional(data?.snacks?.snackCal).add(new Fractional(data?.meals?.dinner?.prepData?.prepCal))).denominator)
+                      .toFixed(0)
+                  : // case 7: both prepCal and snackCal are valid - add both
+                    ((new Fractional(data?.meals?.lunch?.prepData?.prepCal).add(new Fractional(data?.meals?.dinner?.prepData?.prepCal)).add(new Fractional(data?.snacks?.snackCal))).numerator 
+                      / (new Fractional(data?.meals?.lunch?.prepData?.prepCal).add(new Fractional(data?.meals?.dinner?.prepData?.prepCal)).add(new Fractional(data?.snacks?.snackCal))).denominator)
+                      .toFixed(0)
+                  ?? // otherwise, 0
+                    "0" : "0"
+                  } {"cal"}
                 </Text>
 
                 {/* price */}
@@ -1323,7 +1406,31 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                     ?? // otherwise, 0
                       "0.00" : "0.00"}
                 </Text>
+              </TouchableOpacity>
+              
+              {/* Snack Indicator */}
+              {weekData[index]?.snacks && weekData[index]?.snacks?.snackData !== null &&
+              <View className="absolute right-0.5 bottom-0.5">
+                <Icon
+                  name={"nutrition"}
+                  color={weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA') ? colors.zinc350 : colors.theme300}
+                  size={12}
+                />
               </View>
+              }
+
+              {/* Modal to Display a Specific Snack */}
+              {snackModalVisible && 
+                <SnackListModal
+                  date={snackModalDate}
+                  dispDate={snackModalDispDate}
+                  data={snackModalData}
+                  snapshot={plansSnapshot}
+                  modalVisible={snackModalVisible}
+                  setModalVisible={setSnackModalVisible}
+                  closeModal={closeSnackModal}
+                />
+              }
             </View>
           ))}
         </View>

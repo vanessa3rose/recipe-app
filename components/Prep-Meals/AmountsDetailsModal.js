@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, TouchableOpacity } from 'react-native';
 
+import extractUnit from '../Validation/extractUnit';
+
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
@@ -53,7 +55,7 @@ const AmountsDetailsModal = ({
               {/* data */}
               <View className="flex border border-r-[1px] w-[55%]">
                 <Text className="flex w-full leading-7 text-center text-[12px] text-black bg-theme200">
-                    {data.amountLeft} {data.ingredientData[`${data.ingredientStore}Unit`]}
+                    {data.amountLeft} {extractUnit(data.ingredientData[`${data.ingredientStore}Unit`], data.amountLeft)}
                 </Text>
               </View>
             </View>
@@ -72,7 +74,7 @@ const AmountsDetailsModal = ({
               {/* data */}
               <View className="flex border border-r-[1px] w-[55%]">
                 <Text className="flex w-full leading-7 text-center text-[12px] text-black bg-theme200">
-                  {data.amountTotal === "" ? "?" : data.amountTotal} {data.ingredientData[`${data.ingredientStore}Unit`]}
+                  {data.amountTotal === "" ? "?" : data.amountTotal} {extractUnit(data.ingredientData[`${data.ingredientStore}Unit`], data.amountTotal)}
                 </Text>
               </View>
             </View>

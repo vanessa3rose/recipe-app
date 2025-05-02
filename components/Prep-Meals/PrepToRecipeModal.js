@@ -15,6 +15,8 @@ var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 
+import extractUnit from '../Validation/extractUnit';
+
 // Logos
 import { Image } from 'react-native';
 import aldi from '../../assets/Logos/aldi.png'
@@ -527,7 +529,7 @@ const PrepToRecipeModal = ({
         <TouchableOpacity onPress={() => closeModal(false)} className="absolute bg-black opacity-50 w-full h-full"/>
             
         {/* Modal Content */}
-        <View className={`bg-zinc200 px-7 py-5 rounded-2xl w-3/4 ${editIngredientIndex !== -1 ? "mb-[125px]" : ""}`}>
+        <View className={`bg-zinc200 px-7 py-5 rounded-2xl w-4/5 ${editIngredientIndex !== -1 ? "mb-[125px]" : ""}`}>
         
           {/* to choose which name to select */}
           {showOverrideSubmit
@@ -663,23 +665,27 @@ const PrepToRecipeModal = ({
                           </Text>
 
                           {/* BUTTONS */}
-                          <View className="flex flex-row items-center justify-center space-x-[-3px] w-[12%]">
+                          <View className="flex flex-row items-center justify-end space-x-[-3px] w-[12%]">
                             
                             {/* + */}
+                            {searchIngredientName !== "" &&
                             <Icon 
                               size={20}
-                              color="black"
-                              name="add"
+                              color={colors.theme800}
+                              name="add-sharp"
                               onPress={() => setIngredient(index, true)}
                             />
+                            }
 
                             {/* X */}
+                            {selectedIngredientData[index] !== null &&
                             <Icon 
                               size={20}
-                              color="black"
+                              color={colors.theme900}
                               name="close-outline"
                               onPress={() => setIngredient(index, false)}
                             />
+                            }
                           </View>
                         </View>
 
@@ -850,7 +856,7 @@ const PrepToRecipeModal = ({
 
                         {/* Unit */}
                         <Text className="text-[12px] text-zinc800 font-medium">
-                          {` ${selectedIngredientData[editIngredientIndex][`${ingredientStores[editIngredientIndex]}Unit`]}` === " undefined" ? " unit(s)" : ` ${selectedIngredientData[editIngredientIndex][`${ingredientStores[editIngredientIndex]}Unit`]}`}
+                          {` ${selectedIngredientData[editIngredientIndex][`${ingredientStores[editIngredientIndex]}Unit`]}` === " undefined" ? " unit(s)" : ` ${extractUnit(selectedIngredientData[editIngredientIndex][`${ingredientStores[editIngredientIndex]}Unit`], ingredientAmounts[editIngredientIndex])}`}
                         </Text>
 
                         {/* checkbox */}
@@ -900,7 +906,7 @@ const PrepToRecipeModal = ({
                       {/* amount / unit */}
                       <View className="w-7/12 bg-white py-1 justify-center items-center border-r-2 border-r-zinc300">
                         <Text className="text-[12px] text-zinc700 font-medium">
-                          {prepData.currentAmounts[editIngredientIndex]} {prepData.currentData[editIngredientIndex].ingredientData[`${prepData.currentData[editIngredientIndex].ingredientStore}Unit`]}
+                          {prepData.currentAmounts[editIngredientIndex]} {extractUnit(prepData.currentData[editIngredientIndex].ingredientData[`${prepData.currentData[editIngredientIndex].ingredientStore}Unit`], prepData.currentAmounts[editIngredientIndex])}
                         </Text>
                       </View>
                       {/* calories, $ */}

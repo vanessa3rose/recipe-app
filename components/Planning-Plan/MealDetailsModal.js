@@ -8,8 +8,16 @@ import { Calendar } from 'react-native-calendars';
 import colors from '../../assets/colors';
 import Icon from 'react-native-vector-icons/Ionicons';
 
+// Fractions
+var Fractional = require('fractional').Fraction;
+import Fraction from 'fraction.js';
+import validateFractionInput from '../../components/Validation/validateFractionInput';
+import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
+
+import extractUnit from '../Validation/extractUnit';
+
 // Initialize Firebase App
-import { getFirestore, updateDoc, doc } from 'firebase/firestore';
+import { getFirestore, updateDoc, doc, collection } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
 
@@ -65,9 +73,16 @@ const MealDetailsModal = ({
 
       // stores data for later editing
       if (data !== null) {
+        // simple editing
         setPrepName(data.prepName);
         setPrepPrice(data.prepPrice);
         setPrepCal(data.prepCal);
+
+        // complex editing
+        setPrepCurrentAmounts(data.currentAmounts);
+        setPrepCurrentCals(data.currentCals);
+        setPrepCurrentData(data.currentData);
+        setNumIngredients(data.currentData.filter(current => current !== null).length);
       }
     }
   }, [modalVisible]);
@@ -83,13 +98,16 @@ const MealDetailsModal = ({
 
   ///////////////////////////////// CREATE /////////////////////////////////
 
+  const [createComplex, setCreateComplex] = useState(false);
   const [isNameValid, setIsNameValid] = useState(true);
   const [prepName, setPrepName] = useState("");
   const [prepPrice, setPrepPrice] = useState("");
+
+  // for simple
   const [prepCal, setPrepCal] = useState("");
 
-  // to create a new meal prep
-  const submitNew = async () => {
+  // to create a new meal prep without ingredients
+  const submitNewSimple = async () => {
     if (prepName === "") { setIsNameValid(false); }
 
     else {
@@ -120,11 +138,8 @@ const MealDetailsModal = ({
         prepData: newData,
       };
 
-      if (meal === "LUNCH") {
-        updateDoc(doc(db, 'plans', formattedDate), { "meals.lunch": docData });
-      } else if (meal === "DINNER") {
-        updateDoc(doc(db, 'plans', formattedDate), { "meals.dinner": docData });
-      }
+      if (meal === "LUNCH") { updateDoc(doc(db, 'plans', formattedDate), { "meals.lunch": docData }); } 
+      else if (meal === "DINNER") { updateDoc(doc(db, 'plans', formattedDate), { "meals.dinner": docData }); }
       
       // closes the modal, indicating that a custom prep was made
       closeModal(true);
@@ -132,6 +147,117 @@ const MealDetailsModal = ({
     }
   }
 
+  // for complex
+  const [prepCurrentData, setPrepCurrentData] = useState([null, null, null, null, null, null, null, null, null, null, null, null]);
+  const [prepCurrentAmounts, setPrepCurrentAmounts] = useState(["", "", "", "", "", "", "", "", "", "", "", ""]);
+  const [prepCurrentCals, setPrepCurrentCals] = useState(["", "", "", "", "", "", "", "", "", "", "", ""]);
+  const [numIngredients, setNumIngredients] = useState(1);
+
+  // to delete or clear the pressed ingredient
+  const deletePrepIngredient = (index) => {
+
+    // if the number of filled in ingredients is 1, simply clear
+    if (numIngredients === 1) {
+
+      // the current's data
+      setPrepCurrentData((prev) => {
+        const updated = [...prev];
+        updated[index] = null;
+        return updated;
+      });
+      
+      // the current's amounts
+      setPrepCurrentAmounts((prev) => {
+        const updated = [...prev];
+        updated[index] = "";
+        return updated;
+      });
+      
+      // the current's calories
+      setPrepCurrentCals((prev) => {
+        const updated = [...prev];
+        updated[index] = "";
+        return updated;
+      });
+    
+
+    // if there is more than one, delete
+    } else {
+
+      // the current's data
+      setPrepCurrentData((prev) =>
+        prev.filter((_, i) => i !== index)
+      );
+  
+      // the current's amounts
+      setPrepCurrentAmounts((prev) =>
+        prev.filter((_, i) => i !== index)
+      );
+      
+      // the current's calories
+      setPrepCurrentCals((prev) =>
+        prev.filter((_, i) => i !== index)
+      );
+  
+      // decrements the number of ingredients
+      setNumIngredients(numIngredients - 1);
+    }
+  }
+
+  // recalculates the prep's total calories for complex editing
+  useEffect(() => {
+    if (createComplex) {
+
+      // sums together all of the current's calories
+      setPrepCal(
+        (prepCurrentCals.map(cal => new Fractional(cal).numerator / new Fractional(cal).denominator)
+                       .filter(cal => !isNaN(cal))
+                       .reduce((sum, cal) => sum + cal, 0))
+        .toFixed(0)
+      );
+    }
+  }, [prepCurrentCals, createComplex]);
+
+  // to create a new meal prep with ingredients
+  const submitNewComplex = async () => {
+    if (prepName === "") { setIsNameValid(false); }
+
+    else {
+      setIsNameValid(true);
+
+      // data for the new prep
+      const newData = {
+        prepName: prepName,
+        prepNote: "",
+        prepMult: 0,
+        prepCal: prepCal === "" ? "0" : prepCal, 
+        prepPrice: prepPrice === "" ? "0.00" : prepPrice, 
+        currentData: prepCurrentData, 
+        currentIds: ["", "", "", "", "", "", "", "", "", "", "", ""], 
+        currentAmounts: prepCurrentAmounts, 
+        currentCals: prepCurrentCals.map(cal => !isNaN(new Fractional(cal).numerator / new Fractional(cal).denominator) ? new Fractional(cal).numerator / new Fractional(cal).denominator : ""), 
+        currentPrices: ["", "", "", "", "", "", "", "", "", "", "", ""],
+      };
+      
+      // current meal info
+      const meal = date.split(" ")[0];
+      const [month, day, year] = date.split(" ")[1].split("/");
+      const formattedDate = `20${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+
+      // prepares the doc data
+      const docData = {
+        prepId: doc(collection(db, 'prep')).id,          
+        prepData: newData,
+      };
+
+      if (meal === "LUNCH") { updateDoc(doc(db, 'plans', formattedDate), { "meals.lunch": docData }); } 
+      else if (meal === "DINNER") { updateDoc(doc(db, 'plans', formattedDate), { "meals.dinner": docData }); }
+      
+      // closes the modal, indicating that a custom prep was made
+      closeModal(true);
+      exitModal();
+    }
+  }
 
   ///////////////////////////////// GETTING DB DATA /////////////////////////////////
 
@@ -295,7 +421,7 @@ const MealDetailsModal = ({
     const [month, day, year] = date.split(" ")[1].split("/");
     const formattedDate = `20${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
     
-    if (meal === "LUNCH") { updateDoc(doc(db, 'plans', formattedDate), { "meals.lunch": copyData }); } 
+    if (meal === "LUNCH") { updateDoc(doc(db, 'plans', formattedDate), { "meals.lunch": copyData }); }
     else if (meal === "DINNER") { updateDoc(doc(db, 'plans', formattedDate), { "meals.dinner": copyData }); }
     
     // closes the modal, and indicates whether a custom prep was submitted
@@ -395,7 +521,7 @@ const MealDetailsModal = ({
       onRequestClose={() => setModalVisible(false)}
     >
       <View className="flex-1 justify-center items-center">
-
+      
         {/* Background Overlay */}
         <TouchableOpacity onPress={() => setModalVisible(false)} className="absolute bg-black opacity-50 w-full h-full"/>
         
@@ -466,10 +592,10 @@ const MealDetailsModal = ({
                       </View>
                       
                       {/* amount */}
-                      <View className="flex flex-row px-1 items-center justify-center bg-zinc100 w-1/4 border-b border-b-zinc400 border-r border-r-zinc400">
+                      <View className="flex flex-row px-1 items-center justify-center bg-zinc100 w-1/4 border-b border-b-zinc400 border-r border-r-zinc300">
                         {data?.currentData[index]?.ingredientData[`${data.currentData[index].ingredientStore}Unit`] &&
                           <Text className="text-[10px] text-center">
-                            {data?.currentAmounts[index] || "?"}{` ${data?.currentData[index]?.ingredientData[`${data.currentData[index].ingredientStore}Unit`] || ""}`}
+                            {data?.currentAmounts[index] || "?"}{` ${extractUnit(data?.currentData[index]?.ingredientData[`${data.currentData[index].ingredientStore}Unit`], data?.currentAmounts[index]) || ""}`}
                           </Text>
                         }
                       </View>
@@ -549,77 +675,322 @@ const MealDetailsModal = ({
                     ))
                   }
                 </Picker>
-              </View>
+
+                {/* Create Type Selector */}
+                {option === "CREATE" && data?.id === undefined &&
+                <View className="absolute flex h-full justify-center items-center right-1">
+                  <Icon
+                    name={createComplex ? "information-circle" : "information-circle-outline"}
+                    color={"black"}
+                    size={20}
+                    onPress={() => setCreateComplex(!createComplex)}
+                  />
+                </View>
+                }
+              </View> 
             </View>
 
             {/* Divider */}
             <View className="h-[0.5px] bg-zinc400 w-11/12 m-4"/>
 
-
-            {option === "CREATE" 
+            {option === "CREATE" && !createComplex
             ?
-              <View className="flex flex-row justify-evenly content-center mb-4 w-full h-[65px] px-5">
-                {/* Prep Name Input */}
-                <View className="flex justify-center items-center h-full w-1/2 bg-white rounded-md py-1 px-2 border border-zinc500">
-                  <TextInput
-                    className="text-center mb-1 text-[14px] leading-[16px]"
-                    placeholder={prepName === "" ? "meal prep name" : prepName}
-                    placeholderTextColor={colors.zinc400}
-                    multiline={true}
-                    blurOnSubmit={true}
-                    value={prepName}
-                    onChangeText={setPrepName}
-                  />
-                </View>
-                
-                
-                {/* DETAILS */}
-                <View className="flex flex-col justify-center items-center w-1/2 h-full space-y-2 pl-5">
-      
-                  {/* calories */}
-                  <View className="flex flex-row h-[25px] w-full space-x-1 justify-center items-center border-[1px] border-zinc450 bg-zinc400">
+              <>
+                {/* simple create without ingredients */}
+                <View className="flex flex-row justify-evenly content-center mb-4 w-full h-[65px] px-5">
+                  {/* Prep Name Input */}
+                  <View className="flex justify-center items-center h-full w-1/2 bg-white rounded-md py-1 px-2 border border-zinc500">
                     <TextInput
-                      className="bg-transparent text-center italic text-[12px] leading-[15px]"
-                      placeholder={prepCal === "" ? "0" : prepCal}
-                      placeholderTextColor='black'
-                      value={prepCal}
-                      onChangeText={(text) => {
-                        if (/^\d*$/.test(text)) { // only allows digits
-                          setPrepCal(text);
-                        }
-                      }}
-                    />
-                    <Text className="flex justify-center items-center text-center italic text-[12px]">
-                      calories
-                    </Text>
-                  </View>
-      
-                  {/* price */}
-                  <View className="flex flex-row h-[25px] w-full justify-center items-center border-[1px] border-zinc450 bg-zinc400">
-                    <Text className="flex justify-center items-center text-center italic text-[12px]">
-                      $
-                    </Text>
-                    <TextInput
-                      className="bg-transparent text-center italic text-[12px] leading-[15px]"
-                      placeholder={prepPrice === "" ? "0.00" : prepPrice}
-                      placeholderTextColor='black'
-                      value={prepPrice}
-                      onChangeText={(text) => {
-                        if (/^\d*\.?\d*$/.test(text)) { // only allows digits and "."
-                          setPrepPrice(text);
-                        }
-                      }}
-                      onBlur={() => {
-                        setPrepPrice((prev) => {
-                          const num = parseFloat(prev);
-                          return isNaN(num) ? "0.00" : num.toFixed(2);
-                        });
-                      }}
+                      className="text-center mb-1 text-[14px] leading-[16px]"
+                      placeholder={prepName === "" ? "meal prep name" : prepName}
+                      placeholderTextColor={colors.zinc400}
+                      multiline={true}
+                      blurOnSubmit={true}
+                      value={prepName}
+                      onChangeText={setPrepName}
                     />
                   </View>
+                  
+                  
+                  {/* DETAILS */}
+                  <View className="flex flex-col justify-center items-center w-1/2 h-full space-y-2 pl-5">
+        
+                    {/* Calories */}
+                    <View className="flex flex-row h-[25px] w-full space-x-1 justify-center items-center border-[1px] border-zinc450 bg-zinc400">
+                      {/* amount input */}
+                      <TextInput
+                        className="bg-transparent text-center italic text-[12px] leading-[15px]"
+                        placeholder={prepCal === "" ? "0" : prepCal}
+                        placeholderTextColor='black'
+                        value={prepCal}
+                        onChangeText={(text) => {
+                          if (/^\d*$/.test(text)) { // only allows digits
+                            setPrepCal(text);
+                          }
+                        }}
+                      />
+                      {/* label */}
+                      <Text className="flex justify-center items-center text-center italic text-[12px]">
+                        calories
+                      </Text>
+                    </View>
+        
+                    {/* Price */}
+                    <View className="flex flex-row h-[25px] w-full justify-center items-center border-[1px] border-zinc450 bg-zinc400">
+                      {/* label */}
+                      <Text className="flex justify-center items-center text-center italic text-[12px]">
+                        $
+                      </Text>
+                      {/* price input */}
+                      <TextInput
+                        className="bg-transparent text-center italic text-[12px] leading-[15px]"
+                        placeholder={prepPrice === "" ? "0.00" : prepPrice}
+                        placeholderTextColor='black'
+                        value={prepPrice}
+                        onChangeText={(text) => {
+                          if (/^\d*\.?\d*$/.test(text)) { // only allows digits and "."
+                            setPrepPrice(text);
+                          }
+                        }}
+                        onBlur={() => {
+                          setPrepPrice((prev) => {
+                            const num = parseFloat(prev);
+                            return isNaN(num) ? "0.00" : num.toFixed(2);
+                          });
+                        }}
+                      />
+                    </View>
+                  </View>
                 </View>
-              </View>
-            
+              </>
+            : option === "CREATE" && createComplex
+            ?
+              <>
+                {/* create with ingredients */}
+                <View className="flex flex-col justify-center items-center px-4 w-full mb-2">
+
+                  {/* TOP ROW */}
+                  <View className="flex flex-row items-center justify-center border mb-1 bg-zinc600">
+                    
+                    {/* Meal Name Input */}
+                    <View className="flex justify-center items-center px-1.5 w-7/12 border-r bg-zinc700">
+                      <TextInput
+                        className="text-[13px] font-semibold text-white text-center py-2 leading-[16px]"
+                        placeholder={prepName === "" ? "meal prep name" : prepName}
+                        placeholderTextColor={colors.zinc400}
+                        multiline={true}
+                        blurOnSubmit={true}
+                        value={prepName}
+                        onChangeText={setPrepName}
+                      />
+                    </View>
+    
+                    {/* Meal Details */}
+                    <View className="flex flex-row space-x-2 justify-center items-center w-5/12">
+
+                      {/* calories */}
+                      <Text className="text-[11px] text-white">
+                          {prepCal === "" ? "0" : prepCal || "0"}{" cal"}
+                      </Text>
+
+                      {/* price */}
+                      <View className="flex flex-row justify-center items-center">
+                        <Text className={`text-[11px] ${prepPrice === "" ? "text-zinc400" : "text-white"}`}>
+                          $
+                        </Text>
+                        <TextInput
+                          className="text-[11px] text-white leading-[13px]"
+                          placeholder={prepPrice === "" ? "0.00" : prepPrice}
+                          placeholderTextColor={colors.zinc400}
+                          value={prepPrice}
+                          onChangeText={(text) => {
+                            if (/^\d*\.?\d*$/.test(text)) { // only allows digits and "."
+                              setPrepPrice(text);
+                            }
+                          }}
+                          onBlur={() => {
+                            setPrepPrice((prev) => {
+                              const num = parseFloat(prev);
+                              return isNaN(num) ? "0.00" : num.toFixed(2);
+                            });
+                          }}
+                        />
+                    </View>
+                    </View>
+                  </View> 
+    
+                  {/* GRID */}
+                  {numIngredients !== 0 &&
+                  <View className="flex flex-col z-10 border-[1px] border-zinc700">
+                      
+                    {/* Frozen Columns */}
+                    {[0,1,2,3,4,5,6,7,8,9,10,11].map((index) => index < numIngredients && 
+                      <View key={`frozen-${index}`} className="flex flex-row h-[30px] bg-white">
+
+                        {/* current */}
+                        <View className="bg-black w-full flex-row">
+    
+                          {/* ingredient names */}
+                          <View className="flex items-center justify-center w-7/12 bg-theme600 border-b border-r border-zinc700 z-10">
+                            <View className="flex flex-wrap flex-row">
+                              {/* Input */}
+                              <TextInput
+                                className="text-white font-semibold text-[10px] text-center px-2"
+                                placeholder="ingredient name"
+                                placeholderTextColor={colors.zinc350}
+                                value={prepCurrentData[index]?.ingredientData?.ingredientName || ""}
+                                onChangeText={(value) => {
+                                  setPrepCurrentData((prev) => {
+                                    const updated = [...prev];
+                                    // if null or undefined, initialize it
+                                    if (!updated[index]) {
+                                      updated[index] = {
+                                        amountLeft: "?",
+                                        amountTotal: "",
+                                        archive: false,
+                                        check: false,
+                                        containerPrice: "",
+                                        ingredientData: {
+                                          CalServing: "",
+                                          ServingSize: "",
+                                          Unit: "",
+                                          ingredientName: value,
+                                        },
+                                        ingredientId: "",
+                                        ingredientStore: "",
+                                        unitPrice: ""
+                                      };
+                                    // if already initialized, update ingredientName only
+                                    } else {
+                                      updated[index] = {
+                                        ...updated[index],
+                                        ingredientData: {
+                                          ...updated[index].ingredientData,
+                                          ingredientName: value,
+                                        },
+                                      };
+                                    }
+                                    return updated;
+                                  });
+                                }}
+                              />
+                            </View>
+                          </View>
+                          
+                          {/* amount */}
+                          <View className="flex flex-row px-2 space-x-0.5 items-center justify-center bg-zinc100 w-1/4 border-b border-b-zinc400 border-r border-r-zinc400">
+                            {/* Amount Input */}
+                            <TextInput
+                              className="text-[9px] text-center"
+                              placeholder="_"
+                              placeholderTextColor={colors.zinc450}
+                              value={prepCurrentAmounts[index]}
+                              onChangeText={(value) => {
+                                setPrepCurrentAmounts((prev) => {
+                                  const updated = [...prev];
+                                  updated[index] = value;
+                                  return updated;
+                                });
+                              }}
+                            />
+                            {/* Unit Input */}
+                            <TextInput
+                              className="text-[9px] text-center"
+                              placeholder="unit(s)"
+                              placeholderTextColor={colors.zinc450}
+                              value={prepCurrentData[index]?.ingredientData?.Unit || ""}
+                              onChangeText={(value) => {
+                                setPrepCurrentData((prev) => {
+                                  const updated = [...prev];
+                                  // if null or undefined, initialize it
+                                  if (!updated[index]) {
+                                    updated[index] = {
+                                      amountLeft: "?",
+                                      amountTotal: "",
+                                      archive: false,
+                                      check: false,
+                                      containerPrice: "",
+                                      ingredientData: {
+                                        CalServing: "",
+                                        ServingSize: "",
+                                        Unit: value,
+                                        ingredientName: "",
+                                      },
+                                      ingredientId: "",
+                                      ingredientStore: "",
+                                      unitPrice: ""
+                                    };
+                                  // if already initialized, update ingredientName only
+                                  } else {
+                                    updated[index] = {
+                                      ...updated[index],
+                                      ingredientData: {
+                                        ...updated[index].ingredientData,
+                                        Unit: value
+                                      }
+                                    };
+                                  }
+                                  return updated;
+                                });
+                              }}
+                            />
+                          </View>
+    
+                          {/* calories */}
+                          <View className="flex flex-row px-3 space-x-0.5 items-center justify-center bg-white w-1/6 border-b border-b-zinc400">
+                            
+                            {/* Amount Input */}
+                            <TextInput
+                              className="text-[9px] text-center"
+                              placeholder="_"
+                              placeholderTextColor={colors.zinc400}
+                              value={prepCurrentCals[index]}
+                              onChangeText={(value) => {
+                                setPrepCurrentCals((prev) => {
+                                  const updated = [...prev];
+                                  updated[index] = value;
+                                  return updated;
+                                });
+                              }}
+                            />
+
+                            {/* Label */}
+                            <Text className="text-[9px] text-center">
+                              {"cal"}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Delete Current Ingredient */}
+                        <View className="flex justify-center items-center h-full w-[20px] absolute right-[-20px]">
+                          <Icon
+                            name="close"
+                            size={15}
+                            color={colors.zinc600}
+                            onPress={() => deletePrepIngredient(index)}
+                          />
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                  }
+
+                  {/* Add Another Ingredient Row */}
+                  {numIngredients < 12 && 
+                  <TouchableOpacity 
+                    className="flex justify-center items-center w-full bg-zinc350 py-0.5 border-x-[1px] border-b-[1px] border-zinc400"
+                    onPress={() => setNumIngredients(numIngredients + 1)}
+                  >
+                    <Icon
+                      name="add"
+                      size={14}
+                      color={colors.zinc900}
+                    />
+                  </TouchableOpacity>
+                  }
+                </View>
+              </>
+
             : // option === "COPY"
               <>
               {!showSearchSection
@@ -657,7 +1028,7 @@ const MealDetailsModal = ({
                       onPress={() => setShowSearchSection(true)}
                     />
                   </View>
-                </View>
+                  </View>
     
                   {/* Date Selection */}
                   <Calendar
@@ -905,7 +1276,8 @@ const MealDetailsModal = ({
                     name="checkmark"
                     onPress={() => {
                       option === "CREATE" ? 
-                        submitNew()
+                        createComplex ? submitNewComplex()
+                        : submitNewSimple()
                       : // option === "COPY"
                         submitCopy()
                     }}

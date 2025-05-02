@@ -14,6 +14,7 @@ import validateDecimalInput from '../Validation/validateDecimalInput';
 import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
 import validateFractionInput from '../Validation/validateFractionInput';
 
+import extractUnit from '../Validation/extractUnit';
 
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
@@ -253,7 +254,7 @@ const CalcIngredientModal = ({
 
               {/* Amount Section */}
               <View className="flex flex-row w-2/5 justify-center items-center bg-theme100">
-                {/* calculated amount and unit*/}
+                {/* calculated amount and unit */}
                 <TextInput
                   className="text-center text-[14px] leading-[16px]"
                   placeholder="0 0/0"
@@ -279,7 +280,7 @@ const CalcIngredientModal = ({
             <View className="flex flex-row w-11/12 justify-center items-center bg-zinc350 border-b-[1px] border-x-[1px] border-zinc400">
               {/* calculated amount and unit*/}
               <Text className="px-2 py-1 text-center">
-                {calcAmount} {initialServings !== null ? ingredientData[`${ingredientStore}Unit`] : ingredientData.ingredientData[`${ingredientStore}Unit`]}
+                {calcAmount} {initialServings !== null ? extractUnit(ingredientData[`${ingredientStore}Unit`], calcAmount) : extractUnit(ingredientData.ingredientData[`${ingredientStore}Unit`], calcAmount)}
               </Text>
               {/* button to submit */}
               <View className="absolute flex right-0.5">

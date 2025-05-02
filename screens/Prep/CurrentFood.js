@@ -23,6 +23,8 @@ var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 
+import extractUnit from '../../components/Validation/extractUnit';
+
 // Logos
 import { Image } from 'react-native';
 import aldi from '../../assets/Logos/aldi.png'
@@ -306,7 +308,7 @@ export default function CurrentFood ({ isSelectedTab }) {
       }
 
         // adds the current ingredient
-        await currentAdd(selectedIngredientId, selectedIngredientData, nextStore);
+        await currentAdd(selectedIngredientId, selectedIngredientData, nextStore, showArchive);
 
 
       // if submitting a new (temporary) ingredient
@@ -321,7 +323,7 @@ export default function CurrentFood ({ isSelectedTab }) {
         });        
         
         // adds the current ingredient
-        await currentAdd(selectedIngredientId, data, "");
+        await currentAdd(selectedIngredientId, data, "", showArchive);
       }
 
       // refreshes current 
@@ -518,7 +520,7 @@ export default function CurrentFood ({ isSelectedTab }) {
       });
       
       // updates the data in the current ingredient doc
-      await updateDoc(doc(db, "currents", currentIds[index]), { amountLeft: calcAmount.toString() });
+      await updateDoc(doc(db, 'currents', currentIds[index]), { amountLeft: calcAmount.toString() });
 
       // refreshes data
       await loadCurrents();
@@ -714,7 +716,7 @@ export default function CurrentFood ({ isSelectedTab }) {
         
           if (listId=== dataId) {
             prepList.push(doc.data().prepName);
-            amountList.push(doc.data().currentAmounts[i] + " " + doc.data().currentData[i].ingredientData[`${doc.data().currentData[i].ingredientStore}Unit`]);
+            amountList.push(doc.data().currentAmounts[i] + " " + extractUnit(doc.data().currentData[i].ingredientData[`${doc.data().currentData[i].ingredientStore}Unit`], doc.data().currentAmounts[i]));
             multList.push(doc.data().prepMult);
           }
         }
@@ -745,7 +747,7 @@ export default function CurrentFood ({ isSelectedTab }) {
   const getShoppingListWithStore = async (docPath, storeIdentifier) => {
     
     // gets the current data
-    const docSnap = await getDoc(doc(db, "shopping", docPath));                   
+    const docSnap = await getDoc(doc(db, 'shopping', docPath));                   
     const data = docSnap.exists() ? docSnap.data() : null;
 
     // adds the store attribute if data and id exist
@@ -842,7 +844,7 @@ export default function CurrentFood ({ isSelectedTab }) {
           const data = docSnap.exists() ? docSnap.data() : null;
           
           // adds the current ingredient, since it is new
-          await currentAdd(combinedData.id[i], data, combinedData.store[i], {
+          await currentAdd(combinedData.id[i], data, combinedData.store[i], showArchive, {
             check: amountTotal.toString() === "0", 
             amountTotal: amountTotal.toString(), 
             amountLeft: amountLeft.toString(), 
@@ -882,21 +884,22 @@ export default function CurrentFood ({ isSelectedTab }) {
   }
 
   // update the ingredients that pop up in the filter
-  const updateFilter = () => {
+  const updateFilter = (archive) => {
     
     // to store the indices that match the filtering
     let matchingIndices = [];
 
     // loops over the current list
-    currentList.forEach((current) => {
+    currentList.forEach((current, index) => {
 
       // finds the matching indices based off of the icon
-      if (currentFilter === "square" 
+      if ((currentFilter === "square" 
           || (currentFilter === "checkbox" && current.check) 
           || (currentFilter === "checkbox-outline" && !current.check && current.amountLeft === "0")
           || (currentFilter === "square-outline" && !current.check && current.amountLeft > "0")
-          || (currentFilter === "warning" && !current.check && current.amountLeft < "0")) {
-          
+          || (currentFilter === "warning" && !current.check && current.amountLeft < "0"))
+        && (archive === currentList[index]?.archive)
+      ) {
         matchingIndices.push(true);
           
       // otherwise, the index doesn't match
@@ -911,13 +914,46 @@ export default function CurrentFood ({ isSelectedTab }) {
 
   // when the filtering option or list is changed, refilter
   useEffect(() => {
-    updateFilter();
-  }, [currentFilter, currentList]);
+    updateFilter(showArchive);
+  }, [currentFilter, currentList])
 
 
   ///////////////////////////////// VIEWING INGREDIENT /////////////////////////////////
 
   const [ingredientModalVisible, setIngredientModalVisible] = useState(false);
+
+
+  ///////////////////////////////// ARCHIVE /////////////////////////////////
+
+  const [showArchive, setShowArchive] = useState(false);
+
+  // to change the archive status of the selected ingredient
+  const changeArchive = async (index) => {
+    
+    // gets a copy of the item to update
+    const updatedItem = {
+      ...currentList[index],
+      archive: !currentList[index].archive,
+    };
+    
+    // updates state locally
+    setCurrentList((prev) => {
+      const updatedList = [...prev];
+      updatedList[index] = updatedItem;
+      return updatedList;
+    });
+    
+    // updates db
+    await updateDoc(doc(db, 'currents', currentIds[index]), { archive: updatedItem.archive });
+  }
+  
+  // vertical scroll syncing
+  const [scrollY, setScrollY] = useState(0);
+
+  const syncVerticalScroll = (e) => {
+    const contentOffsetY = e.nativeEvent.contentOffset.y;
+    setScrollY(contentOffsetY);
+  };
 
 
   ///////////////////////////////// HTML /////////////////////////////////
@@ -935,251 +971,292 @@ export default function CurrentFood ({ isSelectedTab }) {
       </View>
 
       {/* RECIPE CARD SECTION */}
-      <View className="w-11/12 border-[1px] border-black bg-zinc700">
+      <View className="flex flex-row">
+        <View className="w-11/12 ml-[5px] border-[1px] border-black bg-zinc700">
 
-        {/* HEADER ROW */}
-        <View className="flex flex-row absolute h-[30px] bg-theme900 border-[1px] border-black z-20">
-            
-          {/* meal prep filtering button */}
-          <View className="flex items-center justify-center w-1/12">
-            <Icon
-              name={currentFilter}
-              size={16}
-              color="white"
-              onPress={() => changeFilter()}
-            />
+          {/* HEADER ROW */}
+          <View className="flex flex-row absolute h-[30px] bg-theme900 border-[1px] border-black z-20">
+              
+            {/* meal prep filtering button */}
+            <View className="flex items-center justify-center w-1/12">
+              <Icon
+                name={currentFilter}
+                size={16}
+                color="white"
+                onPress={() => changeFilter()}
+              />
+            </View>
+
+            {/* ingredient header */}
+            <View className="flex flex-row  space-x-4 items-center justify-center w-2/5 border-r">
+              {/* Text */}
+              <Text className="text-white text-xs font-bold">
+                INGREDIENT
+              </Text>
+              {/* Import Button */}
+              <Icon
+                name="enter"
+                size={18}
+                color="white"
+                onPress={() => importIngredients()}
+              />
+            </View>
+
+            {/* amount header */}
+            <View className="flex items-center justify-center w-[35%] border-r">
+              <Text className="text-white text-xs font-bold">
+                AMOUNT
+              </Text>
+            </View>
+
+            {/* unit price header */}
+            <View className="flex items-center justify-center w-1/6 border-r">
+              <Text className="text-white text-xs font-bold">
+                UNIT $
+              </Text>
+            </View>
           </View>
+        
+          {/* SCROLLABLE INGREDIENT GRID */}
+          <ScrollView
+            className="flex-1 mt-[30px] w-full h-2/3"
+            scrollEventThrottle={16}
+            onScroll={syncVerticalScroll}
+            contentContainerStyle={{ flexDirection: 'row' }}
+          >
+            <View className="flex flex-col">
+              
+              {/* Maps over the list of current ingredients */}
+              {currentList.length > 0 && currentList.map((curr, index) => (
 
-          {/* ingredient header */}
-          <View className="flex flex-row  space-x-4 items-center justify-center w-2/5 border-r">
-            {/* Text */}
-            <Text className="text-white text-xs font-bold">
-              INGREDIENT
-            </Text>
-            {/* Import Button */}
-            <Icon
-              name="enter"
-              size={18}
-              color="white"
-              onPress={() => importIngredients()}
-            />
-          </View>
-
-          {/* amount header */}
-          <View className="flex items-center justify-center w-[35%] border-r">
-            <Text className="text-white text-xs font-bold">
-              AMOUNT
-            </Text>
-          </View>
-
-          {/* unit price header */}
-          <View className="flex items-center justify-center w-1/6 border-r">
-            <Text className="text-white text-xs font-bold">
-              UNIT $
-            </Text>
-          </View>
-        </View>
-      
-        {/* SCROLLABLE INGREDIENT GRID */}
-        <ScrollView
-          className="mt-[30px] w-full h-2/3"
-          vertical
-          scrollEventThrottle={16}
-          contentContainerStyle={{ flexDirection: 'row' }}
-        >
-          <View className="flex flex-col">
-            
-            {/* Maps over the list of current ingredients */}
-            {currentList.length > 0 && currentList.map((curr, index) => (
-
-              // only shows the ones that fit the filtering
-              <View key={`curr-${index}`}>
-                {filteredIndices[index] ?
-                  <View className="flex flex-row h-[50px]">
-                    
-                    {/* ICONS */}
-                    <View className="flex flex-col pt-2 items-center justify-center bg-theme500 w-1/12 border-b border-b-theme900">
+                // only shows the ones that fit the filtering
+                <View key={`curr-${index}`}>
+                  {filteredIndices[index] ?
+                    <View className="flex flex-row h-[50px]">
                       
-                      {/* checkboxes */}
-                      <Icon
-                        name={curr.check ? "checkbox" : curr.amountLeft === "0" ? "checkbox-outline" : curr.amountLeft < "0" ? "warning" : "square-outline"}
-                        color="white"
-                        size={15}
-                      />
+                      {/* ICONS */}
+                      <View className="flex flex-col pt-2 items-center justify-center bg-theme500 w-1/12 border-b border-b-theme900">
+                        
+                        {/* checkboxes */}
+                        <Icon
+                          name={curr.check ? "checkbox" : curr.amountLeft === "0" ? "checkbox-outline" : curr.amountLeft < "0" ? "warning" : "square-outline"}
+                          color="white"
+                          size={15}
+                        />
 
-                      {/* delete */}
-                      <Icon
-                        name="remove"
-                        size={15}
-                        color="white"
-                        onPress={() => deleteIngredient(index)}
-                      />
-                    </View>
+                        {/* delete */}
+                        <Icon
+                          name="remove"
+                          size={15}
+                          color="white"
+                          onPress={() => deleteIngredient(index)}
+                        />
+                      </View>
 
-                    {/* Modal that appears to delete a current ingredient */}
-                    {deleteModalVisible && (
-                      <DeleteCurrentModal
-                        id={deletingId}
-                        isChecked={deleteChecked}
-                        currentName={deleteName}
-                        visible={deleteModalVisible}
-                        onConfirm={confirmDelete}
-                        onCancel={cancelDelete}
-                      />
-                    )}
-                    
-                    {/* ingredient names */}
-                    <TouchableOpacity 
-                      activeOpacity={0.75}
-                      onPress={() => openViewDataModal(index)}
-                      className={`flex items-start justify-center w-2/5 border-b border-r border-theme900 pl-1 pr-[5px] ${curr.ingredientId === "" && newIds.indexOf(curr.ingredientData.ingredientName) !== -1 ? "bg-zinc500" : newIds.indexOf(curr.ingredientId) === -1 ? "bg-theme600" : "bg-zinc500"}`}
-                    >
-                      <Text className="text-white text-[12px]">
-                        {curr && curr.ingredientData ? curr.ingredientData.ingredientName : ""}
-                      </Text>
-                    </TouchableOpacity>
-
-                    {/* Modal that appears to view an ingredient */}
-                    {currentModalVisible && (
-                      <ViewCurrentModal 
-                        modalVisible={currentModalVisible} 
-                        closeModal={closeViewModal}
-                        ingredientData={currentModData}
-                        prepList={currPrepList}
-                        amountList={currAmountList}
-                        multList={currMultList}
-                      />
-                    )}
-
-                    {/* amount */}
-                    <View className={`flex flex-row items-center justify-center bg-white w-[35%] border-b border-b-zinc400 border-r border-r-zinc300 z-20`}>
-                      {curr?.ingredientData ?
-                        <View className="flex flex-row items-center justify-center">
-
-                          {/* Text */}
-                          <View className="flex flex-col items-center justify-center w-full space-y-1 -ml-3">
-                            <View className="flex flex-row items-center justify-center space-x-2 mr-[20px]">
-
-                              {/* Amount Total (INPUT) */}
-                              <TextInput
-                                key={index}
-                                className="text-[12px] leading-[15px] text-center"
-                                placeholder={curr.amountTotal !== "" ? curr.amountTotal : "_"}
-                                placeholderTextColor="black"
-                                value={currAmountTotals[index]}
-                                onChangeText={(value) => updateTotals(validateFractionInput(value), index)}
-                                onBlur={() => updateFilter()}
-                              />
-
-                              {/* Amount Left (CALCULATED) */}
-                              <Text className={`pl-2 border-l-[1px] border-l-zinc400 text-[12px] 
-                                  ${curr.amountLeft !== "" ? (new Fractional(curr.amountLeft).numerator === 0 ? "text-yellow-500" 
-                                    : (new Fractional(curr.amountLeft).numerator / (new Fractional(curr.amountLeft).denominator)) < 0 ? "text-pink-500" 
-                                    : "text-emerald-500") : "text-white"}`}>
-                                {curr.amountLeft}
-                              </Text>
-                            </View>
-
-                            {/* Unit */}
-                            <View className="flex mr-[20px]">
-                              <Text className={`text-[12px] ${curr.ingredientData[`${currStores[index]}Unit`] === undefined || curr.ingredientData[`${currStores[index]}Unit`] === "" ? "bg-zinc200" : "bg-white"}`}>
-                                {` ${curr.ingredientData[`${currStores[index]}Unit`] === undefined || curr.ingredientData[`${currStores[index]}Unit`] === "" ? "unit(s)" : curr.ingredientData[`${currStores[index]}Unit`]}`}
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* Store Logo */}
-                          <View className="flex justify-start absolute right-0 w-[30px] h-[50px] -mr-2">
-                            {currStores[index] === "" ? 
-                              <View className="mt-[6.5px] w-full justify-center items-center">
-                                <Icon
-                                  name="create"
-                                  size={18}
-                                  color={colors.theme500}
-                                  onPress={() => openModIdModal(currentIds[index])}
-                                />
-                              </View>
-                              :
-                              <View className="w-full justify-center items-center">
-                                <TouchableOpacity 
-                                  onPress={() => updateStores(index)} 
-                                >
-                                  <View className={`${currStores[index] === "a" ? "mt-[10px]" : "mt-[8px]"}`}>
-                                    <Image
-                                      source={
-                                        currStores[index] === "a" ? aldi :
-                                        currStores[index] === "mb" ? marketbasket :
-                                        currStores[index] === "sm" ? starmarket :
-                                        currStores[index] === "ss" ? stopandshop :
-                                        currStores[index] === "t" ? target :
-                                        currStores[index] === "w" ? walmart :
-                                        null
-                                      }
-                                      alt="store"
-                                      className={`${
-                                        currStores[index] === "a" ? "w-[15px] h-[10px]" : 
-                                        currStores[index] === "mb" ? "w-[15px] h-[14px]" : 
-                                        currStores[index] === "sm" ? "w-[15px] h-[15px]" :
-                                        currStores[index] === "ss" ? "w-[13px] h-[15px]" :
-                                        currStores[index] === "t" ? "w-[15px] h-[15px]" : 
-                                        currStores[index] === "w" ? "w-[15px] h-[15px]" : ""
-                                      }`}
-                                    />
-                                  </View>
-                                </TouchableOpacity>
-                                <Icon 
-                                  name="ellipsis-horizontal"
-                                  color={colors.zinc500}
-                                  size={18}
-                                  onPress={() => openModDataModal(index)}
-                                />
-                              </View>
-                            }
-                          </View>
-                        </View>
-                      : null }
-                    </View>
-
-                    {/* Modal that appears to edit an ingredient */}
-                    {modModalVisible && currentIds[index] && (currentIds[index] === currentModId || currentIds[index] === currentModData?.id) && (
-                      <ModCurrentModal 
-                        modalVisible={modModalVisible} 
-                        closeModal={closeModModal}
-                        editingId={currentModId}
-                        editingData={currentModData}
-                      />
-                    )}
-
-                    {/* price */}
-                    <TouchableOpacity
-                      className="flex flex-row items-center justify-center bg-white w-1/6 border-b border-b-zinc400 border-r border-r-zinc300"
-                      onPress={() => changePrice(index)}
-                      activeOpacity={0.9}
-                    >
-                      {/* Amount */}
-                      {Array.isArray(currPrices) && currPrices[index] !== "" &&
-                        <Text className={`text-[12px] leading-[15px] text-center ${(currPrices[index] === "0.00" || currPrices[index] === "0.0000") ? "bg-zinc200" : "bg-white"}`}>
-                          {/* $ or ¢ display */}
-                          {currPrices[index] >= 0.01 || currPrices[index] === "0.00" || currPrices[index] === ""
-                          ?
-                            <Text>{"$"}{currPrices[index]} </Text>
-                          :
-                            <Text>{(currPrices[index] * 100).toFixed(2)}{"¢"}</Text>
-                          }
+                      {/* Modal that appears to delete a current ingredient */}
+                      {deleteModalVisible && (
+                        <DeleteCurrentModal
+                          id={deletingId}
+                          isChecked={deleteChecked}
+                          currentName={deleteName}
+                          visible={deleteModalVisible}
+                          onConfirm={confirmDelete}
+                          onCancel={cancelDelete}
+                        />
+                      )}
+                      
+                      {/* ingredient names */}
+                      <TouchableOpacity 
+                        activeOpacity={0.75}
+                        onPress={() => openViewDataModal(index)}
+                        className={`flex items-start justify-center w-2/5 border-b border-r border-theme900 pl-1 pr-[5px] ${curr.ingredientId === "" && newIds.indexOf(curr.ingredientData.ingredientName) !== -1 ? "bg-zinc500" : newIds.indexOf(curr.ingredientId) === -1 ? "bg-theme600" : "bg-zinc500"}`}
+                      >
+                        <Text className="text-white text-[12px]">
+                          {curr && curr.ingredientData ? curr.ingredientData.ingredientName : ""}
                         </Text>
-                      }
-                    </TouchableOpacity>
-                  </View>
-                : null }
-              </View>
-            ))}
+                      </TouchableOpacity>
 
-            {/* empty space at the bottom if the keyboard is open */}
-            {(keyboardType === "" && isKeyboardOpen) &&
-              <View className="flex flex-row h-[150px]"/>
-            }
-          </View>
-        </ScrollView>   
+                      {/* Modal that appears to view an ingredient */}
+                      {currentModalVisible && (
+                        <ViewCurrentModal 
+                          modalVisible={currentModalVisible} 
+                          closeModal={closeViewModal}
+                          ingredientData={currentModData}
+                          prepList={currPrepList}
+                          amountList={currAmountList}
+                          multList={currMultList}
+                        />
+                      )}
+
+                      {/* amount */}
+                      <View className={`flex flex-row items-center justify-center bg-white w-[35%] border-b border-b-zinc400 border-r border-r-zinc300 z-20`}>
+                        {curr?.ingredientData ?
+                          <View className="flex flex-row items-center justify-center">
+
+                            {/* Text */}
+                            <View className="flex flex-col items-center justify-center w-full space-y-1 -ml-3">
+                              <View className="flex flex-row items-center justify-center space-x-2 mr-[20px]">
+
+                                {/* Amount Total (INPUT) */}
+                                <TextInput
+                                  key={index}
+                                  className="text-[12px] leading-[15px] text-center"
+                                  placeholder={curr.amountTotal !== "" ? curr.amountTotal : "_"}
+                                  placeholderTextColor="black"
+                                  value={currAmountTotals[index]}
+                                  onChangeText={(value) => updateTotals(validateFractionInput(value), index)}
+                                  onBlur={() => updateFilter(showArchive)}
+                                />
+
+                                {/* Amount Left (CALCULATED) */}
+                                <Text className={`pl-2 border-l-[1px] border-l-zinc400 text-[12px] 
+                                    ${curr.amountLeft !== "" ? (new Fractional(curr.amountLeft).numerator === 0 ? "text-yellow-500" 
+                                      : (new Fractional(curr.amountLeft).numerator / (new Fractional(curr.amountLeft).denominator)) < 0 ? "text-pink-500" 
+                                      : "text-emerald-500") : "text-white"}`}>
+                                  {curr.amountLeft}
+                                </Text>
+                              </View>
+
+                              {/* Unit */}
+                              <View className="flex mr-[20px]">
+                                <Text className={`text-[12px] ${curr.ingredientData[`${currStores[index]}Unit`] === undefined || curr.ingredientData[`${currStores[index]}Unit`] === "" ? "bg-zinc200" : "bg-white"}`}>
+                                  {` ${curr.ingredientData[`${currStores[index]}Unit`] === undefined || curr.ingredientData[`${currStores[index]}Unit`] === "" ? "unit(s)" : curr.ingredientData[`${currStores[index]}Unit`]}`}
+                                </Text>
+                              </View>
+                            </View>
+
+                            {/* Store Logo */}
+                            <View className="flex justify-start absolute right-0 w-[30px] h-[50px] -mr-2">
+                              {currStores[index] === "" ? 
+                                <View className="mt-[6.5px] w-full justify-center items-center">
+                                  <Icon
+                                    name="create"
+                                    size={18}
+                                    color={colors.theme500}
+                                    onPress={() => openModIdModal(currentIds[index])}
+                                  />
+                                </View>
+                                :
+                                <View className="w-full justify-center items-center">
+                                  <TouchableOpacity 
+                                    onPress={() => updateStores(index)} 
+                                  >
+                                    <View className={`${currStores[index] === "a" ? "mt-[10px]" : "mt-[8px]"}`}>
+                                      <Image
+                                        source={
+                                          currStores[index] === "a" ? aldi :
+                                          currStores[index] === "mb" ? marketbasket :
+                                          currStores[index] === "sm" ? starmarket :
+                                          currStores[index] === "ss" ? stopandshop :
+                                          currStores[index] === "t" ? target :
+                                          currStores[index] === "w" ? walmart :
+                                          null
+                                        }
+                                        alt="store"
+                                        className={`${
+                                          currStores[index] === "a" ? "w-[15px] h-[10px]" : 
+                                          currStores[index] === "mb" ? "w-[15px] h-[14px]" : 
+                                          currStores[index] === "sm" ? "w-[15px] h-[15px]" :
+                                          currStores[index] === "ss" ? "w-[13px] h-[15px]" :
+                                          currStores[index] === "t" ? "w-[15px] h-[15px]" : 
+                                          currStores[index] === "w" ? "w-[15px] h-[15px]" : ""
+                                        }`}
+                                      />
+                                    </View>
+                                  </TouchableOpacity>
+                                  <Icon 
+                                    name="ellipsis-horizontal"
+                                    color={colors.zinc500}
+                                    size={18}
+                                    onPress={() => openModDataModal(index)}
+                                  />
+                                </View>
+                              }
+                            </View>
+                          </View>
+                        : null }
+                      </View>
+
+                      {/* Modal that appears to edit an ingredient */}
+                      {modModalVisible && currentIds[index] && (currentIds[index] === currentModId || currentIds[index] === currentModData?.id) && (
+                        <ModCurrentModal 
+                          modalVisible={modModalVisible} 
+                          closeModal={closeModModal}
+                          editingId={currentModId}
+                          editingData={currentModData}
+                        />
+                      )}
+
+                      {/* price */}
+                      <TouchableOpacity
+                        className="flex flex-row items-center justify-center bg-white w-1/6 border-b border-b-zinc400 border-r border-r-zinc300"
+                        onPress={() => changePrice(index)}
+                        activeOpacity={0.9}
+                      >
+                        {/* Amount */}
+                        {Array.isArray(currPrices) && currPrices[index] !== "" &&
+                          <Text className={`text-[12px] leading-[15px] text-center ${(currPrices[index] === "0.00" || currPrices[index] === "0.0000") ? "bg-zinc200" : "bg-white"}`}>
+                            {/* $ or ¢ display */}
+                            {currPrices[index] >= 0.01 || currPrices[index] === "0.00" || currPrices[index] === ""
+                            ?
+                              <Text>{"$"}{currPrices[index]} </Text>
+                            :
+                              <Text>{(currPrices[index] * 100).toFixed(2)}{"¢"}</Text>
+                            }
+                          </Text>
+                        }
+                      </TouchableOpacity>
+                    </View>
+                  : null }
+                </View>
+              ))}
+
+              {/* empty space at the bottom if the keyboard is open */}
+              {(keyboardType === "" && isKeyboardOpen) &&
+                <View className="flex flex-row h-[150px]"/>
+              }
+            </View>
+          </ScrollView>   
+        </View>
+
+        {/* Archive Column */}
+        <View className="w-[20px] mt-[30px]">
+        
+          {/* SCROLLABLE INGREDIENT GRID */}
+          <ScrollView
+            className="w-full h-2/3"
+            contentOffset={{ y: scrollY }}
+            scrollEnabled={false}
+          >
+            <View className="flex flex-col">
+              
+              {/* Maps over the list of current ingredients */}
+              {currentList.length > 0 && currentList.map((curr, index) => (
+
+                // only shows the ones that fit the filtering
+                <View key={`curr-${index}`}>
+                  {filteredIndices[index] ?
+
+                    // archive button
+                    <View className="flex justify-center items-center h-[50px]">
+                      <Icon
+                        name={showArchive ? "lock-closed" : "lock-open"}
+                        color={colors.zinc700}
+                        size={16}
+                        onPress={() => changeArchive(index)}
+                      />
+                    </View>
+                  : null }
+                </View>
+              ))}
+
+              {/* empty space at the bottom if the keyboard is open */}
+              {(keyboardType === "" && isKeyboardOpen) &&
+                <View className="flex flex-row h-[150px]"/>
+              }
+            </View>
+          </ScrollView>   
+        </View>
       </View>
 
       {/* MODIFY PRICE MODAL */}
@@ -1191,6 +1268,28 @@ export default function CurrentFood ({ isSelectedTab }) {
         currentData={currentList[priceIndex]}
         currentStore={currStores[priceIndex]}
       />
+
+      {/* ARCHIVE INDICATOR */}
+      <View className="flex flex-row w-11/12 mr-[15px] justify-center items-center space-x-3 bg-zinc900 mt-[-30px] h-[30px]">
+        
+        {/* text */}
+        <Text className="font-bold text-[12px] text-zinc300 italic">
+          {showArchive ? "SHOWING ARCHIVE" : "HIDING ARCHIVE"}
+        </Text>
+
+        {/* toggle button */}
+        <View className="justify-center items-center" style={ showArchive ? null : { transform: [{ scaleX: -1 }] } }>
+          <Icon
+            name="toggle"
+            size={20}
+            color={colors.zinc100}
+            onPress={() => {
+              setShowArchive(!showArchive);
+              updateFilter(!showArchive);
+            }}
+          />
+        </View>
+      </View>
       
       {/* INGREDIENT FILTERING SECTION */}
       <View className="flex flex-row mt-[20px] space-x-4">
@@ -1203,7 +1302,7 @@ export default function CurrentFood ({ isSelectedTab }) {
             
             {/* Current Ingredient Number */}
             <Text className="font-bold text-zinc100 text-[12px]">
-              INGREDIENT {currentList.length + 1}
+              INGREDIENT {currentList.filter(current => current?.archive === showArchive).length + 1}
             </Text>
 
             {/* Submit */}

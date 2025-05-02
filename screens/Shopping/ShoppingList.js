@@ -16,6 +16,8 @@ import SpotlightSelectorModal from '../../components/Shopping-List/SpotlightSele
 var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
+import extractUnit from '../../components/Validation/extractUnit';
+
 // initialize Firebase App
 import { getFirestore, doc, updateDoc, getDocs, getDoc, collection, writeBatch } from 'firebase/firestore';
 import { app } from '../../firebase.config';
@@ -561,7 +563,7 @@ export default function ShoppingList ({ isSelectedTab }) {
     });
 
     // to store whether a current list is done
-    const docSnap = await getDoc(doc(db, "shopping", `${selectedStore}List`));
+    const docSnap = await getDoc(doc(db, 'shopping', `${selectedStore}List`));
     const newDone = await getStoreListDone(docSnap);
     
     setStoreListDone((prev) => {
@@ -617,7 +619,7 @@ export default function ShoppingList ({ isSelectedTab }) {
     });
 
     // to store the cost of the current list
-    const docSnap = await getDoc(doc(db, "shopping", `${selectedStore}List`));
+    const docSnap = await getDoc(doc(db, 'shopping', `${selectedStore}List`));
     const newCost = await getStoreListCost(docSnap);
     const newDone = await getStoreListDone(docSnap);
     
@@ -928,7 +930,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                                         {/* brand, unit yield, and unit cost */}
                                         {store.brand ? 
                                           <Text className="w-[85%] text-left text-[12px]">
-                                            {store.brand} {"—"} {store.totalYield} {store.unit}{" for $"}{((new Fraction(store.costUnit)) * 1)}
+                                            {store.brand} {"—"} {store.totalYield} {extractUnit(store.unit, store.totalYield)}{" for $"}{((new Fraction(store.costUnit)) * 1)}
                                           </Text>
                                         : 
                                           <Text className="w-[85%] text-left text-[12px]">
@@ -945,7 +947,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                                         {/* yield needed, amount needed, cost expected */}
                                         {store.brand ? 
                                           <Text className="w-[85%] text-left text-[12px]">
-                                            {store.yieldNeeded} {store.unit} {"—"} {store.amountNeeded}{"x for $"}{store.costTotal.toFixed(2)}
+                                            {store.yieldNeeded} {extractUnit(store.unit, store.yieldNeeded)} {"—"} {store.amountNeeded}{"x for $"}{store.costTotal.toFixed(2)}
                                           </Text>
                                         : 
                                           <Text className="w-[85%] text-left text-[12px]">
@@ -1046,7 +1048,7 @@ export default function ShoppingList ({ isSelectedTab }) {
               {(storeListCosts['aList'] + storeListCosts['mbList'] + storeListCosts['smList'] + storeListCosts['ssList'] + storeListCosts['tList'] + storeListCosts['wList']).toFixed(2)}
               {"   |   "}
               {numSpotlights}
-              {" Recipe(s)"}
+              {numSpotlights === "1" ? " Recipe" : " Recipes"}
             </Text>
           </TouchableOpacity>
 
@@ -1253,7 +1255,7 @@ export default function ShoppingList ({ isSelectedTab }) {
               {/* brand, unit yield, and unit cost */}
               {allStoreLists[selectedStore][keyboardIndex].brand ? 
                 <Text className="w-4/5 text-left text-[12px]">
-                  {allStoreLists[selectedStore][keyboardIndex].brand} {"—"} {allStoreLists[selectedStore][keyboardIndex].totalYield} {allStoreLists[selectedStore][keyboardIndex].unit}{" for $"}{((new Fraction(allStoreLists[selectedStore][keyboardIndex].costUnit)) * 1)}
+                  {allStoreLists[selectedStore][keyboardIndex].brand} {"—"} {allStoreLists[selectedStore][keyboardIndex].totalYield} {extractUnit(allStoreLists[selectedStore][keyboardIndex].unit, allStoreLists[selectedStore][keyboardIndex].totalYield)}{" for $"}{((new Fraction(allStoreLists[selectedStore][keyboardIndex].costUnit)) * 1)}
                 </Text>
               : 
                 <Text className="w-4/5 text-left text-[12px]">
@@ -1270,7 +1272,7 @@ export default function ShoppingList ({ isSelectedTab }) {
               {/* yield needed, amount needed, cost expected */}
               {allStoreLists[selectedStore][keyboardIndex].brand ? 
                 <Text className="w-4/5 text-left text-[12px]">
-                  {allStoreLists[selectedStore][keyboardIndex].yieldNeeded} {allStoreLists[selectedStore][keyboardIndex].unit} {"—"} {allStoreLists[selectedStore][keyboardIndex].amountNeeded}{"x for $"}{allStoreLists[selectedStore][keyboardIndex].costTotal.toFixed(2)}
+                  {allStoreLists[selectedStore][keyboardIndex].yieldNeeded} {extractUnit(allStoreLists[selectedStore][keyboardIndex].unit, allStoreLists[selectedStore][keyboardIndex].yieldNeeded)} {"—"} {allStoreLists[selectedStore][keyboardIndex].amountNeeded}{"x for $"}{allStoreLists[selectedStore][keyboardIndex].costTotal.toFixed(2)}
                 </Text>
               : 
                 <Text className="w-4/5 text-left text-[12px]">

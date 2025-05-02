@@ -25,6 +25,8 @@ var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 
+import extractUnit from '../../components/Validation/extractUnit';
+
 // initialize Firebase App
 import { getFirestore, doc, updateDoc, collection, getDocs, getDoc, writeBatch } from 'firebase/firestore';
 import { app } from '../../firebase.config';
@@ -206,7 +208,7 @@ export default function MealPrep ({ isSelectedTab }) {
         updateEnoughLeft(calcData);
 
         // updates the collection data
-        await updateDoc(doc(db, "preps", selectedPrepId), calcData);
+        await updateDoc(doc(db, 'preps', selectedPrepId), calcData);
     
         // updates the selected data
         setSelectedPrepData({ ...calcData });
@@ -293,7 +295,7 @@ export default function MealPrep ({ isSelectedTab }) {
       updateDoc(doc(db, 'preps', selectedPrepId), selectedPrepData);
 
       // calculates both the amounts left and total for all current ingredients
-      await calcCurrAmountsTotal();
+      await calcCurrAmountsTotal(false);
 
       // when a meal prep is finished, open a popup asking if you want the prep to be deleted
       if (decMult === 0) {
@@ -356,6 +358,25 @@ export default function MealPrep ({ isSelectedTab }) {
     setDeletingName("");
     setDeletingId(null);
   };
+
+  // when clicking the "+" button to add back a meal prep
+  const addBackPrep = async () => {
+
+    // new incremented amount
+    const incMult = selectedPrepData.prepMult + 1;
+
+    // current meal prep
+    selectedPrepData.prepMult = incMult;
+
+    // stores the multiplicity in the state
+    setCurrPrepMult(incMult);
+
+    // stores the meal prep data in the firebase
+    updateDoc(doc(db, 'preps', selectedPrepId), selectedPrepData);
+
+    // calculates both the amounts left and total for all current ingredients
+    await calcCurrAmountsTotal(true);
+  }
   
 
   ///////////////////////////////// INGREDIENT AMOUNT LOGIC /////////////////////////////////
@@ -444,8 +465,8 @@ export default function MealPrep ({ isSelectedTab }) {
 
           data.currentAmounts[index] = value;
           
-        // calculate calories if the arguments are valid
-        if (!isNaN((new Fraction(servings.toString())) * 1) && !isNaN((new Fraction(cals.toString())) * 1)) {
+          // calculate calories if the arguments are valid
+          if (!isNaN((new Fraction(servings.toString())) * 1) && !isNaN((new Fraction(cals.toString())) * 1)) {
           
             // individual
             data.currentCals[index] = new Fraction(amount.divide(servings).multiply(cals).toString()) * 1;
@@ -490,7 +511,7 @@ export default function MealPrep ({ isSelectedTab }) {
   }
 
   // to calculate each of the ingredient's total amounts
-  const calcCurrAmountsTotal = async () => {
+  const calcCurrAmountsTotal = async (incrementing) => {
     
     // creates a batch for the updates
     const batch = writeBatch(db);
@@ -507,7 +528,7 @@ export default function MealPrep ({ isSelectedTab }) {
         // recalculates the total and remaining amounts
         if (data && total !== "" && amount !== "") {
           
-          const calcAmountTotal = ((new Fractional(total)).subtract(new Fractional(amount))).toString();
+          const calcAmountTotal = incrementing ? ((new Fractional(total)).add(new Fractional(amount))).toString() : ((new Fractional(total)).subtract(new Fractional(amount))).toString();
 
           // updates the data in the current ingredient doc within the batch
           batch.update(doc(db, 'currents', selectedPrepData.currentIds[index]), {
@@ -562,7 +583,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
         // adds the update to the batch for amountLeft if the amount has been changed
         if (currentData.amountLeft !== calcAmount.toString()) {
-          batch.update(doc(db, "currents", currentId), { amountLeft: calcAmount.toString() });
+          batch.update(doc(db, 'currents', currentId), { amountLeft: calcAmount.toString() });
         }
       }
     });
@@ -802,7 +823,7 @@ export default function MealPrep ({ isSelectedTab }) {
       if (selectedPrepData.currentIds[i] && selectedPrepData.currentIds[i] !== "") {
         
         // gets the data
-        const docRef = doc(db, "currents", selectedPrepData.currentIds[i]);
+        const docRef = doc(db, 'currents', selectedPrepData.currentIds[i]);
         const docSnap = await getDoc(docRef);
 
         // if the current ingredient still exists, set the data
@@ -827,7 +848,7 @@ export default function MealPrep ({ isSelectedTab }) {
     updateEnoughLeft(calcData);
     
     // updates the collections in firebase
-    await updateDoc(doc(db, "preps", selectedPrepId), calcData);
+    await updateDoc(doc(db, 'preps', selectedPrepId), calcData);
 
     // updates the selected meal prep's data
     setSelectedPrepData({ ...calcData });
@@ -854,11 +875,15 @@ export default function MealPrep ({ isSelectedTab }) {
 
     let filtered = currents;
     
+    // filters by option
     if (selectedOption === "REMAINING") {
       filtered = filtered.filter(current => current.amountLeft > "0");
     } else if (selectedOption === "USED") {
       filtered = filtered.filter(current => current.amountLeft <= "0");
     }
+
+    // filters out the archived data
+    filtered = filtered.filter(current => !current.archive)
 
     setFilteredCurrentData(filtered);
   }
@@ -905,7 +930,7 @@ export default function MealPrep ({ isSelectedTab }) {
       updateEnoughLeft(calcData);
 
       // stores the meal prep data in the firebase
-      await updateDoc(doc(db, "preps", selectedPrepId), calcData);
+      await updateDoc(doc(db, 'preps', selectedPrepId), calcData);
 
       // updates the selected meal prep's data
       setSelectedPrepData({ ...calcData });
@@ -1340,7 +1365,7 @@ export default function MealPrep ({ isSelectedTab }) {
               </View>
 
               {/* Multiplicity */}
-              <View className="flex flex-row bg-theme700 border-l items-center justify-center w-1/5 h-[50px] pr-[5px]">
+              <View className="flex flex-row bg-theme700 border-l items-center justify-center w-1/5 h-[50px] pr-[5px] z-30">
                 
                 {selectedPrepData !== null &&
                 <>
@@ -1368,6 +1393,20 @@ export default function MealPrep ({ isSelectedTab }) {
                 </>
                 }
               </View>
+
+              {/* to add back a prep */}
+              {(selectedPrepData && selectedPrepData.currentData.filter(curr => curr !== null).length > 0) &&
+              <TouchableOpacity 
+                className="bg-zinc350 justify-center px-0.5 h-full items-center absolute right-[-25px] rounded-r-lg z-0"
+                onPress={() => addBackPrep()}
+              >
+                <Icon
+                  name="add-sharp"
+                  size={20}
+                  color={colors.zinc600}
+                />
+              </TouchableOpacity>
+              }
 
               {/* Modal that appears to delete a current prep */}
               {deleteModalVisible && (
@@ -1477,7 +1516,7 @@ export default function MealPrep ({ isSelectedTab }) {
                       />
                       {/* Unit */}
                       <Text className="text-[10px]">
-                        {` ${selectedPrepData.currentData[index].ingredientData[`${selectedPrepData.currentData[index].ingredientStore}Unit`]}`}
+                        {` ${extractUnit(selectedPrepData.currentData[index].ingredientData[`${selectedPrepData.currentData[index].ingredientStore}Unit`], currCurrentAmounts[index])}`}
                       </Text>
                     </View>
                   : null }
@@ -1711,7 +1750,7 @@ export default function MealPrep ({ isSelectedTab }) {
             })}
             placeholder=""
             style={{ height: 55, backgroundColor: colors.zinc400, borderWidth: 1, borderColor: colors.zinc500, justifyContent: 'center', }}
-            dropDownContainerStyle={{ borderLeftWidth: 1, borderRightWidth: 1, borderTopWidth: 1, borderColor: colors.zinc500, borderRadius: 0, }}
+            dropDownContainerStyle={{ borderLeftWidth: 1, borderRightWidth: 1, borderTopWidth: 1, borderColor: colors.zinc500, borderRadius: 0, backgroundColor: colors.zinc350 }}
             textStyle={{ color: filteredCurrentData.length === 0 ? colors.theme200 : "black", fontWeight: 450, textAlign: 'center', fontSize: 12, }}
             ArrowDownIconComponent={() => {
               return (

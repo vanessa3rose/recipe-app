@@ -76,7 +76,7 @@ const ingredientEdit = async ({
     ///////////////////////////////// PROCESSING /////////////////////////////////
     
     // updates the Firestore 'ingredients' collection data
-    await updateDoc(doc(db, "ingredients", editingId), ingredient);
+    await updateDoc(doc(db, 'ingredients', editingId), ingredient);
 
 
     ///////////////////////////////// RECIPES /////////////////////////////////

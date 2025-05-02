@@ -3,6 +3,8 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity } from 'react-native';
 
+import extractUnit from '../Validation/extractUnit';
+
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
@@ -56,7 +58,7 @@ const ViewCurrentModal = ({
 
                 {/* Units */}
                 <Text className="bg-theme200 p-1 flex-1 border-r border-zinc500 text-[12px]">
-                  {ingredientData.unit}
+                  {extractUnit(ingredientData.unit, ingredientData.servingSize)}
                 </Text>
               </View>
             </View>

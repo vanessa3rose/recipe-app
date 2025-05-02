@@ -7,6 +7,8 @@ import { Modal, View, Text, TextInput, TouchableOpacity } from 'react-native';
 var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
+import extractUnit from '../Validation/extractUnit';
+
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
@@ -56,9 +58,9 @@ const RecipeListModal = ({
                 
                 {/* details */}
                 <View className="flex py-3 px-2 w-2/5 items-center justify-center bg-zinc400">
-                  <Text className="text-center flex-row flex-wrap">
-                    <Text>{amountList[index] === "" ? 0 : amountList[index]} {unitList[index]}</Text>
-                    <Text> x {multList[index]}</Text>
+                  <Text>
+                    <Text className="text-center">{`${amountList[index] === "" ? 0 : amountList[index]} ${extractUnit(unitList[index], amountList[index])}`}</Text>
+                    <Text className="text-center">{`\u00A0x\u00A0${multList[index]}`}</Text>
                   </Text>
                 </View>
               </View>

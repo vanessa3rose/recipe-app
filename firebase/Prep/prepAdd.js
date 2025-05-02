@@ -15,7 +15,7 @@ const prepAdd = async (prep) => {
   try {
     
     // adds the new ingredient to the 'spotlights' collection
-    const docRef = await addDoc(collection(db, "preps"), prep);
+    const docRef = await addDoc(collection(db, 'preps'), prep);
 
     // stores the prep data in the firebase
     updateDoc(doc(db, 'globals', 'prep'), { id: docRef.id });

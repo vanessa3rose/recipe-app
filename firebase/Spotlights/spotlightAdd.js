@@ -36,7 +36,7 @@ const spotlightAdd = async ({ numSpotlights = 0 } = {}) => {
     };
     
     // adds the new ingredient to the 'spotlights' collection
-    const docRef = await addDoc(collection(db, "spotlights"), spotlight);
+    const docRef = await addDoc(collection(db, 'spotlights'), spotlight);
 
     // stores the spotlight data in the firebase
     updateDoc(doc(db, 'globals', 'spotlight'), { id: docRef.id });

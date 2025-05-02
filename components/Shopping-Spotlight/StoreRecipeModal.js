@@ -79,7 +79,7 @@ const StoreRecipeModal = ({
           {/* New */}
           <TouchableOpacity
             onPress={() => newRecipe()}
-          className="flex bg-theme600 w-4/5 rounded-[5px] py-2 justify-center items-center"
+            className="flex bg-theme600 w-4/5 rounded-[5px] py-2 justify-center items-center"
           >
             <Text className="text-white font-bold text-[15px]">Create A New Recipe</Text>
           </TouchableOpacity>

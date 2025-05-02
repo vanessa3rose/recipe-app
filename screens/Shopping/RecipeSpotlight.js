@@ -23,6 +23,8 @@ var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 
+import extractUnit from '../../components/Validation/extractUnit';
+
 // Logos
 import { Image } from 'react-native';
 import aldi from '../../assets/Logos/aldi.png'
@@ -317,7 +319,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       }
 
       // stores the spotlight data in the firebase
-      await updateDoc(doc(db, "spotlights", selectedSpotlightId), calcData);
+      await updateDoc(doc(db, 'spotlights', selectedSpotlightId), calcData);
 
       // updates the selected spotlight's data
       setSelectedSpotlightData({ ...calcData });
@@ -739,7 +741,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     determineEdited(calcData, recipesArray);
 
     // updates the data
-    await updateDoc(doc(db, "spotlights", selectedSpotlightId), calcData);
+    await updateDoc(doc(db, 'spotlights', selectedSpotlightId), calcData);
     setSelectedSpotlightData({ ...calcData });
   
     // removes duplicates and sort alphabetically, excluding "NEW TAG"
@@ -1135,7 +1137,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
           determineEdited(calcData, recipeList);
 
           // updates the collection data
-          await updateDoc(doc(db, "spotlights", selectedSpotlightId), calcData);
+          await updateDoc(doc(db, 'spotlights', selectedSpotlightId), calcData);
       
           // updates the selected data
           setSelectedSpotlightData({ ...calcData });
@@ -1815,7 +1817,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                     />
                     {/* Unit */}
                     <Text className="text-[10px]">
-                      {` ${selectedSpotlightData.ingredientData[index][`${selectedSpotlightData.ingredientStores[index]}Unit`]}`}
+                      {` ${extractUnit(selectedSpotlightData.ingredientData[index][`${selectedSpotlightData.ingredientStores[index]}Unit`], currIngredientAmounts[index])}`}
                     </Text>
                   </View>
                 : null }
