@@ -23,6 +23,8 @@ var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 
+import extractUnit from '../../components/Validation/extractUnit';
+
 // Logos
 import { Image } from 'react-native';
 import aldi from '../../assets/Logos/aldi.png'
@@ -749,7 +751,7 @@ export default function Recipes ({ isSelectedTab }) {
           }
 
           // updates the collection data
-          await updateDoc(doc(db, "recipes", selectedRecipeId), calcData);
+          await updateDoc(doc(db, 'recipes', selectedRecipeId), calcData);
       
           // updates the selected data
           setSelectedRecipeData({ ...calcData });
@@ -1492,7 +1494,7 @@ export default function Recipes ({ isSelectedTab }) {
                     />
                     {/* Unit */}
                     <Text className="text-[10px]">
-                      {` ${selectedRecipeData.ingredientData[index][`${selectedRecipeData.ingredientStores[index]}Unit`]}` === undefined ? " unit(s)": ` ${selectedRecipeData.ingredientData[index][`${selectedRecipeData.ingredientStores[index]}Unit`]}`}
+                      {` ${selectedRecipeData.ingredientData[index][`${selectedRecipeData.ingredientStores[index]}Unit`]}` === undefined ? " unit(s)": ` ${extractUnit(selectedRecipeData.ingredientData[index][`${selectedRecipeData.ingredientStores[index]}Unit`], currIngredientAmounts[index])}`}
                     </Text>
                   </View>
                 : null }

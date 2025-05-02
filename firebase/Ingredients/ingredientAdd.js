@@ -77,7 +77,7 @@ const ingredientAdd = async ({
     ///////////////////////////////// PROCESSING /////////////////////////////////
 
     // Add the new ingredient to the Firestore 'ingredients' collection
-    await addDoc(collection(db, "ingredients"), ingredient);
+    await addDoc(collection(db, 'ingredients'), ingredient);
     
   } catch (e) {
     console.error("Error adding document: ", e);

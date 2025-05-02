@@ -7,6 +7,8 @@ import DropDownPicker from 'react-native-dropdown-picker';
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
+import extractUnit from '../Validation/extractUnit';
+
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
@@ -118,7 +120,7 @@ const ViewIngredientModal = ({
                         </Text>
                         {/* size and units */}
                         <Text className="flex-1 flex-row border border-zinc500 bg-theme100 p-1 text-center text-[14px] leading-[16px]">
-                          {ingredientData[`${store}ServingSize`]} {ingredientData[`${store}Unit`]}
+                          {ingredientData[`${store}ServingSize`]} {extractUnit(ingredientData[`${store}Unit`], ingredientData[`${store}ServingSize`])}
                         </Text>
                       </View>
 
@@ -164,7 +166,6 @@ const ViewIngredientModal = ({
 
               {/* Divider */}
               <View className="mx-6 h-[1px] bg-zinc400 mb-4"/>
-
             </>
             }
             </View>

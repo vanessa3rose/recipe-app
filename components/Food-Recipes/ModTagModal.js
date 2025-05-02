@@ -78,7 +78,7 @@ const ModTagModal = ({ modalVisible, closeModal, currTag }) => {
 
           // only updates db if the tag list has changed
           if (JSON.stringify(tags) !== JSON.stringify(tagList)) {
-            recipeBatch.update(doc(db, "recipes", recipe.id), data);
+            recipeBatch.update(doc(db, 'recipes', recipe.id), data);
           }
         
           // finds the global recipe and stores the data globally
@@ -135,7 +135,7 @@ const ModTagModal = ({ modalVisible, closeModal, currTag }) => {
 
         // only updates db if the tag list has changed
         if (JSON.stringify(tags) !== JSON.stringify(tagList)) {
-          recipeBatch.update(doc(db, "recipes", recipe.id), data);
+          recipeBatch.update(doc(db, 'recipes', recipe.id), data);
         }
       
         // finds the global recipe and stores the data globally

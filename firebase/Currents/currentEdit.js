@@ -49,7 +49,7 @@ const currentEdit = async ({
     ///////////////////////////////// PROCESSING /////////////////////////////////
     
     // updates the Firestore 'ingredients' collection data
-    await updateDoc(doc(db, "currents", editingId), current);
+    await updateDoc(doc(db, 'currents', editingId), current);
     
     
     ///////////////////////////////// MEAL PREPS /////////////////////////////////

@@ -11,6 +11,7 @@ var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 import validateFractionInput from '../Validation/validateFractionInput';
 
+import extractUnit from '../Validation/extractUnit';
 
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
@@ -180,7 +181,7 @@ const ModPriceModal = ({
               />
               {/* Unit */}
               <Text className={`${amount === "" ? "text-zinc500" : "text-black"}`}>
-                {unit}
+                {extractUnit(unit, amount)}
               </Text>
             </View>
           </View>

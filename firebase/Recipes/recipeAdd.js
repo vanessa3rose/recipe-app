@@ -43,7 +43,7 @@ const recipeAdd = async ({
     ///////////////////////////////// PROCESSING /////////////////////////////////
 
     // Add the new ingredient to the Firestore 'recipes' collection
-    const docRef = await addDoc(collection(db, "recipes"), recipeData === null ? recipe : recipeData);
+    const docRef = await addDoc(collection(db, 'recipes'), recipeData === null ? recipe : recipeData);
     setRecipeId(docRef.id);
     
     // stores the recipe data in the firebase

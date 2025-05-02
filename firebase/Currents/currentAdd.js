@@ -8,7 +8,7 @@ const db = getFirestore(app);
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
-const currentAdd = async (ingredientId, ingredientData, ingredientStore, {
+const currentAdd = async (ingredientId, ingredientData, ingredientStore, archive, {
     check = false, containerPrice = "0.00", amountTotal = "", amountLeft = "?", unitPrice = "0.00",
   } = {}) => {
 
@@ -20,13 +20,13 @@ const currentAdd = async (ingredientId, ingredientData, ingredientStore, {
     ///////////////////////////////// DATA /////////////////////////////////
 
     const current = {
-        check, ingredientId, ingredientData, amountTotal, amountLeft, unitPrice, containerPrice, ingredientStore,
+        archive, check, ingredientId, ingredientData, amountTotal, amountLeft, unitPrice, containerPrice, ingredientStore,
     };
 
     ///////////////////////////////// PROCESSING /////////////////////////////////
 
     // add the new ingredient to the Firestore 'currents' collection
-    await addDoc(collection(db, "currents"), current);
+    await addDoc(collection(db, 'currents'), current);
     
   } catch (e) {
     console.error("Error adding document: ", e);
