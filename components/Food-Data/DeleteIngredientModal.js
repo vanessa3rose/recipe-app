@@ -119,7 +119,7 @@ const DeleteIngredientModal = ({
         <View className="w-3/4 bg-zinc200 px-7 py-10 rounded-2xl">
 
           {/* Confirmation Text */}
-          <Text className="mb-4">
+          <Text>
             <Text className="text-[20px] font-bold text-center leading-[26px]">
               {"Are you sure you want to delete "}
             </Text>
@@ -131,7 +131,9 @@ const DeleteIngredientModal = ({
             </Text>
           </Text>
 
-
+          {/* divider */}
+          <View className="h-[1px] bg-zinc400 my-5 mx-2"/>
+          
           
           {/* No Warning */}
           {recipeList && recipeList.length === 0 && spotlightList && spotlightList.length === 0 &&
@@ -164,8 +166,8 @@ const DeleteIngredientModal = ({
 
           {/* Double Warning */}
           {recipeList && recipeList.length > 0 && spotlightList && spotlightList.length > 0 &&
-            // divier
-            <View className="h-[1px] bg-zinc400 my-3" />
+            // divider
+            <View className="h-[1px] bg-zinc350 m-4"/>
           }
           
           {/* Spotlight Warning */}

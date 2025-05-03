@@ -478,7 +478,7 @@ const ModIngredientModal = ({
           <View className="flex flex-row justify-evenly content-center mb-4 h-[100px]">
 
             {/* Ingredient Name */}
-            <View className="flex bg-white w-5/12 border border-zinc500 rounded-md p-2 justify-center items-center">
+            <View className="flex bg-white w-5/12 border-0.5 border-zinc500 rounded-md p-2 justify-center items-center">
               <TextInput
                 className="text-center pb-1 text-[14px] leading-[16px]"
                 placeholder="Ingredient Name"
@@ -547,7 +547,7 @@ const ModIngredientModal = ({
                     <View key={type.label}>
                     {/* maps each tag that isn't 'CUSTOM' */}
                     {type.label !== "CUSTOM" &&
-                      <View className={`flex flex-row w-full items-center px-1 py-1 border-b space-x-1
+                      <View className={`flex flex-row w-full items-center px-1 py-1 border-b-0.5 space-x-1
                         ${index % 2 === 0 && ingredientTypes.includes(type.label) ? "bg-theme400" : ingredientTypes.includes(type.label) ? "bg-theme300" : index % 2 !== 0 ? "bg-zinc350" : "bg-zinc400"}`}
                       >
                         {/* add or remove button */}
@@ -593,7 +593,7 @@ const ModIngredientModal = ({
 
                 {/* store name */}
                 <Text
-                  className={`text-[18px] font-semibold text-zinc600 flex text-center mr-2 ${getBrandData(store).brand !== "" ? "border-b-[1px]" : ""}`}
+                  className={`text-[18px] font-semibold text-zinc600 flex text-center mr-2 ${getBrandData(store).brand !== "" ? "border-b-[0.75px] border-theme900" : ""}`}
                   onPress={() => toggleStoreSection(store)}
                 >
                     {nameList[index]}
@@ -601,7 +601,7 @@ const ModIngredientModal = ({
                 
                 {/* link input */}
                 <TextInput
-                  className="absolute right-2 flex bg-zinc100 border border-zinc300 rounded-md px-2 w-[40px] h-[30px] ml-2 text-[14px] leading-[16px]"
+                  className="absolute right-2 flex bg-zinc100 border-[1px] border-zinc300 rounded-md px-2 w-[40px] h-[30px] ml-2 text-[14px] leading-[16px]"
                   placeholder="link"
                   placeholderTextColor={colors.zinc400}
                   value={link[store]}
@@ -681,7 +681,7 @@ const ModIngredientModal = ({
                           <View className="flex flex-row justify-between w-full h-[50px]">
 
                             {/* Inputing a new brand */}
-                            <View className="flex bg-white border border-zinc500 rounded-md py-1 px-2 ml-2 w-2/5 h-full z-10 justify-center items-center">
+                            <View className="flex bg-white border-0.5 border-zinc500 rounded-md py-1 px-2 ml-2 w-2/5 h-full z-10 justify-center items-center">
                               <TextInput
                                 className="text-center pb-1 text-[14px] leading-[16px]"
                                 placeholder="Custom Brand"
@@ -727,7 +727,7 @@ const ModIngredientModal = ({
                           Serving Size
                         </Text>
 
-                        <View className="flex-1 flex-row border border-zinc500">
+                        <View className="flex-1 flex-row border-0.5 border-zinc500">
                           {/* Size */}
                           <TextInput
                             className="bg-theme100 p-1 flex-1 text-center text-[14px] leading-[16px]"
@@ -771,7 +771,7 @@ const ModIngredientModal = ({
 
                         {/* Input */}
                         <TextInput
-                          className="flex-1 bg-theme100 border border-zinc500 p-1 text-center text-[14px] leading-[16px]"
+                          className="flex-1 bg-theme100 border-0.5 border-zinc500 p-1 text-center text-[14px] leading-[16px]"
                           placeholder="0 0/0"
                           placeholderTextColor={colors.zinc400}
                           value={servingContainer[store]}
@@ -795,7 +795,7 @@ const ModIngredientModal = ({
 
                         {/* Input */}
                         <TextInput
-                          className="flex-1 bg-theme100 border border-zinc500 p-1 text-center text-[14px] leading-[16px]"
+                          className="flex-1 bg-theme100 border-0.5 border-zinc500 p-1 text-center text-[14px] leading-[16px]"
                           placeholder="0"
                           placeholderTextColor={colors.zinc400}
                           value={calServing[store]}
@@ -818,7 +818,7 @@ const ModIngredientModal = ({
                         </Text>
 
                         {/* Input */}
-                        <View className="flex-1 flex-row border border-zinc500 p-1 bg-theme100">
+                        <View className="flex-1 flex-row border-0.5 border-zinc500 p-1 bg-theme100">
 
                           {/* Dummy $ */}
                           <TextInput

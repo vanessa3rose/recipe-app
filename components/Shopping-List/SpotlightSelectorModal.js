@@ -308,7 +308,7 @@ const SpotlightSelectorModal = ({
                 >
                   
                   {/* Spotlight Row */}
-                  <View className={`flex flex-row border-theme700 border-x-[1px] ${index === 0 && "border-t-[1px] border-t-theme700"} ${showIngredientIndex === index ? "border-t-[1px] border-b" : showIngredientIndex + 1 === index ? "border-t-[1px] border-b-[1px]" : "border-b-[1px]"}`}>
+                  <View className={`flex flex-row border-theme700 border-x-[1px] ${index === 0 && "border-t-[1px] border-t-theme700"} ${showIngredientIndex === index ? "border-t-[1px] border-b-0.5" : showIngredientIndex + 1 === index ? "border-t-[1px] border-b-[1px]" : "border-b-[1px]"}`}>
 
                     {/* Multiplicity */}
                     <View className="flex w-[10%] justify-center items-center bg-zinc350">

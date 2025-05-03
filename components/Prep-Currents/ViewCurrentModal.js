@@ -49,15 +49,15 @@ const ViewCurrentModal = ({
                 SERVING SIZE
               </Text>
 
-              <View className="flex-1 flex-row border-t border-b border-zinc500">
+              <View className="flex-1 flex-row border-t-0.5 border-b-0.5 border-zinc500">
 
                 {/* Size */}
-                <Text className="bg-theme200 p-1 flex-1 text-center border-l border-zinc500 text-[12px]">
+                <Text className="bg-theme200 p-1 flex-1 text-center border-l-0.5 border-zinc500 text-[12px]">
                   {ingredientData.servingSize}
                 </Text>
 
                 {/* Units */}
-                <Text className="bg-theme200 p-1 flex-1 border-r border-zinc500 text-[12px]">
+                <Text className="bg-theme200 p-1 flex-1 border-r-0.5 border-zinc500 text-[12px]">
                   {extractUnit(ingredientData.unit, ingredientData.servingSize)}
                 </Text>
               </View>
@@ -72,7 +72,7 @@ const ViewCurrentModal = ({
               </Text>
       
               {/* Text */}
-              <Text className="border border-zinc500 bg-theme200 p-1 flex-1 text-center text-[12px]">
+              <Text className="border-0.5 border-zinc500 bg-theme200 p-1 flex-1 text-center text-[12px]">
                 {ingredientData.calServing}
               </Text>
             </View>

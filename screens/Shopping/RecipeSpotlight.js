@@ -1412,7 +1412,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   return (
 
     // CONTAINER
-    <View className="flex-1 items-center justify-center bg-zinc200 border">
+    <View className="flex-1 items-center justify-center bg-zinc200 border-0.5">
 
 
       {/* RECIPE FILTERING SECTION */}
@@ -1449,7 +1449,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             </View>
 
             {/* Tag Picker */}
-            <View className="z-0 bg-theme200 border border-theme400 w-1/3">
+            <View className="z-0 bg-theme200 border-0.5 border-theme400 w-1/3">
               <Picker
                 selectedValue={selectedRecipeTag}
                 onValueChange={(itemValue) => setSelectedRecipeTag(itemValue)}
@@ -1701,7 +1701,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             </View>
 
             {/* Multiplicity Input */}
-            <View className="flex flex-row bg-theme700 border-l items-center justify-center w-1/6 h-[50px]">
+            <View className="flex flex-row bg-theme700 border-l-0.5 items-center justify-center w-1/6 h-[50px]">
               {selectedSpotlightData !== null &&
               <TextInput
                 value={String(currSpotlightMult)}
@@ -1743,14 +1743,14 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
           {selectedSpotlightData !== null &&
           <>
             {/* ingredient header */}
-            <View className="flex items-center justify-center w-5/12 border-r">
+            <View className="flex items-center justify-center w-5/12 border-r-0.5">
               <Text className="text-white text-xs font-bold">
                 INGREDIENT
               </Text>
             </View>
 
             {/* amount header */}
-            <View className="flex items-center justify-center w-1/3 border-r">
+            <View className="flex items-center justify-center w-1/3 border-r-0.5">
               <Text className="text-white text-xs font-bold">
                 AMOUNT
               </Text>
@@ -1778,7 +1778,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             <View key={`frozen-${index}`} className="flex flex-row h-[30px] bg-white">
               
               {/* ingredient names */}
-              <View className={`flex items-center justify-center w-5/12 ${selectedSpotlightData?.ingredientNameEdited[index] && selectedSpotlightData?.recipeId !== null ? "bg-zinc500" : "bg-theme600"} border-b border-r border-zinc700 z-10`}>
+              <View className={`flex items-center justify-center w-5/12 ${selectedSpotlightData?.ingredientNameEdited[index] && selectedSpotlightData?.recipeId !== null ? "bg-zinc500" : "bg-theme600"} border-b-0.5 border-r-0.5 border-zinc700 z-10`}>
                 <View className="flex flex-wrap flex-row">
                   <Text 
                     className={`text-white text-[10px] text-center px-2 ${selectedSpotlightData?.ingredientData?.[index]?.[selectedSpotlightData.ingredientStores[index] + "Link"] && "underline"}`}
@@ -1790,7 +1790,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               </View>
 
               {/* amount */}
-              <View className="flex flex-row items-center justify-center bg-zinc100 w-1/3 border-b border-b-zinc400 border-r border-r-zinc300 z-0">
+              <View className="flex flex-row items-center justify-center bg-zinc100 w-1/3 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc300 z-0">
                 
                 {/* indicator of the current ingredient */}
                 {selectedSpotlightData !== null && (selectedIngredientIndex - 1) === (index) &&
@@ -1826,7 +1826,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               {/* details */}
               <TouchableOpacity 
                 onPress={() => showCalcModal(index)}
-                className="flex flex-col items-center justify-center bg-white w-1/4 border-b border-b-zinc400 border-l border-l-zinc400"
+                className="flex flex-col items-center justify-center bg-white w-1/4 border-b-0.5 border-b-zinc400 border-l-0.5 border-l-zinc400"
               >
                 <View className="flex flex-row">
                   {/* calories */}
@@ -1951,7 +1951,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
           {/* details */}
           {selectedSpotlightData !== null &&
-          <View className="flex flex-row items-center justify-center w-full border-r bg-theme800">
+          <View className="flex flex-row items-center justify-center w-full border-r-0.5 bg-theme800">
             
             <View className="flex w-1/5 items-center justify-center">
               <Text className="text-white text-xs italic font-bold">
@@ -2012,7 +2012,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
         {/* Left Boxes */}
         <View className="flex flex-col items-center justify-center pr-[5px] ml-[-5px]">
-          <View className="flex flex-row border border-zinc900">
+          <View className="flex flex-row border-0.5 border-zinc900">
           
             {/* Store Selection */}
             <TouchableOpacity 
@@ -2071,7 +2071,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
           </View>
 
           {/* Type Picker */}
-          <View className="flex w-[150px] z-0 bg-theme200 border border-theme400">
+          <View className="flex w-[150px] z-0 bg-theme200 border-0.5 border-theme400">
             <Picker
               selectedValue={selectedIngredientType}
               onValueChange={(itemValue) => setSelectedIngredientType(itemValue)}
@@ -2123,7 +2123,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
           {/* Ingredient Dropdown */}
           {ingredientDropdownOpen && selectedSpotlightId && !isKeyboardOpen && (
-            <View className="absolute w-full bottom-[100%] border-x border-t bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
+            <View className="absolute w-full bottom-[100%] border-x-0.5 border-t-0.5 bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
               <ScrollView>
                 {filteredIngredientData.map((item, index) => (
                   <TouchableOpacity
@@ -2164,6 +2164,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
           </View>
           }
 
+          {/* to view the linked ingredient in the search */}
           {ingredientModalVisible &&
             <ViewIngredientModal
               modalVisible={ingredientModalVisible}
@@ -2199,7 +2200,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
         {/* Buttons */}
         <View className="flex mr-[-5px] my-[-5px] justify-center">
-          <View className={`flex flex-col space-y-[5px] items-center  rounded bg-zinc300 pb-1 ${(selectedIngredientId !== "" && selectedIngredientId !== null) && "pt-1"}`}>
+          <View className="flex flex-col space-y-[5px] items-center rounded bg-zinc300 py-1">
             
             {/* Submit */}
             {(selectedIngredientId !== "" && selectedIngredientId !== null) &&
@@ -2273,7 +2274,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
               {/* Ingredient Dropdown */}
               {ingredientDropdownOpen && (
-                <View className="absolute w-full bottom-[100%] border-x border-t bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
+                <View className="absolute w-full bottom-[100%] border-x-0.5 border-t-0.5 bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
                   <ScrollView>
                     {filteredIngredientData.map((item, index) => (
                       <TouchableOpacity

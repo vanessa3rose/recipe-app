@@ -56,7 +56,7 @@ const CalendarModal = ({
         <View className="absolute bg-black opacity-50 w-full h-full"/>
         
         {/* Modal Content */}
-        <View className="bg-zinc200 w-2/3 border-black p-2 rounded-t-xl">
+        <View className="bg-zinc200 w-2/3 border-0.5 border-black p-2 rounded-t-xl">
           {date && (
             <Calendar
               key={date.dateString}
@@ -77,7 +77,7 @@ const CalendarModal = ({
         </View>
 
         {/* BOTTOM BAR */}
-        <View className="flex flex-row border-t bg-zinc200 w-2/3 justify-between items-center h-[50px] px-5">
+        <View className="flex flex-row border-t-[1px] border-zinc400 bg-zinc200 w-2/3 justify-between items-center h-[50px] px-5">
           
           {/* Submit button */}
           <Icon

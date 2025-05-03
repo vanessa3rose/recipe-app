@@ -192,23 +192,23 @@ export default function Details ({ isSelectedTab }) {
   return (
 
     // CONTAINER
-    <View className="flex-1 items-center justify-center bg-zinc100 border space-y-7">      
+    <View className="flex-1 items-center justify-center bg-zinc100 border-0.5 space-y-7">      
 
       {/* Grid */}
-      <View className="flex flex-col justify-center items-center w-11/12 bg-zinc700 border-2 border-black">
+      <View className="flex flex-col justify-start items-center w-11/12 bg-zinc700 border-2 border-black">
 
         {/* HEADER */}
         <View className="flex flex-row justify-center items-center bg-theme900 w-full h-[50px] border-b-2">
           
           {/* Meal Prep */}
-          <View className="flex justify-center items-center w-1/3 h-full border-r">
+          <View className="flex justify-center items-center w-1/3 h-full border-r-[1px]">
             <Text className="text-white font-bold text-center">
               MEAL PREP
             </Text>
           </View>
 
           {/* Amount - available and remaining */}
-          <View className="flex justify-center items-center w-1/4 h-full border-r">
+          <View className="flex justify-center items-center w-1/4 h-full border-r-0.5">
             <Text className="text-white font-bold text-center">
               AMOUNT
             </Text>
@@ -231,7 +231,7 @@ export default function Details ({ isSelectedTab }) {
 
 
         {/* SCROLLABLE CONTENT */}
-        <View className="flex-1 h-4/5 mt-[0.5px]">
+        <View className="flex h-4/5 mt-[0.5px]">
           <ScrollView
             className="mt[70px]"
             vertical

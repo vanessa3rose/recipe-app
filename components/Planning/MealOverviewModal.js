@@ -67,14 +67,14 @@ const MealOverviewModal = ({
           <View className="flex flex-row justify-evenly px-2">
 
             {/* text */}
-            <View className="flex border w-1/2 rounded-sm">
+            <View className="flex border-0.5 w-1/2 rounded-sm">
               <Text className="leading-7 text-center text-[12px] italic text-black bg-theme200 rounded-sm">
                 {data.prepCal} {" calories"}
               </Text>
             </View>
 
             {/* data */}
-            <View className="flex border w-1/3 rounded-sm">
+            <View className="flex border-0.5 w-1/3 rounded-sm">
               <Text className="leading-7 text-center text-[12px] italic text-black bg-theme200 rounded-sm">
                 {"$"}{data.prepPrice}
               </Text>

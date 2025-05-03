@@ -658,7 +658,7 @@ const PrepToRecipeModal = ({
                       <View className="flex flex-col">
 
                         {/* original ingredient */}
-                        <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b ${index % 2 === 0 ? "bg-zinc400" : "bg-theme300"}`}>
+                        <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b-0.5 ${index % 2 === 0 ? "bg-zinc400" : "bg-theme300"}`}>
                           {/* name */}
                           <Text className="text-black text-[12px] font-semibold text-center px-1 w-[88%]">
                               {prepData?.currentData[index]?.ingredientData?.ingredientName}
@@ -731,7 +731,7 @@ const PrepToRecipeModal = ({
                         setIngredientDropdownOpen(false);
                       }}
                     >
-                      <Text className={`${searchIngredientQuery !== '' && searchIngredientQuery !== "" ? "text-black" : "text-zinc400"} ${ingredientDropdownOpen ? "rounded-b-[5px] rounded-tr-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] py-[5px] text-[13px] leading-[16px]`}>
+                      <Text className={`${searchIngredientQuery !== '' && searchIngredientQuery !== "" ? "text-black" : "text-zinc400"} ${ingredientDropdownOpen ? "rounded-b-[5px] rounded-tr-[5px]" : "rounded-[5px]"} flex bg-white border-[1px] border-zinc300 px-[10px] py-[5px] text-[13px] leading-[16px]`}>
                         {searchIngredientQuery !== '' && searchIngredientQuery !== "" ? searchIngredientQuery : "search for ingredient"}
                       </Text>
                     </TouchableOpacity>
@@ -761,7 +761,7 @@ const PrepToRecipeModal = ({
                     
                     {/* Ingredient Dropdown */}
                     {(ingredientDropdownOpen && !isKeyboardOpen) && (
-                      <View className="absolute left-[8px] right-[50px] bottom-[100%] border-x border-t bg-zinc500 rounded-t-[5px] max-h-[200px] z-50">
+                      <View className="absolute left-[8px] right-[50px] bottom-[100%] border-x-0.5 border-t-0.5 bg-zinc500 rounded-t-[5px] max-h-[200px] z-50">
                         <ScrollView>
                           {filteredIngredientData.map((item, index) => (
                             <TouchableOpacity
@@ -806,7 +806,7 @@ const PrepToRecipeModal = ({
                   <View className="flex flex-row w-full border-2 border-zinc450 rounded-bl-3xl mb-4">
 
                     {/* store */}
-                    <View className="flex flex-col w-[10%] bg-white justify-center items-center rounded-bl-3xl border-r">
+                    <View className="flex flex-col w-[10%] bg-white justify-center items-center rounded-bl-3xl border-r-0.5">
                       <TouchableOpacity 
                         onPress={() => changeStore()} 
                         className="flex items-center justify-center w-[30px]"
@@ -1014,7 +1014,7 @@ const PrepToRecipeModal = ({
                           <View className="flex flex-col">
 
                             {/* name */}
-                            <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b ${index % 2 === 0 ? "bg-theme100" : "bg-theme200"}`}>
+                            <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b-0.5 ${index % 2 === 0 ? "bg-theme100" : "bg-theme200"}`}>
                               <Text className="text-black text-[12px] text-left px-1">
                                   {prepData?.currentData[index]?.ingredientData?.ingredientName}
                               </Text>
@@ -1081,7 +1081,7 @@ const PrepToRecipeModal = ({
                       </View>
               
                       {/* numbers of recipes that match the filtering */}
-                      <View className="flex justify-center items-center py-1 px-2 bg-zinc700 border border-zinc900">
+                      <View className="flex justify-center items-center py-1 px-2 bg-zinc700 border-0.5 border-zinc900">
                         <Text className="text-white font-bold text-[12px]">
                           {filteredRecipeList.length - 1} {filteredRecipeList.length - 1 === 1 ? "RECIPE" : "RECIPES"}
                         </Text>
@@ -1133,7 +1133,7 @@ const PrepToRecipeModal = ({
                         <View className="flex flex-col">
 
                           {/* name */}
-                          <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b ${index % 2 === 0 ? "bg-zinc300" : "bg-zinc350"}`}>
+                          <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b-0.5 border-b-zinc500 ${index % 2 === 0 ? "bg-zinc300" : "bg-zinc350"}`}>
                             <Text className="text-black text-[12px] text-left px-1">
                                 {selectedRecipeData?.ingredientData[index]?.ingredientName}
                             </Text>
@@ -1247,7 +1247,7 @@ const PrepToRecipeModal = ({
                 
                 {/* Ingredient Dropdown */}
                 {ingredientDropdownOpen && (
-                 <View className="absolute w-full bottom-[100%] border-x border-t bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
+                 <View className="absolute w-full bottom-[100%] border-x-0.5 border-t-0.5 bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
                     <ScrollView>
                       {filteredIngredientData.map((item, index) => (
                         <TouchableOpacity

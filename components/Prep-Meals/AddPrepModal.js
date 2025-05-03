@@ -330,7 +330,7 @@ const AddPrepModal = ({
           {option === "NEW"
             ?
               // NEW
-              <View className="flex flex-row justify-center items-center mb-2 h-[50px] border border-zinc500 bg-white rounded-md p-2 mx-4">
+              <View className="flex flex-row justify-center items-center mb-2 h-[50px] border-0.5 border-zinc500 bg-white rounded-md p-2 mx-4">
                 {/* Prep Name Input */}
                 <TextInput
                   className="text-center mb-1 text-[14px] leading-[16px]"
@@ -397,7 +397,7 @@ const AddPrepModal = ({
                         {selectedSpotlightData?.ingredientData[index] !== null &&
                           <View className="flex flex-col h-[50px] mt-0.5">
 
-                            <View className={`flex w-full h-1/2 justify-center items-center border-b ${index % 2 === 0 ? "bg-zinc350" : "bg-theme200"}`}>
+                            <View className={`flex w-full h-1/2 justify-center items-center border-b-0.5 ${index % 2 === 0 ? "bg-zinc350" : "bg-theme200"}`}>
                               <Text className="text-black text-[12px] font-semibold text-center px-1">
                                 {selectedSpotlightData?.ingredientData[index]?.ingredientName}
                               </Text>
