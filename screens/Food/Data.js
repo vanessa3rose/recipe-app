@@ -412,11 +412,11 @@ const closeTypeModal = () => {
 ///////////////////////////////// HTML /////////////////////////////////
 
   return (
-    <View className={`flex-1 bg-zinc300 border py-4 pl-4 ${filteredData?.length === 0 ? 'pr-4' : 'pr-2'} overflow-x-auto`}>
+    <View className={`flex-1 bg-zinc300 border-0.5 py-4 pl-4 ${filteredData?.length === 0 ? 'pr-4' : 'pr-2'} overflow-x-auto`}>
 
-      <View className="flex-row justify-center items-center pl-2">
+      <View className="flex-row justify-center items-center px-2 w-full">
         {/* BLANK FILTERING */}
-        <View>
+        <View className="w-1/12 justify-center items-center">
           <Icon
             name={isEmptyFiltering ? "filter-circle" : "filter-circle-outline"}
             color={isEmptyFiltering ? colors.theme600 : 'black'}
@@ -426,16 +426,16 @@ const closeTypeModal = () => {
         </View>
 
         {/* INGREDIENT FILTERING */}
-        <View className="flex flex-row py-2 pr-4 items-center">
+        <View className="flex flex-row py-2 pr-2 items-center justify-center">
 
           {/* Filter Input */}
-          <View className="flex-1 h-[40px] justify-center">
+          <View className="flex h-[40px] justify-center w-11/12">
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder={`search for ingredient`}
               placeholderTextColor={colors.zinc400}
-              className="flex-1 bg-white rounded-[5px] border border-zinc400 p-2.5 text-[16px] leading-[18px] ml-2.5"
+              className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc350 p-2.5 text-[16px] leading-[18px] ml-2.5"
             />
 
             <View className="absolute right-1 flex flex-row">
@@ -461,13 +461,14 @@ const closeTypeModal = () => {
           </View>
 
           {/* Add Button */}
-          <Icon 
-            size={24}
-            color={'black'}
-            name="add-circle"
-            paddingLeft={10}
-            onPress={() => setModModalVisible(true)}
-          />
+          <View className="flex w-1/12 justify-center items-end">
+            <Icon 
+              size={24}
+              color={'black'}
+              name="add-circle"
+              onPress={() => setModModalVisible(true)}
+            />
+          </View>
         </View>
       </View>
 
@@ -565,7 +566,7 @@ const closeTypeModal = () => {
         <View className="flex-1 mt-2 mb-1 border-2 border-black bg-zinc600 py-2 w-full">
 
           {/* Store Dropdown */}
-          <View className="absolute w-[125px] h-[50px] bg-zinc-800 border-r-2 border-b border-black z-20">
+          <View className="absolute w-[125px] h-[50px] bg-zinc-800 border-r-2 border-b-2 border-zinc900 z-20">
             <Picker
               selectedValue={selectedStore}
               onValueChange={(itemValue) => setSelectedStore(itemValue)}
@@ -634,13 +635,13 @@ const closeTypeModal = () => {
             <View className="p-2 border-r-2 bg-theme900 w-[90px] h-[100px] border-b-2 border-black flex justify-center items-center">
               <Text className="text-center font-bold text-white text-[12px]">BRAND</Text>
             </View>
-            <View className="p-2 border-r-2 bg-theme900 w-[270px] h-[50px] border-b border-black flex justify-center items-center">
+            <View className="p-2 border-r-2 bg-theme900 w-[270px] h-[50px] border-b-[1px] border-b-zinc800 flex justify-center items-center">
               <Text className="text-center font-bold text-white text-[12px]">SERVINGS</Text>
             </View>
-            <View className="p-2 border-r-2 bg-theme900 w-[180px] h-[50px] border-b border-black flex justify-center items-center">
+            <View className="p-2 border-r-2 bg-theme900 w-[180px] h-[50px] border-b-[1px] border-b-zinc800 flex justify-center items-center">
               <Text className="text-center font-bold text-white text-[12px]">CALORIES</Text>
             </View>
-            <View className="p-2 bg-theme900 w-[180px] h-[50px] border-b border-black flex justify-center items-center">
+            <View className="p-2 bg-theme900 w-[180px] h-[50px] border-b-[1px] border-b-zinc800 flex justify-center items-center">
               <Text className="text-center font-bold text-white text-[12px]">PRICE</Text>
             </View>
           </ScrollView>
@@ -653,22 +654,22 @@ const closeTypeModal = () => {
             scrollEnabled={false}
           >
             <View className="p-2 border-r-2 w-[90px] h-[50px] flex justify-center items-center"/>
-            <View className="p-2 border-r w-[90px] h-[50px] flex justify-center items-center">
+            <View className="p-2 border-r-0.5 w-[90px] h-[50px] flex justify-center items-center">
               <Text className="text-center font-bold text-white text-[12px]">SERVING SIZE</Text>
             </View>
-            <View className="p-2 border-r w-[90px] h-[50px] flex justify-center items-center">
+            <View className="p-2 border-r-0.5 w-[90px] h-[50px] flex justify-center items-center">
               <Text className="text-center font-bold text-white text-[12px]">PER CONTAINER</Text>
             </View>
             <View className="p-2 border-r-2 w-[90px] h-[50px] flex justify-center items-center">
               <Text className="text-center font-bold text-white text-[12px]">TOTAL YIELD</Text>
             </View>
-            <View className="p-2 border-r w-[90px] h-[50px] flex justify-center items-center">
+            <View className="p-2 border-r-0.5 w-[90px] h-[50px] flex justify-center items-center">
               <Text className="text-center font-bold text-white text-[12px]">PER SERVING</Text>
             </View>
             <View className="p-1 border-r-2 w-[90px] h-[50px] flex justify-center items-center">
               <Text className="text-center font-bold text-white text-[12px]">PER CONTAINER</Text>
             </View>
-            <View className="p-2 border-r w-[90px] h-[50px] flex justify-center items-center">
+            <View className="p-2 border-r-0.5 w-[90px] h-[50px] flex justify-center items-center">
               <Text className="text-center font-bold text-white text-[12px]">PER SERVING</Text>
             </View>
             <View className="p-2 w-[90px] h-[50px] flex justify-center items-center">
@@ -691,7 +692,7 @@ const closeTypeModal = () => {
               {filteredData?.map((row, rowIndex) => (
                 <View 
                   key={rowIndex} 
-                  className={`border-b border-b-theme600 border-r-2 border-r-theme600 ${rowIndex % 2 !== 0 ? 'bg-theme400' : 'bg-theme300'} w-[125px] h-[65px] flex justify-center items-center`}
+                  className={`border-b-0.5 border-b-theme600 border-r-2 border-r-theme600 ${rowIndex % 2 !== 0 ? 'bg-theme400' : 'bg-theme300'} w-[125px] h-[65px] flex justify-center items-center`}
                 >
                   <Text
                     className={`text-center font-bold text-white text-[12px] px-2 ${row.ingredientName.link && "underline"}`}
@@ -722,12 +723,12 @@ const closeTypeModal = () => {
                   </View>
 
                   {/* Serving size + unit */}
-                  <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r border-zinc500">
+                  <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
                     <Text className="text-[12px] text-center">{row.servingSize}</Text>
                   </View>
 
                   {/* Serving container */}
-                  <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r border-zinc500">
+                  <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
                     <Text className="text-[12px] text-center">{row.servingContainer}</Text>
                   </View>
 
@@ -737,7 +738,7 @@ const closeTypeModal = () => {
                   </View>
 
                   {/* Calories per serving */}
-                  <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r border-zinc500">
+                  <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
                     <Text className="text-[12px] text-center">{row.calServing}</Text>
                   </View>
 
@@ -747,7 +748,7 @@ const closeTypeModal = () => {
                   </View>
 
                   {/* Price per serving */}
-                  <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r border-zinc500">
+                  <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
                     <Text className="text-[12px] text-center">{row.priceServing}</Text>
                   </View>
 
@@ -764,7 +765,7 @@ const closeTypeModal = () => {
         </View>
 
         {/* Fixed Edit/Delete Column */}
-        <View className="flex-1 pt-[120px] pb-4">
+        <View className="flex pt-[120px] pb-4">
           <ScrollView
             className="right-[-1px]"
             vertical

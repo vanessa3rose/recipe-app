@@ -790,19 +790,18 @@ export default function ShoppingList ({ isSelectedTab }) {
     setSpotlightModalVisible(false);
   }
 
-
   ///////////////////////////////// HTML /////////////////////////////////
 
   return (
 
     // CONTAINER
-    <View className="flex flex-col w-full h-full items-center justify-center bg-zinc300 border">
-
+    <View className="flex flex-col w-full h-full items-center justify-center bg-zinc300 border-0.5">
+      
       {/* Store Display */}
       <View className="flex h-4/5 -mt-5 w-full justify-center items-center space-y-5">
 
         {/* HEADER */}
-        <View className="flex flex-row w-11/12 justify-evenly items-center h-[30px] border-black bg-zinc700 border-[1px]">
+        <View className="flex flex-row w-11/12 justify-evenly items-center h-[30px] border-[1px] border-black bg-zinc700">
                   
           {/* Selection */}
           <View className="w-[45%] h-[30px] ml-[-10px] z-20">
@@ -863,7 +862,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                               <View className="flex flex-row border-b-[1px] w-full h-[60px]">
 
                                 {/* Specifics */}
-                                <View className={`flex w-[30px] justify-center items-center ${Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index] ? "bg-zinc500" : "bg-theme700"} space-y-[4px] border-r`}>
+                                <View className={`flex w-[30px] justify-center items-center ${Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index] ? "bg-zinc500" : "bg-theme700"} space-y-[4px] border-r-0.5`}>
                                   
                                   {/* BUTTONS */}
                                   <View className="flex flex-col space-y-[3px]">
@@ -986,7 +985,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                               <View className="flex flex-row border-b-[1px] h-[30px]">
 
                                 {/* Included Button ONLY */}
-                                <View className="w-[30px] bg-zinc300 border-r justify-center items-center z-10">
+                                <View className="w-[30px] bg-zinc300 border-r-0.5 justify-center items-center z-10">
                                   <Icon
                                     name={Array.isArray(allStoreIncluded[selectedStore]) && allStoreIncluded[selectedStore][index] ? "close-outline" : "add"}
                                     size={14}
@@ -1039,10 +1038,10 @@ export default function ShoppingList ({ isSelectedTab }) {
       <View className="flex flex-row h-[15%] w-11/12 space-x-5 justify-center items-center rounded">
          
         {/* Prices and Amounts */}
-        <View className="flex flex-col justify-center items-center w-[45%] h-[90%] bg-theme400 rounded-lg border border-black">
+        <View className="flex flex-col justify-center items-center w-[45%] h-[90%] bg-theme400 rounded-lg border-0.5 border-black">
           
           {/* overall price and number of recipes */}
-          <TouchableOpacity className="flex w-full py-2 bg-zinc500 justify-center items-center border-b rounded-t-lg" onPress={() => setSpotlightModalVisible(true)}>
+          <TouchableOpacity className="flex w-full py-2 bg-zinc500 justify-center items-center border-b-0.5 rounded-t-lg" onPress={() => setSpotlightModalVisible(true)}>
             <Text className="font-bold text-[14px] text-white text-center">
               {"$"}
               {(storeListCosts['aList'] + storeListCosts['mbList'] + storeListCosts['smList'] + storeListCosts['ssList'] + storeListCosts['tList'] + storeListCosts['wList']).toFixed(2)}

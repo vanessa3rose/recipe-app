@@ -51,7 +51,11 @@ const RadioWarningModal = ({
               {prepDate}
             </Text>
 
-            <View className="flex justify-center items-center pt-4">
+            {/* divider */}
+            <View className="h-[1px] bg-zinc400 m-5"/>
+
+            {/* Warning */}
+            <View className="flex justify-center items-center">
               <Text className="text-[15px] italic text-pink-700 font-medium">
                 {"Would you like to proceed?"}
               </Text>

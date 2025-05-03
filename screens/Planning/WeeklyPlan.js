@@ -1084,7 +1084,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   return (
 
     // CONTAINER
-    <View className="flex-1 items-center justify-center bg-zinc100 border space-y-7">      
+    <View className="flex-1 items-center justify-center bg-zinc100 border-0.5 space-y-7">      
         
       {/* WEEK SELECTION */}
       <View className="flex flex-row justify-center items-center bg-zinc100 pl-7">
@@ -1143,7 +1143,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
       {/* BUTTONS */}
       <View className="flex flex-row -mb-6 -mt-3 justify-center items-center w-full px-3">
-        <View className="flex flex-row w-full bg-theme100 border border-zinc500">
+        <View className="flex flex-row w-full bg-theme100 border-0.5 border-zinc500">
 
           {/* week change */}
           <View className="flex flex-row justify-center items-center w-[24%]">
@@ -1348,7 +1348,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
               {/* Details */}
               <TouchableOpacity 
-                className={`w-1/6 justify-center items-center h-full space-y-1 border-l border-black ${weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA') ? "bg-zinc500" : "bg-theme600"}`}
+                className={`w-1/6 justify-center items-center h-full space-y-1 border-l-0.5 border-black ${weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA') ? "bg-zinc500" : "bg-theme600"}`}
                 activeOpacity={0.8}
                 onPress={() => displaySnack(index, data?.snacks)}
               >
@@ -1511,7 +1511,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
             }
             placeholder=""
             style={{ height: 50, backgroundColor: colors.zinc600, borderWidth: 1, borderColor: colors.zinc800, justifyContent: 'center', }}
-            dropDownContainerStyle={{ borderLeftWidth: 1, borderRightWidth: 1, borderTopWidth: 1, borderColor: colors.zinc500, borderRadius: 0, }}
+            dropDownContainerStyle={{ borderLeftWidth: 1, borderRightWidth: 1, borderTopWidth: 1, borderColor: colors.zinc500, borderRadius: 0, backgroundColor: colors.zinc100 }}
             textStyle={{ color: prepData.length === 0 ? colors.theme200 : "white", fontWeight: 500, textAlign: 'center', fontSize: 13, }}
             listItemContainerStyle={{ borderBottomWidth: 0.5, borderBottomColor: colors.zinc450, }}
             ArrowDownIconComponent={() => {

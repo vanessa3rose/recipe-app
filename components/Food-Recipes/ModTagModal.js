@@ -213,7 +213,7 @@ const ModTagModal = ({ modalVisible, closeModal, currTag }) => {
           {/* USER INPUT - new tag name*/}
           <View className="flex flex-row w-full justify-evenly items-center mb-2">
             <TextInput
-              className="border border-zinc500 bg-white rounded-md px-2 h-[30px] w-3/4 text-[14px] leading-[16px]"
+              className="border-0.5 border-zinc500 bg-white rounded-md px-2 h-[30px] w-3/4 text-[14px] leading-[16px]"
               placeholder={currTag}
               placeholderTextColor={colors.zinc400}
               blurOnSubmit={true}

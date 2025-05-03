@@ -149,7 +149,7 @@ const ModCurrentModal = ({
           <View className="h-[1px] bg-zinc400 mb-4"/>
 
           {/* CURRENT NAME */}
-          <View className="flex flex-row justify-center items-center content-center mb-4 h-[60px] border border-zinc500 bg-white rounded-md p-2 mx-2.5">
+          <View className="flex flex-row justify-center items-center content-center mb-4 h-[60px] border-0.5 border-zinc500 bg-white rounded-md p-2 mx-2.5">
             <TextInput
               className="text-center pb-1 text-[14px] leading-[16px]"
               placeholder="Custom Ingredient Name"
@@ -172,11 +172,11 @@ const ModCurrentModal = ({
               Serving Size
             </Text>
 
-            <View className="flex-1 flex-row border-t border-b border-zinc500">
+            <View className="flex-1 flex-row border-t-0.5 border-b-0.5 border-zinc500">
 
               {/* Size */}
               <TextInput
-                className="bg-theme100 p-1 flex-1 text-center border-l border-zinc500 text-[14px] leading-[16px]"
+                className="bg-theme100 p-1 flex-1 text-center border-l-0.5 border-zinc500 text-[14px] leading-[16px]"
                 placeholder="0 0/0"
                 placeholderTextColor={colors.zinc400}
                 value={ServingSize}
@@ -185,7 +185,7 @@ const ModCurrentModal = ({
 
               {/* Units */}
               <TextInput
-                className="bg-theme100 p-1 flex-1 border-r border-zinc500 text-[14px] leading-[16px]"
+                className="bg-theme100 p-1 flex-1 border-r-0.5 border-zinc500 text-[14px] leading-[16px]"
                 placeholder="unit(s)"
                 placeholderTextColor={colors.zinc400}
                 value={Unit}
@@ -204,7 +204,7 @@ const ModCurrentModal = ({
     
             {/* Input */}
             <TextInput
-              className="border border-zinc500 bg-theme100 p-1 flex-1 text-center text-[14px] leading-[16px]"
+              className="border-0.5 border-zinc500 bg-theme100 p-1 flex-1 text-center text-[14px] leading-[16px]"
               placeholder="0"
               placeholderTextColor={colors.zinc400}
               value={CalServing}

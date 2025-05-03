@@ -110,7 +110,7 @@ const ViewIngredientModal = ({
                         {ingredientData[`${store}Brand`]}
                     </Text>
 
-                    <View className="flex w-full space-y-2">
+                    <View className="pt-4 flex w-full space-y-2">
 
                       {/* Serving Size */}
                       <View className="flex flex-row justify-between items-center">
@@ -119,7 +119,7 @@ const ViewIngredientModal = ({
                           Serving Size
                         </Text>
                         {/* size and units */}
-                        <Text className="flex-1 flex-row border border-zinc500 bg-theme100 p-1 text-center text-[14px] leading-[16px]">
+                        <Text className="flex-1 flex-row border-0.5 border-zinc500 bg-theme100 p-1 text-center text-[14px] leading-[16px]">
                           {ingredientData[`${store}ServingSize`]} {extractUnit(ingredientData[`${store}Unit`], ingredientData[`${store}ServingSize`])}
                         </Text>
                       </View>
@@ -131,7 +131,7 @@ const ViewIngredientModal = ({
                           Servings Per Container
                         </Text>
                         {/* amount */}
-                        <Text className="flex-1 bg-theme100 border border-zinc500 p-1 text-center text-[14px] leading-[16px]">
+                        <Text className="flex-1 bg-theme100 border-0.5 border-zinc500 p-1 text-center text-[14px] leading-[16px]">
                           {ingredientData[`${store}ServingContainer`]}
                         </Text>
                       </View>
@@ -143,7 +143,7 @@ const ViewIngredientModal = ({
                           Calories Per Container
                         </Text>
                         {/* calories */}
-                        <Text className="flex-1 bg-theme100 border border-zinc500 p-1 text-center text-[14px] leading-[16px]">
+                        <Text className="flex-1 bg-theme100 border-0.5 border-zinc500 p-1 text-center text-[14px] leading-[16px]">
                           {ingredientData[`${store}CalContainer`]} {"cal"}
                         </Text>
                       </View>
@@ -155,7 +155,7 @@ const ViewIngredientModal = ({
                           Price Per Container
                         </Text>
                         {/* price */}
-                        <Text className="flex-1 flex-row border border-zinc500 p-1 bg-theme100 text-center">
+                        <Text className="flex-1 flex-row border-0.5 border-zinc500 p-1 bg-theme100 text-center">
                           {"$"}{ingredientData[`${store}PriceContainer`]}
                         </Text>
                       </View>

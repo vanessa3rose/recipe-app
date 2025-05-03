@@ -53,7 +53,7 @@ const AmountsDetailsModal = ({
               </View>
 
               {/* data */}
-              <View className="flex border border-r-[1px] w-[55%]">
+              <View className="flex border-0.5 border-r-0.5 border-zinc700 w-[55%]">
                 <Text className="flex w-full leading-7 text-center text-[12px] text-black bg-theme200">
                     {data.amountLeft} {extractUnit(data.ingredientData[`${data.ingredientStore}Unit`], data.amountLeft)}
                 </Text>
@@ -72,7 +72,7 @@ const AmountsDetailsModal = ({
               </View>
 
               {/* data */}
-              <View className="flex border border-r-[1px] w-[55%]">
+              <View className="flex border-0.5 border-r-0.5 border-zinc700 w-[55%]">
                 <Text className="flex w-full leading-7 text-center text-[12px] text-black bg-theme200">
                   {data.amountTotal === "" ? "?" : data.amountTotal} {extractUnit(data.ingredientData[`${data.ingredientStore}Unit`], data.amountTotal)}
                 </Text>

@@ -1200,7 +1200,7 @@ export default function MealPrep ({ isSelectedTab }) {
   return (
 
     // CONTAINER
-    <View className="flex-1 items-center justify-center bg-zinc200 border">
+    <View className="flex-1 items-center justify-center bg-zinc200 border-0.5">
 
 
       {/* NOTES SECTION */}
@@ -1365,7 +1365,7 @@ export default function MealPrep ({ isSelectedTab }) {
               </View>
 
               {/* Multiplicity */}
-              <View className="flex flex-row bg-theme700 border-l items-center justify-center w-1/5 h-[50px] pr-[5px] z-30">
+              <View className="flex flex-row bg-theme700 border-l-0.5 items-center justify-center w-1/5 h-[50px] pr-[5px] z-30">
                 
                 {selectedPrepData !== null &&
                 <>
@@ -1427,14 +1427,14 @@ export default function MealPrep ({ isSelectedTab }) {
             {selectedPrepData !== null &&
             <>
               {/* ingredient header */}
-              <View className="flex items-center justify-center w-5/12 border-r">
+              <View className="flex items-center justify-center w-5/12 border-r-0.5">
                   <Text className="text-white text-xs font-bold">
                       INGREDIENT
                   </Text>
               </View>
 
               {/* amount header */}
-              <View className="flex items-center justify-center w-1/3 border-r">
+              <View className="flex items-center justify-center w-1/3 border-r-0.5">
                   <Text className="text-white text-xs font-bold">
                       AMOUNT
                   </Text>
@@ -1462,7 +1462,7 @@ export default function MealPrep ({ isSelectedTab }) {
               <View key={`frozen-${index}`} className="flex flex-row h-[30px] bg-white">
                 
                 {/* ingredient names */}
-                <View className={`flex items-center justify-center w-5/12 ${(currEnoughLeft[index] || selectedPrepData === null) ? "bg-theme600" : "bg-zinc500"} border-b border-r border-zinc700 z-10`}>
+                <View className={`flex items-center justify-center w-5/12 ${(currEnoughLeft[index] || selectedPrepData === null) ? "bg-theme600" : "bg-zinc500"} border-b-0.5 border-r-0.5 border-zinc700 z-10`}>
                   {/* on press, open a modal that gives the amounts */}
                   <TouchableOpacity
                     key={index}
@@ -1486,7 +1486,7 @@ export default function MealPrep ({ isSelectedTab }) {
                 </View>
 
                 {/* amount */}
-                <View className={`flex flex-row items-center justify-center ${(!currEnoughLeft[index] &&  selectedPrepData !== null) ? "bg-zinc300" : (!currMoreLeft[index] &&  selectedPrepData !== null) ? "bg-theme100" : "bg-zinc100"} w-1/3 border-b border-b-zinc400 border-r border-r-zinc400`}>
+                <View className={`flex flex-row items-center justify-center ${(!currEnoughLeft[index] &&  selectedPrepData !== null) ? "bg-zinc300" : (!currMoreLeft[index] &&  selectedPrepData !== null) ? "bg-theme100" : "bg-zinc100"} w-1/3 border-b-0.5 border-b-zinc400 border-r-[1px] border-r-zinc300 z-0`}>
                   
                   {/* indicator of the current ingredient */}
                   {(selectedPrepData !== null && (selectedCurrentIndex - 1) === (index)) &&
@@ -1525,7 +1525,7 @@ export default function MealPrep ({ isSelectedTab }) {
                 {/* details */}
                 <TouchableOpacity 
                   onPress={() => showCalcModal(index)}
-                  className={`flex flex-row items-center justify-evenly ${currEnoughLeft[index] || selectedPrepData === null ? "bg-white" : "bg-zinc200"} w-1/4 border-b border-b-zinc400`}
+                  className={`flex flex-row items-center justify-evenly ${currEnoughLeft[index] || selectedPrepData === null ? "bg-white" : "bg-zinc200"} w-1/4 border-b-0.5 border-b-zinc400`}
                 >
                   
                   {/* calories */}
@@ -1594,7 +1594,7 @@ export default function MealPrep ({ isSelectedTab }) {
           <View className="flex flex-row h-[30px] border-t-[0.25px] border-b-[1px] z-20 bg-theme800 w-full">
             
             {selectedPrepData !== null &&
-            <View className="flex flex-row items-center justify-center w-full border-r bg-theme800">
+            <View className="flex flex-row items-center justify-center w-full border-r-0.5 bg-theme800">
               
               {/* details */}
               <View className="flex w-5/12 items-center justify-center">
@@ -1678,7 +1678,7 @@ export default function MealPrep ({ isSelectedTab }) {
         <View className="flex flex-col pr-[10px] items-center justify-center">
 
           {/* Index Picker */}
-          <View className="flex z-0 w-[130px] bg-zinc700 border border-zinc900">
+          <View className="flex z-0 w-[130px] bg-zinc700 border-0.5 border-zinc900">
             <Picker
               selectedValue={selectedCurrentIndex}
               onValueChange={setSelectedCurrentIndex}
@@ -1697,7 +1697,7 @@ export default function MealPrep ({ isSelectedTab }) {
           </View>
           
           {/* Option Picker */}
-          <View className="flex z-0 w-[130px] bg-theme200 border border-theme400">
+          <View className="flex z-0 w-[130px] bg-theme200 border-0.5 border-theme400">
             <Picker
               selectedValue={selectedOption}
               onValueChange={setSelectedOption}
@@ -1776,7 +1776,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
         {/* BUTTONS */}
         <View className="flex ml-[10px] justify-center">
-          <View className={`flex flex-col space-y-[3px] items-center rounded bg-zinc300 pb-1 ${(selectedCurrentId !== "" && selectedCurrentId !== null) && "pt-1"}`}>
+          <View className="flex flex-col space-y-[3px] items-center rounded bg-zinc300 py-1">
                             
             {/* Submit */}
             {(selectedCurrentId !== "" && selectedCurrentId !== null) &&

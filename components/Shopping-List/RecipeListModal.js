@@ -47,7 +47,7 @@ const RecipeListModal = ({
           {/* recipe list */}
           {recipeList.map((recipe, index) => (
             <View className="flex flex-row justify-center items-center w-full px-4" key={index}>
-              <View className="flex flex-row border bg-black">
+              <View className="flex flex-row border-0.5 bg-black">
 
                 {/* recipe name */}
                 <View className="py-3 px-2 w-3/5 items-center justify-center bg-zinc500">
@@ -122,7 +122,7 @@ const RecipeListModal = ({
                   <View key={index} className="flex flex-row w-11/12 bg-black justify-center items-center">
                     
                     {/* Spotlight */}
-                    <View className={`w-7/12 py-1 px-2 bg-theme600 border-l ${index !== 0 && 'border-t-[1px] border-theme700'}`}>
+                    <View className={`w-7/12 py-1 px-2 bg-theme600 border-l-0.5 ${index !== 0 && 'border-t-[1px] border-theme700'}`}>
                       <Text className="text-[12.5px] text-left text-white">
                         {ingredient.spotlightName}
                       </Text>

@@ -8,6 +8,7 @@ import expo.modules.updates.UpdatesUtils
 import expo.modules.updates.db.entity.AssetEntity
 import expo.modules.updates.manifest.EmbeddedManifestUtils
 import expo.modules.updates.manifest.Update
+import expo.modules.updates.utils.AndroidResourceAssetUtils
 import java.io.File
 import java.io.IOException
 import java.security.NoSuchAlgorithmException
@@ -16,8 +17,12 @@ import java.security.NoSuchAlgorithmException
  * Utility class for Loader and its subclasses, to allow for easy mocking
  */
 open class LoaderFiles {
-  fun fileExists(destination: File): Boolean {
-    return destination.exists()
+  fun fileExists(context: Context, updateDirectory: File?, relativePath: String?): Boolean {
+    val filePath = relativePath ?: return false
+    if (AndroidResourceAssetUtils.isAndroidAssetOrResourceExisted(context, filePath)) {
+      return true
+    }
+    return File(updateDirectory, filePath).exists()
   }
 
   fun readEmbeddedUpdate(
@@ -69,7 +74,7 @@ open class LoaderFiles {
       context.resources.openRawResource(id)
         .use { inputStream -> return UpdatesUtils.verifySHA256AndWriteToFile(inputStream, destination, null) }
     } catch (e: Exception) {
-      Log.e(TAG, "Failed to copy asset " + asset.embeddedAssetFilename, e)
+      Log.e(TAG, "Failed to copy resource asset ${asset.resourcesFolder}/${asset.embeddedAssetFilename}", e)
       throw e
     }
   }

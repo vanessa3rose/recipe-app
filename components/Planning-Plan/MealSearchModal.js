@@ -370,7 +370,7 @@ const MealSearchModal = ({
                           {filteredPrepMeals[index].map((meal, i) => 
                             <View key={i}>
                               {meal === "LUNCH" &&
-                                <View className={`flex flex-row ${i !== filteredPrepMeals[index].indexOf("LUNCH") && "border-t border-theme500"} justify-center items-center space-x-2 py-0.5`}>
+                                <View className={`flex flex-row ${i !== filteredPrepMeals[index].indexOf("LUNCH") && "border-t-0.5 border-theme500"} justify-center items-center space-x-2 py-0.5`}>
                                   {/* current date */}
                                   <View className="flex">
                                     <Text className="text-zinc800 text-[12px] text-center">
@@ -429,7 +429,7 @@ const MealSearchModal = ({
                           {filteredPrepMeals[index].map((meal, i) => 
                             <View key={i}>
                               {meal === "DINNER" &&
-                                <View className={`flex flex-row ${i !== filteredPrepMeals[index].indexOf("DINNER") && "border-t border-theme500"} justify-center items-center space-x-2 py-0.5`}>
+                                <View className={`flex flex-row ${i !== filteredPrepMeals[index].indexOf("DINNER") && "border-t-0.5 border-theme500"} justify-center items-center space-x-2 py-0.5`}>
                                   {/* current date */}
                                   <View className="flex">
                                     <Text className="text-zinc800 text-[12px] text-center">

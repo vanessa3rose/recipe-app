@@ -209,10 +209,10 @@ const SnackListModal = ({
           <View className="flex flex-col justify-center items-center px-4 w-full mb-2">
 
             {/* TOP ROW */}
-            <View className="flex flex-row items-center justify-center border mb-2 bg-zinc600">
+            <View className="flex flex-row items-center justify-center border-0.5 mb-2 bg-zinc600">
 
               {/* Title */}
-              <View className="flex justify-center items-center px-1.5 py-1 w-1/2 border-r bg-zinc700">
+              <View className="flex justify-center items-center px-1.5 py-1 w-1/2 border-r-0.5 bg-zinc700">
                 <Text className="font-semibold text-white text-[12px]">
                   SNACKS
                 </Text>
@@ -243,7 +243,7 @@ const SnackListModal = ({
                     <View className="bg-black w-full flex-row">
 
                       {/* snack names */}
-                      <View className="flex items-center justify-center w-1/2 bg-theme600 border-b border-r border-zinc700 z-10">
+                      <View className="flex items-center justify-center w-1/2 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">
                         <View className="flex flex-wrap flex-row">
                           {/* Input */}
                           <TextInput
@@ -266,7 +266,7 @@ const SnackListModal = ({
                       </View>
 
                       {/* amount */}
-                      <View className="flex flex-row px-2 w-1/3 space-x-1 items-center justify-center bg-zinc100 border-b border-b-zinc400 border-r border-r-zinc300">
+                      <View className="flex flex-row px-2 w-1/3 space-x-1 items-center justify-center bg-zinc100 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc300">
                         {/* Amount Input */}
                         <TextInput
                           className="text-[9px] text-center"
@@ -304,7 +304,7 @@ const SnackListModal = ({
                       </View>
                       
                       {/* Details */}
-                      <View className="flex flex-col w-1/6 items-center justify-center px-1 bg-white border-b border-zinc400">
+                      <View className="flex flex-col w-1/6 items-center justify-center px-1 bg-white border-b-0.5 border-zinc400">
 
                         {/* calories */}
                         <View className="flex flex-row h-2/5 w-full space-x-0.5 justify-center items-center bg-white">

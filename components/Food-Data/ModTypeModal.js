@@ -437,7 +437,7 @@ const ModTypeModal = ({
             <View className="flex flex-row w-[45%] h-full items-center">
     
               {/* filter input */}
-              <View className="flex bg-white w-full border h-full border-zinc500 rounded-md p-2 justify-center items-center">
+              <View className="flex bg-white w-full border-0.5 h-full border-zinc500 rounded-md p-2 justify-center items-center">
                 <TextInput
                   className="mb-1 text-center text-[14px] leading-[16px]"
                   value={searchQuery}
@@ -555,7 +555,7 @@ const ModTypeModal = ({
 
                     {/* current selection part */}
                     <TouchableOpacity 
-                      className="flex flex-row w-full h-[25px] rounded-b-md bg-theme200 border border-theme400 justify-center items-center bottom-[-1.5px] px-2"
+                      className="flex flex-row w-full h-[25px] rounded-b-md bg-theme200 border-0.5 border-theme400 justify-center items-center bottom-[-1.5px] px-2"
                       onPress={() => setTypeDropdownOpen(!typeDropdownOpen)}
                     >
                       {/* text */}
@@ -580,7 +580,7 @@ const ModTypeModal = ({
                           {typeList.map((item, index) => (
                             <TouchableOpacity
                               key={index}
-                              className={`border-b ${item.label === filterType && "bg-zinc100"} border-zinc350 px-4 py-2`}
+                              className={`border-b-0.5 ${item.label === filterType && "bg-zinc100"} border-zinc350 px-4 py-2`}
                               onPress={() => {
                                 setFilterType(item.value === "CUSTOM" ? "" : item.value);
                                 setTypeDropdownOpen(false);
@@ -683,13 +683,13 @@ const ModTypeModal = ({
             vertical
             scrollEventThrottle={16}
             contentContainerStyle={{ flexDirection: 'column' }}
-            className="flex-1 border-4 border-zinc300 bg-zinc300 mx-4 my-2 h-1/2"
+            className="flex border-4 border-zinc300 bg-zinc300 mx-4 my-2 h-1/2"
           >
             {filteredData.map((ingredient, index) => (
               <View key={index} className="flex mb-2">
 
                 {/* ingredient name */}
-                <View className={`flex py-1 px-2 border-b ${index % 2 === 0 ? "bg-theme300 border-b-zinc600" : "bg-theme400 border-b-zinc700"}`}>
+                <View className={`flex py-1 px-2 border-b-0.5 ${index % 2 === 0 ? "bg-theme300 border-b-zinc600" : "bg-theme400 border-b-zinc700"}`}>
                   <Text className="text-[12.5px] text-black font-medium">
                     {ingredient.ingredientName}
                   </Text>

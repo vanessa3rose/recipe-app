@@ -319,7 +319,7 @@ const CalcIngredientModal = ({
                     CALORIES
                   </Text>
                   {/* user input */}
-                  <View className="flex-1 w-full py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
+                  <View className="flex w-full py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
                     <TextInput
                       className="text-center text-[14px] leading-[16px]"
                       placeholder="0"
@@ -339,7 +339,7 @@ const CalcIngredientModal = ({
                     COST
                   </Text>
                   {/* user input */}
-                  <View className="flex-1 flex-row w-full py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
+                  <View className="flex flex-row w-full py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
                     <Text className={`${goalPrice === 0 || goalPrice === "" ? "text-zinc500" : "text-black"}`}>
                       $
                     </Text>
@@ -361,7 +361,7 @@ const CalcIngredientModal = ({
                   SERVINGS
                 </Text>
                 {/* user input */}
-                <View className="flex-1 w-full py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
+                <View className="flex w-full py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
                   <TextInput
                     className="text-center text-[14px] leading-[16px]"
                     placeholder="0.00"

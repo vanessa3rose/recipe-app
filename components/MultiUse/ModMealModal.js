@@ -164,10 +164,10 @@ const ModMealModal = ({
 
 
           {/* USER INPUT */}
-          <View className="flex flex-row justify-evenly content-center mb-2 h-[50px]">
+          <View className="flex flex-row justify-center space-x-2 px-2 content-center mb-2 h-[50px]">
 
             {/* Meal Name */}
-            <View className={`flex items-center justify-center border border-zinc500 bg-white rounded-md px-2 ${editingId !== null || type !== "recipe" ? "w-[90%]" : "w-5/6"}`}>
+            <View className={`flex items-center justify-center border-0.5 border-zinc500 bg-white rounded-md px-2 ${editingId !== null || type !== "recipe" ? "w-[90%]" : "w-5/6"}`}>
               <TextInput
                 className="text-center mb-1 text-[14px] leading-[16px]"
                 placeholder={editingId || type !== "recipe" ? mealName : ("Recipe " + defaultName)}

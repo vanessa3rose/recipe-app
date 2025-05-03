@@ -557,10 +557,10 @@ const MealDetailsModal = ({
             {!(Array.isArray(data?.currentData) && data?.currentData.every(item => item === null))
             ? // if filled in
             <>
-              <View className="flex flex-row items-center justify-center border h-[50px] mb-1">
+              <View className="flex flex-row items-center justify-center border-0.5 h-[50px] mb-1">
                 
                 {/* Meal Name */}
-                <View className="flex justify-center items-center px-1.5 w-7/12 h-full border-r bg-zinc700">
+                <View className="flex justify-center items-center px-1.5 w-7/12 h-full border-r-0.5 bg-zinc700">
                   <Text className="text-[13px] font-semibold text-white text-center">
                       {data?.prepName?.toUpperCase() || ""}
                   </Text>
@@ -583,7 +583,7 @@ const MealDetailsModal = ({
                     <View className="bg-black w-full flex-row">
 
                       {/* ingredient names */}
-                      <View className="flex items-center justify-center w-7/12 bg-theme600 border-b border-r border-zinc700 z-10">
+                      <View className="flex items-center justify-center w-7/12 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">
                         <View className="flex flex-wrap flex-row">
                           <Text className="text-white font-semibold text-[10px] text-center px-2">
                             {data?.currentData[index]?.ingredientData?.ingredientName || ""}
@@ -592,7 +592,7 @@ const MealDetailsModal = ({
                       </View>
                       
                       {/* amount */}
-                      <View className="flex flex-row px-1 items-center justify-center bg-zinc100 w-1/4 border-b border-b-zinc400 border-r border-r-zinc300">
+                      <View className="flex flex-row px-1 items-center justify-center bg-zinc100 w-1/4 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc300">
                         {data?.currentData[index]?.ingredientData[`${data.currentData[index].ingredientStore}Unit`] &&
                           <Text className="text-[10px] text-center">
                             {data?.currentAmounts[index] || "?"}{` ${extractUnit(data?.currentData[index]?.ingredientData[`${data.currentData[index].ingredientStore}Unit`], data?.currentAmounts[index]) || ""}`}
@@ -601,7 +601,7 @@ const MealDetailsModal = ({
                       </View>
 
                       {/* details */}
-                      <View className="flex flex-col items-center justify-evenly bg-white w-1/6 border-b border-b-zinc400">
+                      <View className="flex flex-col items-center justify-evenly bg-white w-1/6 border-b-0.5 border-b-zinc400">
                         
                         {/* calories */}
                         {data?.currentCals[index] ? 
@@ -627,7 +627,7 @@ const MealDetailsModal = ({
             <View className="flex flex-col items-center justify-center mb-1 space-y-2">
               
               {/* Meal Name */}
-              <View className="flex justify-center items-center w-full h-[30px] border bg-theme600">
+              <View className="flex justify-center items-center w-full h-[30px] border-0.5 bg-theme600">
                 <Text className="text-[13px] font-semibold text-white text-center">
                     {data?.prepName || ""}
                 </Text>
@@ -699,7 +699,7 @@ const MealDetailsModal = ({
                 {/* simple create without ingredients */}
                 <View className="flex flex-row justify-evenly content-center mb-4 w-full h-[65px] px-5">
                   {/* Prep Name Input */}
-                  <View className="flex justify-center items-center h-full w-1/2 bg-white rounded-md py-1 px-2 border border-zinc500">
+                  <View className="flex justify-center items-center h-full w-1/2 bg-white rounded-md py-1 px-2 border-0.5 border-zinc500">
                     <TextInput
                       className="text-center mb-1 text-[14px] leading-[16px]"
                       placeholder={prepName === "" ? "meal prep name" : prepName}
@@ -770,10 +770,10 @@ const MealDetailsModal = ({
                 <View className="flex flex-col justify-center items-center px-4 w-full mb-2">
 
                   {/* TOP ROW */}
-                  <View className="flex flex-row items-center justify-center border mb-1 bg-zinc600">
+                  <View className="flex flex-row items-center justify-center border-0.5 mb-1 bg-zinc600">
                     
                     {/* Meal Name Input */}
-                    <View className="flex justify-center items-center px-1.5 w-7/12 border-r bg-zinc700">
+                    <View className="flex justify-center items-center px-1.5 w-7/12 border-r-0.5 bg-zinc700">
                       <TextInput
                         className="text-[13px] font-semibold text-white text-center py-2 leading-[16px]"
                         placeholder={prepName === "" ? "meal prep name" : prepName}
@@ -831,7 +831,7 @@ const MealDetailsModal = ({
                         <View className="bg-black w-full flex-row">
     
                           {/* ingredient names */}
-                          <View className="flex items-center justify-center w-7/12 bg-theme600 border-b border-r border-zinc700 z-10">
+                          <View className="flex items-center justify-center w-7/12 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">
                             <View className="flex flex-wrap flex-row">
                               {/* Input */}
                               <TextInput
@@ -878,7 +878,7 @@ const MealDetailsModal = ({
                           </View>
                           
                           {/* amount */}
-                          <View className="flex flex-row px-2 space-x-0.5 items-center justify-center bg-zinc100 w-1/4 border-b border-b-zinc400 border-r border-r-zinc400">
+                          <View className="flex flex-row px-2 space-x-0.5 items-center justify-center bg-zinc100 w-1/4 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc400">
                             {/* Amount Input */}
                             <TextInput
                               className="text-[9px] text-center"
@@ -937,7 +937,7 @@ const MealDetailsModal = ({
                           </View>
     
                           {/* calories */}
-                          <View className="flex flex-row px-3 space-x-0.5 items-center justify-center bg-white w-1/6 border-b border-b-zinc400">
+                          <View className="flex flex-row px-3 space-x-0.5 items-center justify-center bg-white w-1/6 border-b-0.5 border-b-zinc400">
                             
                             {/* Amount Input */}
                             <TextInput

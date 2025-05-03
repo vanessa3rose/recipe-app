@@ -961,16 +961,16 @@ export default function CurrentFood ({ isSelectedTab }) {
   return (
     
     // CONTAINER
-    <View className="flex-1 items-center justify-center bg-zinc200 border">
+    <View className="flex-1 items-center justify-center bg-zinc200 border-0.5">
 
       {/* Number of meal preps */}
-      <View className="flex justify-center items-center w-5/6 h-[30px] mb-3 bg-zinc400 border rounded-md">
+      <View className="flex justify-center items-center w-5/6 h-[30px] mb-3 bg-zinc400 border-0.5 rounded-md">
         <Text className="text-[14px] font-bold text-black">
           {numPreps} {"MEAL PREP(S)"}
         </Text>
       </View>
 
-      {/* RECIPE CARD SECTION */}
+      {/* CURRENT SECTION */}
       <View className="flex flex-row">
         <View className="w-11/12 ml-[5px] border-[1px] border-black bg-zinc700">
 
@@ -988,7 +988,7 @@ export default function CurrentFood ({ isSelectedTab }) {
             </View>
 
             {/* ingredient header */}
-            <View className="flex flex-row  space-x-4 items-center justify-center w-2/5 border-r">
+            <View className="flex flex-row  space-x-4 items-center justify-center w-2/5 border-r-[1px]">
               {/* Text */}
               <Text className="text-white text-xs font-bold">
                 INGREDIENT
@@ -1003,14 +1003,14 @@ export default function CurrentFood ({ isSelectedTab }) {
             </View>
 
             {/* amount header */}
-            <View className="flex items-center justify-center w-[35%] border-r">
+            <View className="flex items-center justify-center w-[35%] border-r-0.5">
               <Text className="text-white text-xs font-bold">
                 AMOUNT
               </Text>
             </View>
 
             {/* unit price header */}
-            <View className="flex items-center justify-center w-1/6 border-r">
+            <View className="flex items-center justify-center w-1/6">
               <Text className="text-white text-xs font-bold">
                 UNIT $
               </Text>
@@ -1019,7 +1019,7 @@ export default function CurrentFood ({ isSelectedTab }) {
         
           {/* SCROLLABLE INGREDIENT GRID */}
           <ScrollView
-            className="flex-1 mt-[30px] w-full h-2/3"
+            className="flex-1 mt-[30px] w-full h-[70%]"
             scrollEventThrottle={16}
             onScroll={syncVerticalScroll}
             contentContainerStyle={{ flexDirection: 'row' }}
@@ -1035,7 +1035,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                     <View className="flex flex-row h-[50px]">
                       
                       {/* ICONS */}
-                      <View className="flex flex-col pt-2 items-center justify-center bg-theme500 w-1/12 border-b border-b-theme900">
+                      <View className="flex flex-col pt-2 items-center justify-center bg-theme500 w-1/12 border-b-0.5 border-b-theme900">
                         
                         {/* checkboxes */}
                         <Icon
@@ -1069,7 +1069,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                       <TouchableOpacity 
                         activeOpacity={0.75}
                         onPress={() => openViewDataModal(index)}
-                        className={`flex items-start justify-center w-2/5 border-b border-r border-theme900 pl-1 pr-[5px] ${curr.ingredientId === "" && newIds.indexOf(curr.ingredientData.ingredientName) !== -1 ? "bg-zinc500" : newIds.indexOf(curr.ingredientId) === -1 ? "bg-theme600" : "bg-zinc500"}`}
+                        className={`flex items-start justify-center w-2/5 border-b-0.5 border-r-0.5 border-theme900 pl-1 pr-[5px] ${curr.ingredientId === "" && newIds.indexOf(curr.ingredientData.ingredientName) !== -1 ? "bg-zinc500" : newIds.indexOf(curr.ingredientId) === -1 ? "bg-theme600" : "bg-zinc500"}`}
                       >
                         <Text className="text-white text-[12px]">
                           {curr && curr.ingredientData ? curr.ingredientData.ingredientName : ""}
@@ -1089,7 +1089,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                       )}
 
                       {/* amount */}
-                      <View className={`flex flex-row items-center justify-center bg-white w-[35%] border-b border-b-zinc400 border-r border-r-zinc300 z-20`}>
+                      <View className={`flex flex-row items-center justify-center bg-white w-[35%] border-b-0.5 border-b-zinc400 z-20`}>
                         {curr?.ingredientData ?
                           <View className="flex flex-row items-center justify-center">
 
@@ -1189,13 +1189,13 @@ export default function CurrentFood ({ isSelectedTab }) {
 
                       {/* price */}
                       <TouchableOpacity
-                        className="flex flex-row items-center justify-center bg-white w-1/6 border-b border-b-zinc400 border-r border-r-zinc300"
+                        className="flex flex-row items-center justify-center bg-white w-1/6 border-b-0.5 border-b-zinc450 bg-zinc200"
                         onPress={() => changePrice(index)}
                         activeOpacity={0.9}
                       >
                         {/* Amount */}
                         {Array.isArray(currPrices) && currPrices[index] !== "" &&
-                          <Text className={`text-[12px] leading-[15px] text-center ${(currPrices[index] === "0.00" || currPrices[index] === "0.0000") ? "bg-zinc200" : "bg-white"}`}>
+                          <Text className={`text-[12px] leading-[15px] text-center ${(currPrices[index] === "0.00" || currPrices[index] === "0.0000") ? "bg-zinc100 p-0.5" : "bg-zinc200"}`}>
                             {/* $ or ¢ display */}
                             {currPrices[index] >= 0.01 || currPrices[index] === "0.00" || currPrices[index] === ""
                             ?
@@ -1224,7 +1224,7 @@ export default function CurrentFood ({ isSelectedTab }) {
         
           {/* SCROLLABLE INGREDIENT GRID */}
           <ScrollView
-            className="w-full h-2/3"
+            className="w-full h-[70%]"
             contentOffset={{ y: scrollY }}
             scrollEnabled={false}
           >
@@ -1298,7 +1298,7 @@ export default function CurrentFood ({ isSelectedTab }) {
         <View className="flex flex-col items-center justify-center">
         
           {/* Ingredient Addition Info */}
-          <View className="flex flex-row z-0 w-[160px] h-[30px] space-x-2 justify-center items-center bg-zinc700 border border-zinc900">
+          <View className="flex flex-row z-0 w-[160px] h-[30px] space-x-2 justify-center items-center bg-zinc700 border-0.5 border-zinc900">
             
             {/* Current Ingredient Number */}
             <Text className="font-bold text-zinc100 text-[12px]">
@@ -1315,7 +1315,7 @@ export default function CurrentFood ({ isSelectedTab }) {
           </View>
         
           {/* Bottom Row */}
-          <View className="flex w-[160px] flex-row z-0 border border-theme400">
+          <View className="flex w-[160px] flex-row z-0 border-0.5 border-theme400">
             
             {/* store selection */}
             <TouchableOpacity 
@@ -1406,7 +1406,7 @@ export default function CurrentFood ({ isSelectedTab }) {
 
           {/* Ingredient Dropdown */}
           {ingredientDropdownOpen && !isKeyboardOpen && (
-            <View className="absolute w-full bottom-[100%] border-x border-t bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
+            <View className="absolute w-full bottom-[100%] border-x-0.5 border-t-0.5 bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
               <ScrollView>
                 {filteredIngredientData.map((item, index) => (
                   <TouchableOpacity
@@ -1520,7 +1520,7 @@ export default function CurrentFood ({ isSelectedTab }) {
 
               {/* Ingredient Dropdown */}
               {ingredientDropdownOpen && (
-                <View className="absolute w-full bottom-[100%] border-x border-t bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
+                <View className="absolute w-full bottom-[100%] border-x-0.5 border-t-0.5 bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
                   <ScrollView>
                     {filteredIngredientData.map((item, index) => (
                       <TouchableOpacity
