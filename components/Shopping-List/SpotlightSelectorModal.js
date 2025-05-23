@@ -1,13 +1,20 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity } from 'react-native';
 
+// UI components
+import { Modal, View, Text, TouchableOpacity } from 'react-native';
+
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
-// initialize Firebase App
-import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
+// store lists
+import storeKeys from '../../assets/storeKeys';
+
+// initialize firebase app
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
 
@@ -38,33 +45,17 @@ const SpotlightSelectorModal = ({
   // to load in the lists of ingredients
   const getIngredientDetails = async () => {
 
-    // gets the store shopping lists
-    const aSnap = await getDoc(doc(db, 'shopping', 'aList'));
-    const mbSnap = await getDoc(doc(db, 'shopping', 'mbList'));
-    const smSnap = await getDoc(doc(db, 'shopping', 'smList'));
-    const ssSnap = await getDoc(doc(db, 'shopping', 'ssList'));
-    const tSnap = await getDoc(doc(db, 'shopping', 'tList'));
-    const wSnap = await getDoc(doc(db, 'shopping', 'wList'));
-    
-    // a set containing the ids of the shopping list ingredients
-    const idList = {
-      a: aSnap.data().id,
-      mb: mbSnap.data().id,
-      sm: smSnap.data().id,
-      ss: ssSnap.data().id,
-      t: tSnap.data().id,
-      w: wSnap.data().id,
-    };
+    let idList = {};        // a set containing the ids of the shopping list ingredients
+    let includedList = {};  // a set containing the inclusions of the shopping list ingredients
 
-    // a set containing the inclusions of the shopping list ingredients
-    const includedList = {
-      a: aSnap.data().included,
-      mb: mbSnap.data().included,
-      sm: smSnap.data().included,
-      ss: ssSnap.data().included,
-      t: tSnap.data().included,
-      w: wSnap.data().included,
-    };
+    // gets the store shopping lists
+    for (const store of storeKeys) {
+      const snap = await getDoc(doc(db, 'SHOPPING', `list${store}`));
+      const data = snap.data();
+
+      idList[store] = data?.id || [];
+      includedList[store] = data?.included || [];
+    }
     
     // stores the lists
     setIngredientIdList(idList);
@@ -281,14 +272,14 @@ const SpotlightSelectorModal = ({
               {/* Check */}
               <Icon 
                 size={24}
-                color={'black'}
+                color="black"
                 name="checkmark"
                 onPress={() => submitModal(ids, selected, ingredientIdList, ingredientIncludedList)}
               />
               {/* X */}
               <Icon 
                 size={24}
-                color={'black'}
+                color="black"
                 name="close-outline"
                 onPress={() => setModalVisible(false)}
               />
@@ -359,7 +350,7 @@ const SpotlightSelectorModal = ({
                                 <Icon
                                   name={currIncluded !== null && currIncluded[i] ? "close-outline" : "add-sharp"}
                                   size={16}
-                                  color={currIncluded !== null && currIncluded[i] ? colors.zinc200 : "white"}
+                                  color={currIncluded !== null && currIncluded[i] ? "white" : colors.zinc900}
                                   onPress={() => updateIncluded(spotlight.data().ingredientIds[i], i)}
                                 />
                               </View>
@@ -367,7 +358,7 @@ const SpotlightSelectorModal = ({
                               {/* Name */}
                               <View className="flex flex-row items-center w-[90%] h-full bg-zinc450 pl-2 border-b-[1px] border-zinc500">
                                 <Text className="text-white text-[10.5px] italic font-semibold">
-                                  {ingredient.ingredientName}
+                                  {spotlight.data().ingredientNames[i]}
                                 </Text>
                               </View>
                             </>
@@ -377,7 +368,7 @@ const SpotlightSelectorModal = ({
                               {/* Name */}
                               <View className="flex flex-row items-center w-full h-full bg-zinc450 pl-2 border-b-[1px] border-zinc500">
                                 <Text className="text-white text-[10.5px] italic font-semibold">
-                                  {ingredient.ingredientName}
+                                  {spotlight.data().ingredientNames[i]}
                                 </Text>
                               </View>
                             </>

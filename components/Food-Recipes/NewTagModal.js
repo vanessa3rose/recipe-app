@@ -1,8 +1,12 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useState } from 'react';
+
+// UI components
 import { Modal, View, Text, TextInput } from 'react-native';
 
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
@@ -10,7 +14,9 @@ import colors from '../../assets/colors';
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 // closeModal takes in the name of the new tag
-const NewTagModal = ({ modalVisible, closeModal }) => {
+const NewTagModal = ({ 
+  modalVisible, closeModal 
+}) => {
 
 
   ///////////////////////////////// VARIABLES /////////////////////////////////
@@ -68,7 +74,7 @@ const NewTagModal = ({ modalVisible, closeModal }) => {
               {/* Check */}
               <Icon
                 size={24}
-                color={'black'}
+                color="black"
                 name="checkmark"
                 onPress={submitModal}
               />
@@ -76,7 +82,7 @@ const NewTagModal = ({ modalVisible, closeModal }) => {
               {/* X */}
               <Icon
                 size={24}
-                color={'black'}
+                color="black"
                 name="close-outline"
                 onPress={() => closeModal("")}
               />
@@ -91,7 +97,7 @@ const NewTagModal = ({ modalVisible, closeModal }) => {
           {/* USER INPUT - new tag name*/}
           <View className="flex flex-row w-full justify-evenly items-center mb-2">
             <TextInput
-              className="border-0.5 border-zinc500 bg-white rounded-md px-2 h-[30px] w-11/12 text-[14px] leading-[16px]"
+              className="border-0.5 border-zinc500 bg-white rounded-md px-2 h-[30px] w-11/12 text-[14px] leading-[17px]"
               placeholder={"Tag Name"}
               placeholderTextColor={colors.zinc400}
               blurOnSubmit={true}
@@ -115,7 +121,7 @@ const NewTagModal = ({ modalVisible, closeModal }) => {
               <View className="h-[1px] bg-zinc400 mt-2 mb-4 w-full"/>
             
               {/* warning */}
-              <Text className="text-pink-600 italic">
+              <Text className="text-mauve600 italic">
                 tag name is required
               </Text>
             </View>

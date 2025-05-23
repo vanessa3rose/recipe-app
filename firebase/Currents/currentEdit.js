@@ -1,12 +1,10 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-import React, { useRef, useState, useEffect } from 'react';
-
-// Fractions
+// fractions
 var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
-// Initialize Firebase App
+// initialize firebase app
 import { getFirestore, collection, updateDoc, doc, getDocs, writeBatch } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -16,7 +14,9 @@ const db = getFirestore(app);
 
 const currentEdit = async ({
     editingId,
-    ingredientId, ingredientData, check, containerPrice, amountTotal, amountLeft, unitPrice, ingredientStore,
+    amountLeft, amountTotal, archive, check, containerPrice, 
+    ingredientData, ingredientId, ingredientName, ingredientStore, ingredientTypes,
+    unitPrice,
 }) => {
 
 
@@ -29,7 +29,10 @@ const currentEdit = async ({
 
     // the data of the current ingredient that is being edited
     const current = {
-      ingredientId, ingredientData, check, containerPrice, amountTotal, amountLeft, unitPrice, ingredientStore,
+      editingId,
+      amountLeft, amountTotal, archive, check, containerPrice, 
+      ingredientData, ingredientId, ingredientName, ingredientStore, ingredientTypes,
+      unitPrice,
     };
 
     // today's current date
@@ -48,8 +51,8 @@ const currentEdit = async ({
 
     ///////////////////////////////// PROCESSING /////////////////////////////////
     
-    // updates the Firestore 'ingredients' collection data
-    await updateDoc(doc(db, 'currents', editingId), current);
+    // updates the Firestore 'CURRENTS' collection data
+    await updateDoc(doc(db, 'CURRENTS', editingId), current);
     
     
     ///////////////////////////////// MEAL PREPS /////////////////////////////////
@@ -61,7 +64,7 @@ const currentEdit = async ({
     const prepBatch = writeBatch(db);
  
     // gets all meal prep data
-    const prepsSnapshot = await getDocs(collection(db, 'preps'));
+    const prepsSnapshot = await getDocs(collection(db, 'PREPS'));
 
     // loops over all meal preps
     prepsSnapshot.docs.forEach((prepDoc) => {
@@ -87,8 +90,8 @@ const currentEdit = async ({
               // simple calculations
               const storeKey = current.ingredientStore;
               const amount = new Fractional(prepData.currentAmounts[index]);
-              const servings = storeKey !== "" ? new Fractional(current.ingredientData[`${storeKey}TotalYield`]) : new Fractional(current.ingredientData.ServingSize);
-              const cals = storeKey !== "" ? new Fractional(current.ingredientData[`${storeKey}CalContainer`]) : new Fractional(current.ingredientData.CalServing);
+              const servings = storeKey !== "-" ? new Fractional(current.ingredientData[storeKey].totalYield) : new Fractional(current.ingredientData["-"].servingSize);
+              const cals = storeKey !== "-" ? new Fractional(current.ingredientData[storeKey].calContainer) : new Fractional(current.ingredientData["-"].calServing);
               const priceUnit = new Fractional(current.unitPrice);
               
               // calculations for the recipeData based on the amount of the current recipe
@@ -135,7 +138,7 @@ const currentEdit = async ({
           prepData.prepPrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
           
           // add the update operation to the batch
-          prepBatch.update(doc(db, 'preps', prepDoc.id), prepData);
+          prepBatch.update(doc(db, 'PREPS', prepDoc.id), prepData);
           updatedPreps.push({"id": prepDoc.id, "data": prepData});
         }
       }
@@ -155,7 +158,7 @@ const currentEdit = async ({
     const planBatch = writeBatch(db);
 
     // gets all weekly plan data
-    const plansSnapshot = await getDocs(collection(db, 'plans'));
+    const plansSnapshot = await getDocs(collection(db, 'PLANS'));
 
     // loops over all weekly plans
     plansSnapshot.forEach((planDoc) => {
@@ -166,14 +169,14 @@ const currentEdit = async ({
         
         // if the current meal prep is the lunch of the current plan date, update the data
         if (planData.meals.lunch.prepId && updatedIds.includes(planData.meals.lunch.prepId)) {
-          planBatch.update(doc(db, 'plans', planDoc.id), {
+          planBatch.update(doc(db, 'PLANS', planDoc.id), {
             'meals.lunch.prepData': updatedData[updatedIds.indexOf(planData.meals.lunch.prepId)],
           });
         }
 
         // if the current meal prep is the dinner of the current plan date, update the data
         if (planData.meals.dinner.prepId && updatedIds.includes(planData.meals.dinner.prepId)) {
-          planBatch.update(doc(db, 'plans', planDoc.id), {
+          planBatch.update(doc(db, 'PLANS', planDoc.id), {
             'meals.dinner.prepData': updatedData[updatedIds.indexOf(planData.meals.dinner.prepId)],
           });
         }

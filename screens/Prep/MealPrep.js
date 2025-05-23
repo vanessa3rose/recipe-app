@@ -1,18 +1,27 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigation, useNavigationState } from '@react-navigation/native';
 
-import Icon from 'react-native-vector-icons/Ionicons';
-import colors from '../../assets/colors';
-
+// UI components
 import { View, Text, TextInput, TouchableOpacity, Keyboard, ScrollView, } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { Picker } from '@react-native-picker/picker';
 
-import { prepDelete } from '../../firebase/Prep/prepDelete';
-import { allIngredientFetch } from '../../firebase/Ingredients/allIngredientFetch';
+// visual effects
+import Icon from 'react-native-vector-icons/Ionicons';
+import colors from '../../assets/colors';
 
+// fractions
+var Fractional = require('fractional').Fraction;
+import Fraction from 'fraction.js';
+
+// validation
+import validateFractionInput from '../../components/Validation/validateFractionInput';
+import extractUnit from '../../components/Validation/extractUnit';
+
+// modals
 import CalcIngredientModal from '../../components/MultiUse/CalcIngredientModal';
 import ModMealModal from '../../components/MultiUse/ModMealModal';
 import DeletePrepModal from '../../components/Prep-Meals/DeletePrepModal';
@@ -20,14 +29,10 @@ import AmountsDetailsModal from '../../components/Prep-Meals/AmountsDetailsModal
 import AddPrepModal from '../../components/Prep-Meals/AddPrepModal';
 import PrepToRecipeModal from '../../components/Prep-Meals/PrepToRecipeModal';
 
-// Fractions
-var Fractional = require('fractional').Fraction;
-import Fraction from 'fraction.js';
-import validateFractionInput from '../../components/Validation/validateFractionInput';
+// firebase
+import { prepDelete } from '../../firebase/Preps/prepDelete';
 
-import extractUnit from '../../components/Validation/extractUnit';
-
-// initialize Firebase App
+// initialize firebase app
 import { getFirestore, doc, updateDoc, collection, getDocs, getDoc, writeBatch } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -64,8 +69,10 @@ export default function MealPrep ({ isSelectedTab }) {
 
   // if the tab has changed, refresh the data from the globals
   useEffect(() => {
+    
     if (isSelectedTab) {
       updateCurrents();
+      fetchIngredientsAndRecipes();
       refreshPreps();
       fetchGlobalPrep();
     }
@@ -119,14 +126,14 @@ export default function MealPrep ({ isSelectedTab }) {
     try {
 
       // gets the global meal prep document
-      const globalDoc = (await getDoc(doc(db, 'globals', 'prep')));
+      const globalDoc = (await getDoc(doc(db, 'GLOBALS', 'prep')));
       if (globalDoc.exists()) {
 
         let prepId = globalDoc.data().id;
         if (prepId) {
 
           // gets the recipe data
-          const prepDoc = (await getDoc(doc(db, 'preps', prepId)));
+          const prepDoc = (await getDoc(doc(db, 'PREPS', prepId)));
           if (prepDoc.exists()) {
             let data = prepDoc.data();
             
@@ -180,10 +187,10 @@ export default function MealPrep ({ isSelectedTab }) {
     if (selectedPrepId) {
       
       // stores the prep data in the firebase
-      updateDoc(doc(db, 'globals', 'prep'), { id: selectedPrepId });
+      updateDoc(doc(db, 'GLOBALS', 'prep'), { id: selectedPrepId });
 
       // gets the current data
-      const docSnap = await getDoc(doc(db, 'preps', selectedPrepId));
+      const docSnap = await getDoc(doc(db, 'PREPS', selectedPrepId));
       const data = docSnap.exists() ? docSnap.data() : null;
       
       // sets the current prep card placeholders
@@ -208,7 +215,7 @@ export default function MealPrep ({ isSelectedTab }) {
         updateEnoughLeft(calcData);
 
         // updates the collection data
-        await updateDoc(doc(db, 'preps', selectedPrepId), calcData);
+        await updateDoc(doc(db, 'PREPS', selectedPrepId), calcData);
     
         // updates the selected data
         setSelectedPrepData({ ...calcData });
@@ -228,7 +235,7 @@ export default function MealPrep ({ isSelectedTab }) {
   const refreshPreps = async () => {
 
     // gets the collection of meal preps
-    const querySnapshot = await getDocs(collection(db, 'preps'));
+    const querySnapshot = await getDocs(collection(db, 'PREPS'));
 
     // reformats each one
     const prepsArray = querySnapshot.docs.map((doc) => {
@@ -241,6 +248,13 @@ export default function MealPrep ({ isSelectedTab }) {
     .sort((a, b) => a.prepName.localeCompare(b.prepName)); // sorts by prepName alphabetically
 
     setPrepList(prepsArray);
+            
+    // gets current global prep info
+    const prep = await getDoc(doc(db, 'GLOBALS', 'prep'));
+
+    // stores it
+    setPrepsIds(prep.data().preps.map((doc) => doc.id));
+    setPrepsCompleted(prep.data().preps.map((doc) => doc.completed));
   };
 
 
@@ -267,7 +281,7 @@ export default function MealPrep ({ isSelectedTab }) {
     }
     
     // stores the meal prep data
-    updateDoc(doc(db, 'preps', selectedPrepId), selectedPrepData);
+    updateDoc(doc(db, 'PREPS', selectedPrepId), selectedPrepData);
     setSelectedPrepData(selectedPrepData);
     
     // calculates the amounts that are left of all current ingredients
@@ -292,7 +306,7 @@ export default function MealPrep ({ isSelectedTab }) {
       setCurrPrepMult(decMult);
 
       // stores the meal prep data in the firebase
-      updateDoc(doc(db, 'preps', selectedPrepId), selectedPrepData);
+      updateDoc(doc(db, 'PREPS', selectedPrepId), selectedPrepData);
 
       // calculates both the amounts left and total for all current ingredients
       await calcCurrAmountsTotal(false);
@@ -372,7 +386,7 @@ export default function MealPrep ({ isSelectedTab }) {
     setCurrPrepMult(incMult);
 
     // stores the meal prep data in the firebase
-    updateDoc(doc(db, 'preps', selectedPrepId), selectedPrepData);
+    updateDoc(doc(db, 'PREPS', selectedPrepId), selectedPrepData);
 
     // calculates both the amounts left and total for all current ingredients
     await calcCurrAmountsTotal(true);
@@ -393,10 +407,9 @@ export default function MealPrep ({ isSelectedTab }) {
       // general variables
       const current = selectedPrepData.currentData[index];
       const storeKey = selectedPrepData.currentData[index].ingredientStore;
-      const brandKey = `${storeKey}Brand`;
       
       // checks if the brand is valid, meaning the current ingredient has data
-      if (current && ((storeKey !== "" && current.ingredientData.brandKey !== "") || storeKey === "")) {
+      if (current && ((storeKey !== "-" && current.ingredientData[storeKey].brand !== "") || storeKey === "-")) {
     
         // updates the current ingredient amounts
         setCurrCurrentAmounts((prev) => {
@@ -413,7 +426,7 @@ export default function MealPrep ({ isSelectedTab }) {
         updateEnoughLeft(calcData);
         
         // stores the meal prep data in the firebase
-        updateDoc(doc(db, 'preps', selectedPrepId), calcData);
+        updateDoc(doc(db, 'PREPS', selectedPrepId), calcData);
     
         // updates the selected prep's data
         setSelectedPrepData(calcData);
@@ -444,8 +457,8 @@ export default function MealPrep ({ isSelectedTab }) {
         
         // fractional calculations
         const amount = new Fractional(value);
-        const servings = storeKey !== "" ? new Fractional(current.ingredientData[`${storeKey}TotalYield`]) : new Fractional(current.ingredientData.ServingSize);
-        const cals = storeKey !== "" ? new Fractional(current.ingredientData[`${storeKey}CalContainer`]) : new Fractional(current.ingredientData.CalServing);
+        const servings = storeKey !== "-" ? new Fractional(current.ingredientData[storeKey].totalYield) : new Fractional(current.ingredientData["-"].servingSize);
+        const cals = storeKey !== "-" ? new Fractional(current.ingredientData[storeKey].calContainer) : new Fractional(current.ingredientData["-"].calServing);
         const priceUnit = new Fractional(current.unitPrice);
         
         // invalid (1)
@@ -531,7 +544,7 @@ export default function MealPrep ({ isSelectedTab }) {
           const calcAmountTotal = incrementing ? ((new Fractional(total)).add(new Fractional(amount))).toString() : ((new Fractional(total)).subtract(new Fractional(amount))).toString();
 
           // updates the data in the current ingredient doc within the batch
-          batch.update(doc(db, 'currents', selectedPrepData.currentIds[index]), {
+          batch.update(doc(db, 'CURRENTS', selectedPrepData.currentIds[index]), {
             check: calcAmountTotal.toString() === "0",
             amountTotal: calcAmountTotal.toString(),
           });
@@ -554,7 +567,7 @@ export default function MealPrep ({ isSelectedTab }) {
     const batch = writeBatch(db);
 
     // gets all meal prep data
-    const prepsSnapshot = await getDocs(collection(db, 'preps'));
+    const prepsSnapshot = await getDocs(collection(db, 'PREPS'));
 
     // loops over all current ingredients
     currentsSnapshot.forEach(async (currentDoc) => {
@@ -583,7 +596,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
         // adds the update to the batch for amountLeft if the amount has been changed
         if (currentData.amountLeft !== calcAmount.toString()) {
-          batch.update(doc(db, 'currents', currentId), { amountLeft: calcAmount.toString() });
+          batch.update(doc(db, 'CURRENTS', currentId), { amountLeft: calcAmount.toString() });
         }
       }
     });
@@ -617,7 +630,7 @@ export default function MealPrep ({ isSelectedTab }) {
       if (prepData.currentData[index] && prepData.prepMult !== 0) {
         
         // gets the current ingredient data
-        const currentDocSnap = await getDoc(doc(db, 'currents', prepData.currentIds[index]));
+        const currentDocSnap = await getDoc(doc(db, 'CURRENTS', prepData.currentIds[index]));
         const currentData = currentDocSnap.data();
         
         // determines whether there is enough left
@@ -647,7 +660,7 @@ export default function MealPrep ({ isSelectedTab }) {
   const dbNote = () => {
     if (selectedPrepId) {
       Keyboard.dismiss();
-      updateDoc(doc(db, 'preps', selectedPrepId), { prepNote: selectedNote });
+      updateDoc(doc(db, 'PREPS', selectedPrepId), { prepNote: selectedNote });
     }
   }
 
@@ -655,7 +668,7 @@ export default function MealPrep ({ isSelectedTab }) {
   const clearNote = () => {
     if (selectedPrepId) {
       setSelectedNote("");
-      updateDoc(doc(db, 'preps', selectedPrepId), { prepNote: "" });
+      updateDoc(doc(db, 'PREPS', selectedPrepId), { prepNote: "" });
     }
   }
 
@@ -680,6 +693,20 @@ export default function MealPrep ({ isSelectedTab }) {
     setCurrCurrentAmounts(prepData.currentAmounts);
     setCurrPrepMult(prepData.prepMult);
     setSelectedNote("");
+    
+    // updates the list of completed preps and ids
+    const newCompleted = [...prepsCompleted, false];
+    setPrepsCompleted(newCompleted);
+
+    const newIds = [...prepsIds, docId];
+    setPrepsIds(newIds);
+
+    // stores the new data
+    const prepsData = newIds.map((id) => ({
+      id,
+      completed: newCompleted[newIds.indexOf(id)],
+    }));
+    updateDoc(doc(db, 'GLOBALS', 'prep'), { preps: prepsData });
 
     // reload settings
     refreshPreps();
@@ -727,6 +754,21 @@ export default function MealPrep ({ isSelectedTab }) {
       // stores that there is enough of each current ingredient
       setCurrEnoughLeft([true, true, true, true, true, true, true, true, true, true, true, true]);
       setCurrMoreLeft([true, true, true, true, true, true, true, true, true, true, true, true]);
+      
+      // filters the completed preps and ids to remove the deleted one
+      const newIds = prepsIds.filter((_, index) => index !== prepsIds.indexOf(selectedPrepId));
+      const newCompleted = prepsCompleted.filter((_, index) => index !== prepsIds.indexOf(selectedPrepId));
+      
+      // stores the new data
+      const prepsData = newIds.map((id) => ({
+        id,
+        completed: newCompleted[newIds.indexOf(id)],
+      }));
+      updateDoc(doc(db, 'GLOBALS', 'prep'), { preps: prepsData });
+
+      // restores data
+      setSelectedPrepData(null);
+      setSelectedPrepId(null);
     }
   };
     
@@ -758,6 +800,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
   // updates the prepCal and prepPrice
   useEffect(() => {
+    
     if (selectedPrepData !== null) {
       let totalCal = 0;
       let totalPrice = 0;
@@ -800,7 +843,7 @@ export default function MealPrep ({ isSelectedTab }) {
   const updateCurrents = async () => {
 
     // gets the collection of current ingredients
-    const querySnapshot = await getDocs(collection(db, 'currents'));
+    const querySnapshot = await getDocs(collection(db, 'CURRENTS'));
     const currents = querySnapshot.docs.map((doc) => {
       const formattedCurrent = {
         id: doc.id,
@@ -808,7 +851,7 @@ export default function MealPrep ({ isSelectedTab }) {
       }
       return formattedCurrent;
     })
-    .sort((a, b) => a.ingredientData.ingredientName.localeCompare(b.ingredientData.ingredientName)); // sort by ingredientName alphabetically
+    .sort((a, b) => a.ingredientName.localeCompare(b.ingredientName)); // sort by ingredientName alphabetically
 
     setCurrentData(currents);
     filterOptions(currents);
@@ -823,8 +866,7 @@ export default function MealPrep ({ isSelectedTab }) {
       if (selectedPrepData.currentIds[i] && selectedPrepData.currentIds[i] !== "") {
         
         // gets the data
-        const docRef = doc(db, 'currents', selectedPrepData.currentIds[i]);
-        const docSnap = await getDoc(docRef);
+        const docSnap = await getDoc(doc(db, 'CURRENTS', selectedPrepData.currentIds[i]));
 
         // if the current ingredient still exists, set the data
         if (docSnap.exists()) {
@@ -848,7 +890,7 @@ export default function MealPrep ({ isSelectedTab }) {
     updateEnoughLeft(calcData);
     
     // updates the collections in firebase
-    await updateDoc(doc(db, 'preps', selectedPrepId), calcData);
+    await updateDoc(doc(db, 'PREPS', selectedPrepId), calcData);
 
     // updates the selected meal prep's data
     setSelectedPrepData({ ...calcData });
@@ -909,7 +951,7 @@ export default function MealPrep ({ isSelectedTab }) {
     if (selectedCurrentId !== "" && selectedPrepId) {
       
       // gets the data of the current ingredient with the given id
-      const docSnap = await getDoc(doc(db, 'currents', selectedCurrentId)); 
+      const docSnap = await getDoc(doc(db, 'CURRENTS', selectedCurrentId)); 
       const data = docSnap.exists() ? docSnap.data() : null;
       
       // sets the ingredient's data to be default
@@ -930,7 +972,7 @@ export default function MealPrep ({ isSelectedTab }) {
       updateEnoughLeft(calcData);
 
       // stores the meal prep data in the firebase
-      await updateDoc(doc(db, 'preps', selectedPrepId), calcData);
+      await updateDoc(doc(db, 'PREPS', selectedPrepId), calcData);
 
       // updates the selected meal prep's data
       setSelectedPrepData({ ...calcData });
@@ -1022,7 +1064,7 @@ export default function MealPrep ({ isSelectedTab }) {
       updateEnoughLeft(calcData);
       
       // stores the meal prep data in the firebase
-      updateDoc(doc(db, 'preps', selectedPrepId), calcData);
+      updateDoc(doc(db, 'PREPS', selectedPrepId), calcData);
 
       // updates the selected meal prep's data
       setSelectedPrepData(calcData);
@@ -1068,7 +1110,7 @@ export default function MealPrep ({ isSelectedTab }) {
     }
     
     // stores the meal prep data in the firebase
-    updateDoc(doc(db, 'preps', selectedPrepId), calcData);
+    updateDoc(doc(db, 'PREPS', selectedPrepId), calcData);
 
     // updates the selected meal prep's data
     setSelectedPrepData(calcData);
@@ -1100,7 +1142,6 @@ export default function MealPrep ({ isSelectedTab }) {
   ///////////////////////////////// SAVE AS RECIPE /////////////////////////////////
 
   const [recipeModalVisible, setRecipeModalVisible] = useState(false);
-  const [ingredientsData, setIngredientsData] = useState(null);
   const [ingredientsSnapshot, setIngredientsSnapshot] = useState(null);
   const [recipesSnapshot, setRecipesSnapshot] = useState(null);
 
@@ -1108,12 +1149,10 @@ export default function MealPrep ({ isSelectedTab }) {
   const fetchIngredientsAndRecipes = async () => {
     
     // gets the collections of ingredients and recipes
-    const ingredientsData = await allIngredientFetch();
-    const ingredients = await getDocs(collection(db, 'ingredients'));
-    const recipes = await getDocs(collection(db, 'recipes'));
-    
+    const ingredients = await getDocs(collection(db, 'INGREDIENTS'));
+    const recipes = await getDocs(collection(db, 'RECIPES'));
+
     // stores the data
-    setIngredientsData(ingredientsData);
     setIngredientsSnapshot(ingredients);
     setRecipesSnapshot(recipes);
   }
@@ -1150,14 +1189,14 @@ export default function MealPrep ({ isSelectedTab }) {
   const showCalcModal = (index) => {
     if (selectedPrepData?.currentData[index] !== null) {
 
-      // to calculate amount left without current spotlight
+      // to calculate amount left without current prep
       let amountUsed = "0";
 
-      // loops over the other spotlights
+      // loops over the other preps
       prepList.forEach((prep) => {
         if (prep.id !== selectedPrepId) {
           
-          // loops over the matching ingredients and adds their amounts * spotlight mults
+          // loops over the matching ingredients and adds their amounts * prep mults
           for (let i = 0; i < 12; i++) {
             if (prep.currentData[i] !== null && prep.currentIds[i] === selectedPrepData.currentIds[index]) {
               amountUsed = (new Fractional(amountUsed).add(new Fractional(prep.currentAmounts[i]).multiply(new Fractional(prep.prepMult)))).toString();
@@ -1181,6 +1220,34 @@ export default function MealPrep ({ isSelectedTab }) {
     setCalcIndex(-1);
     setCalcModalVisible(false);
     setNonselectedAmountUsed(null);
+  }
+    
+  
+  ///////////////////////////////// PREP COMPLETION /////////////////////////////////
+
+  const [prepsIds, setPrepsIds] = useState(null);
+  const [prepsCompleted, setPrepsCompleted] = useState(null);
+
+  // to toggle the current prep's selected checkbox
+  const changeCompleted = async () => {
+
+    // changes only the current prep's selection
+    let newCompleted = [...prepsCompleted];
+    newCompleted[prepsIds.indexOf(selectedPrepId)] = !prepsCompleted[prepsIds.indexOf(selectedPrepId)];
+    
+    // stores the data for the db
+    const prepsData = prepsIds.map((id) => ({
+      id,
+      completed: newCompleted[prepsIds.indexOf(id)],
+    }));
+      
+    // stores the change
+    updateDoc(doc(db, 'GLOBALS', 'prep'), { preps: prepsData });
+    setPrepsCompleted(newCompleted);
+
+    // reloads
+    setPrepDropdownOpen(false);
+    reloadPrep(selectedPrepId);
   }
     
     
@@ -1216,7 +1283,7 @@ export default function MealPrep ({ isSelectedTab }) {
             multiline={true}
             placeholder="notes"
             placeholderTextColor={colors.zinc400}
-            className="flex-1 text-[14px] leading-[16px] pl-2.5 pr-10 bg-white rounded-[5px] border-[1px] border-zinc300"
+            className="flex-1 text-[14px] leading-[17px] pl-2.5 pr-10 bg-white rounded-[5px] border-[1px] border-zinc300"
           />
 
           {/* clear button */}
@@ -1256,7 +1323,6 @@ export default function MealPrep ({ isSelectedTab }) {
       {recipeModalVisible &&
         <PrepToRecipeModal
           prepData={selectedPrepData}
-          ingredientsData={ingredientsData}
           ingredientsSnapshot={ingredientsSnapshot}
           recipesSnapshot={recipesSnapshot}
           modalVisible={recipeModalVisible}
@@ -1324,7 +1390,7 @@ export default function MealPrep ({ isSelectedTab }) {
             <View className="flex flex-row ml-[-30px] mr-[20px] pl-[30px] items-center justify-center w-full">
 
               {/* Meal Prep Dropdown */}
-              <View className="flex flex-row items-center justify-center w-4/5 h-[50px] z-50">
+              <View className="flex flex-row items-center justify-center w-4/5 h-[50px] z-30">
                 <View className="flex bg-theme800 items-center justify-center w-full">
                   <DropDownPicker 
                     open={prepDropdownOpen}
@@ -1335,7 +1401,10 @@ export default function MealPrep ({ isSelectedTab }) {
                       label: prepDropdownOpen ? "(" + (selectedPrepId === prep.id ? currPrepMult : prep.prepMult) + ") " + prep.prepName : prep.prepName,
                       value: prep.id,
                       key: prep.id,
-                      labelStyle: { color: 'black' }
+                      labelStyle: { 
+                        color: prepsCompleted !== null && prepsCompleted[prepsIds.indexOf(prep.id)] ? 'black' : colors.zinc500,
+                        textDecorationLine: prepsCompleted !== null && prepsCompleted[prepsIds.indexOf(prep.id)] ? 'none' : 'line-through', 
+                      }
                     }))}
                     placeholder=""
                     style={{ height: 50, backgroundColor: colors.theme800, borderWidth: 0, justifyContent: 'center', }}
@@ -1343,22 +1412,10 @@ export default function MealPrep ({ isSelectedTab }) {
                     textStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
                     listItemContainerStyle={{ borderBottomWidth: 0.5, borderBottomColor: colors.theme100, }}
                     ArrowDownIconComponent={() => {
-                      return (
-                        <Icon
-                          size={18}
-                          color={ colors.theme100 }
-                          name="chevron-down"
-                        />
-                      );
+                      return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
                     }}
                     ArrowUpIconComponent={() => {
-                      return (
-                        <Icon
-                          size={18}
-                          color={ colors.theme100 }
-                          name="chevron-up"
-                        />
-                      );
+                      return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
                     }}
                   />
                 </View>
@@ -1378,7 +1435,7 @@ export default function MealPrep ({ isSelectedTab }) {
                     }}
                     placeholder={selectedPrepData ? String(selectedPrepData.prepMult) : "0"}
                     placeholderTextColor={'white'}
-                    className="flex-1 text-center text-white font-bold text-[14px] leading-[16px]"
+                    className="flex-1 text-center text-white font-bold text-[14px] leading-[17px]"
                   />
 
                   {/* Use up (decrement multiplicity)*/}
@@ -1421,6 +1478,29 @@ export default function MealPrep ({ isSelectedTab }) {
               )}
             </View>
           </View>
+          
+          {/* Selected Button */}
+          {prepsIds !== null && selectedPrepId !== null &&
+          <View className="absolute w-5/6 bg-zinc100">
+            {/* Signifier */}
+            <View className="absolute right-4 w-1/12 h-[50px] items-end justify-center z-40">
+              <Icon
+                name={prepsCompleted[prepsIds.indexOf(selectedPrepId)] ? "heart-circle" : "heart-dislike-circle"}
+                size={24}
+                color={colors.zinc900}
+                onPress={() => changeCompleted()}
+              />
+            </View>
+            {/* Background */}
+            <View className="absolute right-4 w-1/12 h-[50px] items-end justify-center z-30">
+              <Icon
+                name="ellipse"
+                size={24}
+                color={colors.zinc300}
+              />
+            </View>
+          </View>
+          }
         
           {/* HEADER ROW */}
           <View className="w-full flex flex-row h-[30px] bg-theme900 border-b-[1px] z-20">
@@ -1470,7 +1550,7 @@ export default function MealPrep ({ isSelectedTab }) {
                   >
                     <View className="flex flex-wrap flex-row">
                       <Text className="text-white font-semibold text-[10px] text-center px-2">
-                        {selectedPrepData && selectedPrepData.currentData[index] ? selectedPrepData.currentData[index].ingredientData.ingredientName : ""}
+                        {selectedPrepData && selectedPrepData.currentData[index] ? selectedPrepData.currentData[index].ingredientName : ""}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -1516,7 +1596,7 @@ export default function MealPrep ({ isSelectedTab }) {
                       />
                       {/* Unit */}
                       <Text className="text-[10px]">
-                        {` ${extractUnit(selectedPrepData.currentData[index].ingredientData[`${selectedPrepData.currentData[index].ingredientStore}Unit`], currCurrentAmounts[index])}`}
+                        {` ${extractUnit(selectedPrepData.currentData[index].ingredientData[selectedPrepData.currentData[index].ingredientStore].unit, currCurrentAmounts[index])}`}
                       </Text>
                     </View>
                   : null }
@@ -1524,7 +1604,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
                 {/* details */}
                 <TouchableOpacity 
-                  onPress={() => showCalcModal(index)}
+                  onPress={selectedPrepData?.currentData?.[index] ? () => showCalcModal(index) : undefined}
                   className={`flex flex-row items-center justify-evenly ${currEnoughLeft[index] || selectedPrepData === null ? "bg-white" : "bg-zinc200"} w-1/4 border-b-0.5 border-b-zinc400`}
                 >
                   
@@ -1566,6 +1646,7 @@ export default function MealPrep ({ isSelectedTab }) {
               setModalVisible={setCalcModalVisible}
               submitModal={submitCalcModal}
               ingredientData={selectedPrepData?.currentData[calcIndex]}
+              ingredientName={null}
               ingredientStore={selectedPrepData?.currentData[calcIndex].ingredientStore}
               initialCals={selectedPrepData?.currentCals[calcIndex].toFixed(0)}
               initialPrice={selectedPrepData?.currentPrices[calcIndex].toFixed(2)}
@@ -1573,18 +1654,18 @@ export default function MealPrep ({ isSelectedTab }) {
               initialAmount={selectedPrepData?.currentAmounts[calcIndex]}
               amountUsed={nonselectedAmountUsed}
               amountContainer={
-                new Fraction (selectedPrepData?.currentData[calcIndex].ingredientData[`${selectedPrepData?.currentData[calcIndex].ingredientStore}TotalYield`]) * 1 === 0 
+                new Fraction (selectedPrepData?.currentData[calcIndex].ingredientData[selectedPrepData?.currentData[calcIndex].ingredientStore].totalYield) * 1 === 0 
                 ? // if completely custom
                   new Fraction (selectedPrepData?.currentData[calcIndex].amountTotal) * 1 
                 : // if pre-existing
-                  new Fraction (selectedPrepData?.currentData[calcIndex].ingredientData[`${selectedPrepData?.currentData[calcIndex].ingredientStore}TotalYield`]) * 1
+                  new Fraction (selectedPrepData?.currentData[calcIndex].ingredientData[selectedPrepData?.currentData[calcIndex].ingredientStore].totalYield) * 1
               }
               servingSize={
-                new Fraction (selectedPrepData?.currentData[calcIndex].ingredientData[`${selectedPrepData?.currentData[calcIndex].ingredientStore}ServingSize`]) * 1 === 0 
+                new Fraction (selectedPrepData?.currentData[calcIndex].ingredientData[selectedPrepData?.currentData[calcIndex].ingredientStore].servingSize) * 1 === 0 
                 ? // if completely custom
                   1
                 : // if pre-existing
-                  new Fraction (selectedPrepData?.currentData[calcIndex].ingredientData[`${selectedPrepData?.currentData[calcIndex].ingredientStore}ServingSize`]) * 1
+                  new Fraction (selectedPrepData?.currentData[calcIndex].ingredientData[selectedPrepData?.currentData[calcIndex].ingredientStore].servingSize) * 1
               }
             />
           }
@@ -1733,11 +1814,11 @@ export default function MealPrep ({ isSelectedTab }) {
               }, {});
               // checks if the current ingredientId appears more than once
               const displayStoreBrand = ingredientIdCounts[current.ingredientId] > 1 && current.ingredientId !== ""
-                ? ` (${current.ingredientData[`${current.ingredientStore}Brand`] !== "" ? current.ingredientData[`${current.ingredientStore}Brand`] : "no brand" || ""})` 
+                ? ` (${current.ingredientData[current.ingredientStore].brand !== "" ? current.ingredientData[current.ingredientStore].brand : "no brand" || ""})` 
                 : "";
               // returns results
               return {
-                label: current.ingredientData.ingredientName + displayStoreBrand,
+                label: current.ingredientName + displayStoreBrand,
                 value: current.id,
                 key: current.id,
                 labelStyle: { color: 'black' },
@@ -1753,22 +1834,10 @@ export default function MealPrep ({ isSelectedTab }) {
             dropDownContainerStyle={{ borderLeftWidth: 1, borderRightWidth: 1, borderTopWidth: 1, borderColor: colors.zinc500, borderRadius: 0, backgroundColor: colors.zinc350 }}
             textStyle={{ color: filteredCurrentData.length === 0 ? colors.theme200 : "black", fontWeight: 450, textAlign: 'center', fontSize: 12, }}
             ArrowDownIconComponent={() => {
-              return (
-                <Icon
-                  size={18}
-                  color={ colors.theme100 }
-                  name="chevron-down"
-                />
-              );
+              return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
             }}
             ArrowUpIconComponent={() => {
-              return (
-                <Icon
-                  size={18}
-                  color={ colors.theme100 }
-                  name="chevron-up"
-                />
-              );
+              return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
             }}
           />
         </View>

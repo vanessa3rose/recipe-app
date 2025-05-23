@@ -1,14 +1,21 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigationState } from '@react-navigation/native';
 
+// UI components
 import { View, Text, TouchableOpacity } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 
-import colors from '../../assets/colors';
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
+import colors from '../../assets/colors';
 
+// fractions
+var Fractional = require('fractional').Fraction;
+
+// modals
 import CalendarModal from '../../components/Planning-Plan/CalendarModal';
 import SnackListModal from '../../components/Planning-Plan/SnackListModal';
 import MealDetailsModal from '../../components/Planning-Plan/MealDetailsModal';
@@ -16,10 +23,7 @@ import MealSearchModal from '../../components/Planning-Plan/MealSearchModal';
 import MealOverviewModal from '../../components/Planning/MealOverviewModal';
 import RadioWarningModal from '../../components/Planning-Plan/RadioWarningModal';
 
-// Fractions
-var Fractional = require('fractional').Fraction;
-
-// Initialize Firebase App
+// initialize firebase app
 import { getFirestore, collection, getDoc, getDocs, updateDoc, doc, writeBatch } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -34,10 +38,12 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
   // if the tab has changed, refresh the data from the globals
   useEffect(() => {
+    
     if (isSelectedTab) {
       setSelectedPrepId(null);
       updatePreps();
       fetchGlobalPlan();
+      fetchGlobalPreps();
     }
   }, [isSelectedTab])
 
@@ -53,6 +59,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         setSelectedPrepId(null);
         updatePreps();
         fetchGlobalPlan();
+        fetchGlobalPreps();
       }, 1000);
     }
 
@@ -64,6 +71,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   ///////////////////////////////// GLOBALS /////////////////////////////////
 
   const [globalDate, setGlobalDate] = useState(today);
+  const [globalCompleted, setGlobalCompleted] = useState(null)
 
   // gets the weekly plan document data from the globals collection
   const fetchGlobalPlan = async () => {
@@ -71,7 +79,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     try {
 
       // gets the global weekly plan document
-      const planDoc = ((await getDoc(doc(db, 'globals', 'plan'))));
+      const planDoc = ((await getDoc(doc(db, 'GLOBALS', 'plan'))));
       if (planDoc.exists()) {
 
         // if the data is not null, calculate the week range of the global date
@@ -96,7 +104,18 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   // to change the data of the prep document under the global collection
   const changeGlobalPlan = async (date) => {
     setGlobalDate(date); // stores the new date in the state
-    updateDoc(doc(db, 'globals', 'plan'), { selectedDate: date });
+    updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedDate: date });
+  }
+
+  // gets the list of preps that are completed
+  const fetchGlobalPreps = async () => {
+    const prepDoc = ((await getDoc(doc(db, 'GLOBALS', 'prep'))));
+    if (prepDoc.exists()) { 
+      setGlobalCompleted(prepDoc.data().preps); 
+
+      // gets dropdown items
+      fetchDropdownItems(prepDoc.data().preps);
+    }
   }
 
 
@@ -219,7 +238,6 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     }
   };
 
-
   // to select the next or prev week
   const toggleWeek = (prev) => {
 
@@ -259,7 +277,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       const id = (new Date(weekRange[i])).toLocaleDateString('en-CA');
       
       // gets the day's plan data
-      const planDocSnap = await getDoc(doc(db, 'plans', id));
+      const planDocSnap = await getDoc(doc(db, 'PLANS', id));
       data[i] = planDocSnap.exists() ? planDocSnap.data() : null;
     }
     
@@ -358,7 +376,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         let ogSelected = [...selectedList];
           
         // gets the data of the selected meal prep
-        const docSnap = await getDoc(doc(db, 'preps', selectedPrepId));   
+        const docSnap = await getDoc(doc(db, 'PREPS', selectedPrepId));   
         const selectedPrepData = docSnap.exists() ? docSnap.data() : null;
 
         // loops over the 7 days of the week
@@ -386,7 +404,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
           // adds the set operation to the batch if the data has changed
           if (isLunchChecked[index] || isDinnerChecked[index]) {
-            batch.set(doc(db, 'plans', planDate), docData);
+            batch.set(doc(db, 'PLANS', planDate), docData);
           }
 
           // LUNCH - toggles the radio button if needed
@@ -402,13 +420,13 @@ export default function WeeklyPlan ({ isSelectedTab }) {
          
         // stores the new list
         setSelectedList(ogSelected);
-        updateDoc(doc(db, 'globals', 'plan'), { selectedList: ogSelected }); 
+        updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected }); 
 
         // commits the batch
         await batch.commit();
       
         // refreshes and updates the dropdown amounts
-        fetchDropdownItems();
+        fetchDropdownItems(globalCompleted);
         getCollectionPlans();
       }
 
@@ -449,7 +467,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
         // adds the set operation to the batch if the data has changed
         if (isLunchChecked[index] || isDinnerChecked[index]) {
-          batch.set(doc(db, 'plans', planDate), docData);
+          batch.set(doc(db, 'PLANS', planDate), docData);
         }
       }
 
@@ -460,7 +478,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       getCollectionPlans();
       
       // updates the dropdown amounts
-      fetchDropdownItems();
+      fetchDropdownItems(globalCompleted);
 
     } catch (error) {
       console.error('Error updating weekly plans:', error);
@@ -523,28 +541,32 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           ...(detailsOne?.snacks && { snacks: detailsOne?.snacks }),
         };
 
-        batch.set(doc(db, 'plans', detailsOne.date), swappedDay);
+        batch.set(doc(db, 'PLANS', detailsOne.date), swappedDay);
 
         // reformatting date
         const [year, month, day] = detailsOne.date.split("-").map(Number);
         const longDate = new Date(year, month - 1, day);
-        
-        // unchecks the radio button for lunch if custom
-        if (swappedDay.meals?.lunch?.prepId?.includes("LUNCH")) {
-          ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + longDate));
-        // checks the radio button for lunch if not
-        } else if (swappedDay.meals?.lunch?.prepId) {
+
+        // determines if initial radios were checked
+        let lunchRadio = ogSelected.filter(item => item.meal === "LUNCH " + longDate).length !== 0;
+        let dinnerRadio = ogSelected.filter(item => item.meal === "DINNER " + longDate).length !== 0;
+
+        // selects lunch radio if the dinner radio was selected
+        if (dinnerRadio) {
           ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + longDate));
           ogSelected.push({ filled: true, meal: "LUNCH " + longDate });
+        // unselects lunch radio if the dinner radio was selected
+        } else {
+          ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + longDate));
         }
-        
-        // unchecks the radio button for dinner if custom
-        if (swappedDay.meals?.dinner?.prepId?.includes("DINNER")) {
-          ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + longDate));
-        // checks the radio button for dinner if not
-        } else if (swappedDay.meals?.dinner?.prepId) {
+
+        // selects dinner radio if the lunch radio was selected
+        if (lunchRadio) {
           ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + longDate));
           ogSelected.push({ filled: true, meal: "DINNER " + longDate });
+        // unselects dinner radio if the lunch radio was selected
+        } else {
+          ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + longDate));
         }
       
       
@@ -586,52 +608,42 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         } 
 
         // changed dates
-        batch.set(doc(db, 'plans', detailsOne.date), swappedDayOne);
-        batch.set(doc(db, 'plans', detailsTwo.date), swappedDayTwo);
+        batch.set(doc(db, 'PLANS', detailsOne.date), swappedDayOne);
+        batch.set(doc(db, 'PLANS', detailsTwo.date), swappedDayTwo);
 
         // reformatting dates
         const [year1, month1, day1] = detailsOne.date.split("-").map(Number);
         const longDate1 = new Date(year1, month1 - 1, day1);
         const [year2, month2, day2] = detailsTwo.date.split("-").map(Number);
         const longDate2 = new Date(year2, month2 - 1, day2);
+ 
+        // determines if initial radios were checked
+        let radio1 = ogSelected.filter(item => item.meal === (detailsOne.meal + " " + longDate1)).length !== 0;
+        let radio2 = ogSelected.filter(item => item.meal === (detailsTwo.meal + " " + longDate2)).length !== 0;
 
-        // DAY 1: unchecks the radio button for lunch if custom
-        if (detailsOne.meal === "LUNCH" && swappedDayOne.meals?.lunch?.prepId?.includes("LUNCH")) {
-          ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + longDate1));
-        // DAY 1: checks the radio button for lunch if not
-        } else if (detailsOne.meal === "LUNCH" && swappedDayOne.meals?.lunch?.prepId) {
-          ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + longDate1));
-          ogSelected.push({ filled: true, meal: "LUNCH " + longDate1 });
-        // DAY 1: unchecks the radio button for dinner if custom
-        } if (detailsOne.meal === "DINNER" && swappedDayOne.meals?.dinner?.prepId?.includes("DINNER")) {
-          ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + longDate1));
-        // DAY 1: checks the radio button for dinner if not
-        } else if (detailsOne.meal === "DINNER" && swappedDayOne.meals?.dinner?.prepId) {
-          ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + longDate1));
-          ogSelected.push({ filled: true, meal: "DINNER " + longDate1 });
+        // selects 1st radio if the 2nd radio was selected
+        if (radio2) {
+          ogSelected = ogSelected.filter(item => item.meal !== (detailsOne.meal + " " + longDate1));
+          ogSelected.push({ filled: true, meal: detailsOne.meal + " " + longDate1 });
+        // unselects 1st radio if the 2nd radio was selected
+        } else {
+          ogSelected = ogSelected.filter(item => item.meal !== (detailsOne.meal + " " + longDate1));
         }
-        
-        // DAY 2: unchecks the radio button for lunch if custom
-        if (detailsTwo.meal === "LUNCH" && swappedDayTwo.meals?.lunch?.prepId?.includes("LUNCH")) {
-          ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + longDate2));
-        // DAY 2: checks the radio button for lunch if not
-        } else if (detailsTwo.meal === "LUNCH" && swappedDayTwo.meals?.lunch?.prepId) {
-          ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + longDate2));
-          ogSelected.push({ filled: true, meal: "LUNCH " + longDate2 });
-        // DAY 2: unchecks the radio button for dinner if custom
-        } if (detailsTwo.meal === "DINNER" && swappedDayTwo.meals?.dinner?.prepId?.includes("DINNER")) {
-          ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + longDate2));
-        // DAY 2: checks the radio button for dinner if not
-        } else if (detailsTwo.meal === "DINNER" && swappedDayTwo.meals?.dinner?.prepId) {
-          ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + longDate2));
-          ogSelected.push({ filled: true, meal: "DINNER " + longDate2 });
+
+        // selects 2nd radio if the 1st radio was selected
+        if (radio1) {
+          ogSelected = ogSelected.filter(item => item.meal !== (detailsTwo.meal + " " + longDate2));
+          ogSelected.push({ filled: true, meal: detailsTwo.meal + " " + longDate2 });
+        // unselects 2nd radio if the 1st radio was selected
+        } else {
+          ogSelected = ogSelected.filter(item => item.meal !== (detailsTwo.meal + " " + longDate2));
         }
       }
       
          
       // stores the new list
       setSelectedList(ogSelected);
-      updateDoc(doc(db, 'globals', 'plan'), { selectedList: ogSelected }); 
+      updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected }); 
 
       // commits the batch
       await batch.commit();
@@ -640,7 +652,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       getCollectionPlans();
       
       // updates the dropdown amounts
-      fetchDropdownItems();
+      fetchDropdownItems(globalCompleted);
 
     } catch (error) {
       console.error('Error updating weekly plans:', error);
@@ -669,7 +681,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       const data = [null, null, null, null, null, null, null];
 
       // gets the collection of meal preps
-      const querySnapshot = await getDocs(collection(db, 'preps'));
+      const querySnapshot = await getDocs(collection(db, 'PREPS'));
 
       // reformats each one
       const prepsArray = querySnapshot.docs.map((doc) => {
@@ -687,7 +699,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       const prepIds = prepsArray.map((prep) => prep.id);
       
       // gets all weekly plan data
-      const snapshot = await getDocs(collection(db, 'plans'));
+      const snapshot = await getDocs(collection(db, 'PLANS'));
       setPlansSnapshot(snapshot);
 
       // initializes Firestore batch
@@ -728,7 +740,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           }
 
           // adds update to batch
-          batch.update(doc(db, 'plans', planDoc.id), docData);
+          batch.update(doc(db, 'PLANS', planDoc.id), docData);
         }
       });
 
@@ -767,7 +779,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     if (selectedPrepId === currPrepId) { setCurrAvailable(remaining); }
       
     // gets all weekly plan data
-    const snapshot = await getDocs(collection(db, 'plans'));
+    const snapshot = await getDocs(collection(db, 'PLANS'));
     setPlansSnapshot(snapshot);
     
     // loops over all current ingredients
@@ -797,8 +809,8 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   }, [selectedPrepId]);
 
   // function to loop over the prepData to create dropdown items for each
-  const fetchDropdownItems = async () => {
-    const updatedItems = await Promise.all(
+  const fetchDropdownItems = async (completed) => {
+    let updatedItems = await Promise.all(
       prepData.map(async (prep) => {
         const remaining = await calcRemaining(prep.id, prep);
 
@@ -815,12 +827,17 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       })
     );
 
+    // filters out the non-completed meal preps
+    updatedItems = updatedItems.filter(prep => 
+      completed[completed.map(completed => completed.id).indexOf(prep.value)].completed
+    );
+    
     setDropdownItems(updatedItems);
   };
 
   // calls the previous function whenever prepData is changed
   useEffect(() => {
-    fetchDropdownItems();
+    fetchDropdownItems(globalCompleted);
   }, [prepData]);
 
 
@@ -832,9 +849,10 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   const [mealModalDate, setMealModalDate] = useState(null);
   const [mealModalDispDate, setMealModalDispDate] = useState(null);
   const [mealModalData, setMealModalData] = useState(null);
+  const [mealModalId, setMealModalId] = useState(null);
 
   // when a touchable opacity for a meal is clicked, store the data
-  const displayMeal = (index, meal, data) => {
+  const displayMeal = (index, meal, data, id) => {
 
     // creates a date string
     const date = meal + " " + formatDateShort(new Date(weekRange[index]));
@@ -845,11 +863,13 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     setMealModalDate(date);
     setMealModalDispDate(dispDate);
     setMealModalData(data ? data : null);
+    setMealModalId(id ? id : null)
     setMealModalVisible(true);
   }
 
   // when a prep is changed from the buttons
   const updateSelectedButton = (type, index, filled) => {
+
     let ogSelected = [...selectedList];
     
     // removes what was there initially
@@ -863,7 +883,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
      
     // store the new list
     setSelectedList(ogSelected);
-    updateDoc(doc(db, 'globals', 'plan'), { selectedList: ogSelected }); 
+    updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected }); 
   }
 
   // for closing the details modal after editing
@@ -880,7 +900,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       let ogSelected = [...selectedList];
       ogSelected = ogSelected.filter(item => item.meal !== (meal + " " + new Date(weekRange[formattedWeekRange.indexOf(formattedDate)])));
       setSelectedList(ogSelected);
-      updateDoc(doc(db, 'globals', 'plan'), { selectedList: ogSelected });
+      updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected });
     
     // otherwise, add it
     } else {
@@ -894,7 +914,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     setMealModalData(null);
       
     // updates the dropdown amounts and refreshes
-    fetchDropdownItems();
+    fetchDropdownItems(globalCompleted);
     getCollectionPlans();
   }
 
@@ -925,10 +945,11 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
   // to update the list of selected meals
   const toggleSelected = async (type, index) => {
+    
     let ogSelected = [...selectedList];
     
     // gets the current data
-    const planDocSnap = await getDoc(doc(db, 'plans', (new Date(weekRange[index])).toLocaleDateString('en-CA')));
+    const planDocSnap = await getDoc(doc(db, 'PLANS', (new Date(weekRange[index])).toLocaleDateString('en-CA')));
 
     // if the meal is not already in the list, add it
     if (!selectedList.map(item => item.meal).includes(type + " " + new Date(weekRange[index]).toString())) {
@@ -944,7 +965,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     
       // store the new list
       setSelectedList(ogSelected);
-      updateDoc(doc(db, 'globals', 'plan'), { selectedList: ogSelected });
+      updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected });
 
 
     // issue a warning before deleting if meal present
@@ -963,7 +984,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     
       // store the new list
       setSelectedList(ogSelected);
-      updateDoc(doc(db, 'globals', 'plan'), { selectedList: ogSelected });
+      updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected });
     }
   }
 
@@ -975,24 +996,25 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
   // to submit the warning modal
   const submitWarningModal = () => {
+    
     let ogSelected = [...selectedList];
     ogSelected = ogSelected.filter(item => item.meal !== (warningModalType + " " + new Date(weekRange[warningModalIndex]))); 
   
     // if there is already a meal prep there, remove it - LUNCH
     if (warningModalType === "LUNCH" && warningModalDocSnap.exists() && warningModalDocSnap.data().meals.lunch.prepId !== null && !warningModalDocSnap.data().meals.lunch.prepId.includes("LUNCH")) {
-      updateDoc(doc(db, 'plans', (new Date(weekRange[warningModalIndex])).toLocaleDateString('en-CA')), { "meals.lunch.prepData": null, "meals.lunch.prepId": null });
+      updateDoc(doc(db, 'PLANS', (new Date(weekRange[warningModalIndex])).toLocaleDateString('en-CA')), { "meals.lunch.prepData": null, "meals.lunch.prepId": null });
       
     // DINNER
     } else if (warningModalType === "DINNER" && warningModalDocSnap.data().meals.dinner.prepId !== null && !warningModalDocSnap.data().meals.dinner.prepId.includes("DINNER")) {
-      updateDoc(doc(db, 'plans', (new Date(weekRange[warningModalIndex])).toLocaleDateString('en-CA')), { "meals.dinner.prepData": null, "meals.dinner.prepId": null });
+      updateDoc(doc(db, 'PLANS', (new Date(weekRange[warningModalIndex])).toLocaleDateString('en-CA')), { "meals.dinner.prepData": null, "meals.dinner.prepId": null });
     }
     
     // store the new list
     setSelectedList(ogSelected);
-    updateDoc(doc(db, 'globals', 'plan'), { selectedList: ogSelected });
+    updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected });
     
     // updates the dropdown amounts and refreshes
-    fetchDropdownItems();
+    fetchDropdownItems(globalCompleted);
     getCollectionPlans();
 
     closeWarningModal();
@@ -1008,6 +1030,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
   // to update the number of future selected meals
   useEffect(() => {
+    
     let newCount = 0;
 
     // loops over the list of selected meals and counts future ones
@@ -1074,7 +1097,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     setSnackModalData(null);
       
     // updates the dropdown amounts and refreshes
-    fetchDropdownItems();
+    fetchDropdownItems(globalCompleted);
     getCollectionPlans();
   }
 
@@ -1133,6 +1156,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           {calendarModalVisible && (
             <CalendarModal
               modalVisible={calendarModalVisible} 
+              setModalVisible={setCalendarModalVisible}
               closeModal={closeCalendarModal} 
               globalDate={globalDate}
             />
@@ -1278,7 +1302,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
               
                 {/* lunch */}
                 <TouchableOpacity
-                  onPress={() => displayMeal(index, "LUNCH", data?.meals?.lunch?.prepData)}
+                  onPress={() => displayMeal(index, "LUNCH", data?.meals?.lunch?.prepData, data?.meals?.lunch?.prepId)}
                   activeOpacity={0.6}
                   className="flex flex-row bg-zinc350 w-full justify-center items-center h-1/2 px-1"
                 >
@@ -1289,7 +1313,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
                 {/* dinner */}
                 <TouchableOpacity
-                  onPress={() => displayMeal(index, "DINNER", data?.meals?.dinner?.prepData)}
+                  onPress={() => displayMeal(index, "DINNER", data?.meals?.dinner?.prepData, data?.meals?.dinner?.prepId)}
                   activeOpacity={0.6}
                   className="bg-zinc400 w-full justify-center items-center h-1/2 px-1"
                 >
@@ -1313,7 +1337,9 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                     date={mealModalDate}
                     dispDate={mealModalDispDate}
                     data={mealModalData}
-                    snapshot={plansSnapshot}
+                    id={mealModalId}
+                    ogSelected={selectedList}
+                    plansSnapshot={plansSnapshot}
                     modalVisible={mealModalVisible}
                     setModalVisible={setMealModalVisible}
                     closeModal={closeEditingModal}
@@ -1443,7 +1469,6 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           prepName={warningModalType === "LUNCH" ? warningModalDocSnap.data().meals.lunch.prepData.prepName : warningModalDocSnap.data().meals.dinner.prepData.prepName}
           prepDate={(warningModalType === "LUNCH" ? "Lunch " : "Dinner ") + formatDateShort(weekRange[warningModalIndex])}
           modalVisible={warningModalVisible}
-          setModalVisible={setWarningModalVisible}
           closeModal={closeWarningModal}
           submitModal={submitWarningModal}
         />
@@ -1489,7 +1514,8 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
         {/* Meal Prep Search */}
         <View className="flex flex-col w-1/2 h-[70px] space-y-1 justify-center items-center">
-          {/* dropdown */}
+        {/* dropdown */}
+        {dropdownItems.length > 0 &&
           <DropDownPicker 
             open={prepDropdownOpen}
             setOpen={setPrepDropdownOpen}
@@ -1511,28 +1537,17 @@ export default function WeeklyPlan ({ isSelectedTab }) {
             }
             placeholder=""
             style={{ height: 50, backgroundColor: colors.zinc600, borderWidth: 1, borderColor: colors.zinc800, justifyContent: 'center', }}
-            dropDownContainerStyle={{ borderLeftWidth: 1, borderRightWidth: 1, borderTopWidth: 1, borderColor: colors.zinc500, borderRadius: 0, backgroundColor: colors.zinc100 }}
+            dropDownContainerStyle={{ borderLeftWidth: 1, borderRightWidth: 1, borderTopWidth: 1, borderColor: colors.zinc500, borderRadius: 0, backgroundColor: colors.theme200 }}
             textStyle={{ color: prepData.length === 0 ? colors.theme200 : "white", fontWeight: 500, textAlign: 'center', fontSize: 13, }}
             listItemContainerStyle={{ borderBottomWidth: 0.5, borderBottomColor: colors.zinc450, }}
             ArrowDownIconComponent={() => {
-              return (
-                <Icon
-                  size={18}
-                  color={ colors.theme100 }
-                  name="chevron-down"
-                />
-              );
+              return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
             }}
             ArrowUpIconComponent={() => {
-              return (
-                <Icon
-                  size={18}
-                  color={ colors.theme100 }
-                  name="chevron-up"
-                />
-              );
+              return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
             }}
           />
+        }
         </View>
 
 

@@ -22,10 +22,16 @@ const FoodScreen = () => {
   ]);
 
   // render scenes with passing whether the tab is selected as a prop
-  const renderScene = SceneMap({
-    recipes: (props) => <Recipes {...props} isSelectedTab={index === 0} />,
-    data: (props) => <Data {...props} isSelectedTab={index === 1} />,
-  });
+  const renderScene = ({ route }) => {
+    switch (route.key) {
+      case 'recipes':
+        return <Recipes isSelectedTab={index === 0} />;
+      case 'data':
+        return <Data isSelectedTab={index === 1} />;
+      default:
+        return null;
+    }
+  };
 
 
   ///////////////////////////////// HTML /////////////////////////////////

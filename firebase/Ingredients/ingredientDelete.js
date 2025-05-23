@@ -1,11 +1,10 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-// Fractions
-var Fractional = require('fractional').Fraction;
+// fractions
 import Fraction from 'fraction.js';
 
-// Initialize Firebase App
-import { getFirestore, doc, deleteDoc, collection, getDocs, getDoc, writeBatch } from 'firebase/firestore';
+// initialize firebase app
+import { getFirestore, doc, deleteDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
 
@@ -13,6 +12,7 @@ const db = getFirestore(app);
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 export async function ingredientDelete(ingredientId) {
+  
 
   ///////////////////////////////// FUNCTION /////////////////////////////////
 
@@ -20,7 +20,7 @@ export async function ingredientDelete(ingredientId) {
 
     ///////////////////////////////// INGREDIENTS /////////////////////////////////
 
-    const ingredientRef = doc(db, 'ingredients', ingredientId);
+    const ingredientRef = doc(db, 'INGREDIENTS', ingredientId);
     await deleteDoc(ingredientRef);
 
 
@@ -30,7 +30,7 @@ export async function ingredientDelete(ingredientId) {
     const recipeBatch = writeBatch(db);
 
     // gets all recipe data
-    const recipesSnapshot = await getDocs(collection(db, 'recipes'));
+    const recipesSnapshot = await getDocs(collection(db, 'RECIPES'));
 
     // loops over all recipes
     recipesSnapshot.docs.forEach((recipeDoc) => {
@@ -52,9 +52,11 @@ export async function ingredientDelete(ingredientId) {
             recipeData.ingredientChecks[index] = false;
             recipeData.ingredientData[index] = null;
             recipeData.ingredientIds[index] = "";
+            recipeData.ingredientNames[index] = "";
             recipeData.ingredientPrices[index] = "";
             recipeData.ingredientServings[index] = "";
             recipeData.ingredientStores[index] = "";
+            recipeData.ingredientTypes[index] = [];
           }
         });
         
@@ -88,7 +90,7 @@ export async function ingredientDelete(ingredientId) {
           
 
           // add the update operation to the batch
-          recipeBatch.update(doc(db, 'recipes', recipeDoc.id), recipeData);
+          recipeBatch.update(doc(db, 'RECIPES', recipeDoc.id), recipeData);
         }
       }
     });
@@ -103,7 +105,7 @@ export async function ingredientDelete(ingredientId) {
     const spotlightBatch = writeBatch(db);
 
     // gets all spotlight data
-    const spotlightsSnapshot = await getDocs(collection(db, 'spotlights'));
+    const spotlightsSnapshot = await getDocs(collection(db, 'SPOTLIGHTS'));
 
     // loops over all spotlights
     spotlightsSnapshot.docs.forEach((spotlightDoc) => {
@@ -123,6 +125,7 @@ export async function ingredientDelete(ingredientId) {
             spotlightData.ingredientAmounts[index] = "";
             spotlightData.ingredientCals[index] = "";
             spotlightData.ingredientData[index] = null;
+            spotlightData.ingredientNames[index] = "";
             spotlightData.ingredientNameEdited[index] = false;
             spotlightData.ingredientAmountEdited[index] = false;
             spotlightData.ingredientStoreEdited[index] = false;
@@ -130,6 +133,7 @@ export async function ingredientDelete(ingredientId) {
             spotlightData.ingredientPrices[index] = "";
             spotlightData.ingredientServings[index] = "";
             spotlightData.ingredientStores[index] = "";
+            spotlightData.ingredientTypes[index] = [];
           }
         });
         
@@ -159,7 +163,7 @@ export async function ingredientDelete(ingredientId) {
 
 
           // add the update operation to the batch
-          spotlightBatch.update(doc(db, 'spotlights', spotlightDoc.id), spotlightData);
+          spotlightBatch.update(doc(db, 'SPOTLIGHTS', spotlightDoc.id), spotlightData);
         }
       }
     });

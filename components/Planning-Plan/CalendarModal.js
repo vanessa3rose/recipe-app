@@ -1,9 +1,13 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useState, useEffect } from 'react';
+
+// UI components
 import { Modal, View, Text, TouchableOpacity } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
@@ -11,7 +15,7 @@ import colors from '../../assets/colors';
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const CalendarModal = ({
-  modalVisible, closeModal, globalDate,
+  modalVisible, setModalVisible, closeModal, globalDate,
 }) => {
 
 
@@ -103,7 +107,7 @@ const CalendarModal = ({
             name="close-circle"
             size={24}
             color={colors.zinc600}
-            onPress={() => closeModal(date)} // Close modal and send original selected date back
+            onPress={() => setModalVisible(false)} // Close modal and send original selected date back
           />
         </View>
       </View>

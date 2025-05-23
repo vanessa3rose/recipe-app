@@ -1,10 +1,13 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-// Fractions
+// store lists
+import storeKeys from '../../assets/storeKeys';
+
+// fractions
 var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
-// Initialize Firebase App
+// initialize firebase app
 import { getFirestore, collection, addDoc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -13,14 +16,7 @@ const db = getFirestore(app);
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const ingredientAdd = async ({
-  ingredientName = "", ingredientType = [],
-  aLink = "", mbLink = "", smLink = "", ssLink = "", tLink = "", wLink = "",
-  aBrand = "", mbBrand = "", smBrand = "", ssBrand = "", tBrand = "", wBrand = "",
-  aServingSize = 0, mbServingSize = 0, smServingSize = 0, ssServingSize = 0, tServingSize = 0, wServingSize = 0,
-  aUnit = "", mbUnit = "", smUnit = "", ssUnit = "", tUnit = "", wUnit = "",
-  aServingContainer = 0, mbServingContainer = 0, smServingContainer = 0, ssServingContainer = 0, tServingContainer = 0, wServingContainer = 0,
-  aCalServing = 0, mbCalServing = 0, smCalServing = 0, ssCalServing = 0, tCalServing = 0, wCalServing = 0,
-  aPriceContainer = 0, mbPriceContainer = 0, smPriceContainer = 0, ssPriceContainer = 0, tPriceContainer = 0, wPriceContainer = 0,
+  newIngredient
 }) => {
 
 
@@ -31,53 +27,47 @@ const ingredientAdd = async ({
 
     ///////////////////////////////// DATA CALCULATIONS /////////////////////////////////
     
-    // Calculate TotalYield for each field
-    const aTotalYield = (aServingSize === "" || aServingContainer === "") ? "" : `${(new Fractional(aServingSize)).multiply(new Fractional(aServingContainer)).toString()}`;
-    const mbTotalYield = (mbServingSize === "" || mbServingContainer === "") ? "" : `${(new Fractional(mbServingSize)).multiply(new Fractional(mbServingContainer)).toString()}`;
-    const smTotalYield = (smServingSize === "" || smServingContainer === "") ? "" : `${(new Fractional(smServingSize)).multiply(new Fractional(smServingContainer)).toString()}`;
-    const ssTotalYield = (ssServingSize === "" || ssServingContainer === "") ? "" : `${(new Fractional(ssServingSize)).multiply(new Fractional(ssServingContainer)).toString()}`;
-    const tTotalYield = (tServingSize === "" || tServingContainer === "") ? "" : `${(new Fractional(tServingSize)).multiply(new Fractional(tServingContainer)).toString()}`;
-    const wTotalYield = (wServingSize === "" || wServingContainer === "") ? "" : `${(new Fractional(wServingSize)).multiply(new Fractional(wServingContainer)).toString()}`;
+    // function to calculate totalYield, calContainer, and priceServing for each store
+    const storeCalculations = (store) => {
+      
+      // values
+      const servingSize = newIngredient.ingredientData[store].servingSize; 
+      const servingContainer = newIngredient.ingredientData[store].servingContainer; 
+      const calServing = newIngredient.ingredientData[store].calServing; 
+      const priceContainer = newIngredient.ingredientData[store].priceContainer; 
 
-    // Calculate CalContainer for each field
-    const aCalContainer = (aCalServing === "" || aServingContainer === "") ? "" : `${((new Fraction((new Fractional(aCalServing)).multiply(new Fractional(aServingContainer)).toString())) * 1).toFixed(0)}`;
-    const mbCalContainer = (mbCalServing === "" || mbServingContainer === "") ? "" : `${((new Fraction((new Fractional(mbCalServing)).multiply(new Fractional(mbServingContainer)).toString())) * 1).toFixed(0)}`;
-    const smCalContainer = (smCalServing === "" || smServingContainer === "") ? "" : `${((new Fraction((new Fractional(smCalServing)).multiply(new Fractional(smServingContainer)).toString())) * 1).toFixed(0)}`;
-    const ssCalContainer = (ssCalServing === "" || ssServingContainer === "") ? "" : `${((new Fraction((new Fractional(ssCalServing)).multiply(new Fractional(ssServingContainer)).toString())) * 1).toFixed(0)}`;
-    const tCalContainer = (tCalServing === "" || tServingContainer === "") ? "" : `${((new Fraction((new Fractional(tCalServing)).multiply(new Fractional(tServingContainer)).toString())) * 1).toFixed(0)}`;
-    const wCalContainer = (wCalServing === "" || wServingContainer === "") ? "" : `${((new Fraction((new Fractional(wCalServing)).multiply(new Fractional(wServingContainer)).toString())) * 1).toFixed(0)}`;
-
-    // Calculate PriceServing for each field
-    const aPriceServing = (aPriceContainer === "" || aServingContainer === "") ? "" : `${((new Fraction((new Fractional(aPriceContainer)).divide(new Fractional(aServingContainer)).toString())) * 1).toFixed(2)}`;
-    const mbPriceServing = (mbPriceContainer === "" || mbServingContainer === "") ? "" : `${((new Fraction((new Fractional(mbPriceContainer)).divide(new Fractional(mbServingContainer)).toString())) * 1).toFixed(2)}`;
-    const smPriceServing = (smPriceContainer === "" || smServingContainer === "") ? "" : `${((new Fraction((new Fractional(smPriceContainer)).divide(new Fractional(smServingContainer)).toString())) * 1).toFixed(2)}`;
-    const ssPriceServing = (ssPriceContainer === "" || ssServingContainer === "") ? "" : `${((new Fraction((new Fractional(ssPriceContainer)).divide(new Fractional(ssServingContainer)).toString())) * 1).toFixed(2)}`;
-    const tPriceServing = (tPriceContainer === "" || tServingContainer === "") ? "" : `${((new Fraction((new Fractional(tPriceContainer)).divide(new Fractional(tServingContainer)).toString())) * 1).toFixed(2)}`;
-    const wPriceServing = (wPriceContainer === "" || wServingContainer === "") ? "" : `${((new Fraction((new Fractional(wPriceContainer)).divide(new Fractional(wServingContainer)).toString())) * 1).toFixed(2)}`;
+      // calculations
+      const totalYield = (servingSize === "" || servingContainer === "") ? "" : `${(new Fractional(servingSize)).multiply(new Fractional(servingContainer)).toString()}`;
+      const calContainer = (calServing === "" || servingContainer === "") ? "" : `${((new Fraction((new Fractional(calServing)).multiply(new Fractional(servingContainer)).toString())) * 1).toFixed(0)}`;
+      const priceServing = (priceContainer === "" || servingContainer === "") ? "" : `${((new Fraction((new Fractional(priceContainer)).divide(new Fractional(servingContainer)).toString())) * 1).toFixed(2)}`;
+    
+      return { totalYield, calContainer, priceServing };
+    };
 
 
     ///////////////////////////////// DATA /////////////////////////////////
 
+    // ingredient data portion
+    const ingredientData = {};
+    storeKeys.forEach((store) => {
+      ingredientData[store] = {
+        ...newIngredient.ingredientData[store],
+        ...storeCalculations(store),
+      };
+    });
+
+    // overall ingredient
     const ingredient = {
-      ingredientName, 
-      ingredientType: Array.isArray(ingredientType) ? ingredientType.map(type => type === "CUSTOM" ? "" : type) : ingredientType === "CUSTOM" ? "" : ingredientType,
-      aLink, mbLink, smLink, ssLink, tLink, wLink,
-      aBrand, mbBrand, smBrand, ssBrand, tBrand, wBrand,
-      aServingSize, mbServingSize, smServingSize, ssServingSize, tServingSize, wServingSize,
-      aUnit, mbUnit, smUnit, ssUnit, tUnit, wUnit,
-      aServingContainer, mbServingContainer, smServingContainer, ssServingContainer, tServingContainer, wServingContainer,
-      aTotalYield, mbTotalYield, smTotalYield, ssTotalYield, tTotalYield, wTotalYield,
-      aCalServing, mbCalServing, smCalServing, ssCalServing, tCalServing, wCalServing,
-      aCalContainer, mbCalContainer, smCalContainer, ssCalContainer, tCalContainer, wCalContainer,
-      aPriceServing, mbPriceServing, smPriceServing, ssPriceServing, tPriceServing, wPriceServing,
-      aPriceContainer, mbPriceContainer, smPriceContainer, ssPriceContainer, tPriceContainer, wPriceContainer,
+      ingredientName: newIngredient.ingredientName, 
+      ingredientTypes: Array.isArray(newIngredient.ingredientTypes) ? newIngredient.ingredientTypes.map(type => type === "CUSTOM" ? "" : type) : newIngredient.ingredientTypes === "CUSTOM" ? "" : newIngredient.ingredientTypes,
+      ingredientData: ingredientData,
     };
 
 
     ///////////////////////////////// PROCESSING /////////////////////////////////
 
-    // Add the new ingredient to the Firestore 'ingredients' collection
-    await addDoc(collection(db, 'ingredients'), ingredient);
+    // Add the new ingredient to the Firestore 'INGREDIENTS' collection
+    await addDoc(collection(db, 'INGREDIENTS'), ingredient);
     
   } catch (e) {
     console.error("Error adding document: ", e);

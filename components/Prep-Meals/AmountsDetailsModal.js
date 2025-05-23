@@ -1,8 +1,12 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-import React, { useState, useEffect } from 'react';
+// react hooks
+import React from 'react';
+
+// UI components
 import { Modal, View, Text, TouchableOpacity } from 'react-native';
 
+// initialize firebase app
 import extractUnit from '../Validation/extractUnit';
 
 
@@ -33,7 +37,7 @@ const AmountsDetailsModal = ({
         
           {/* Title */}
           <Text className="font-bold text-[16px] text-center text-black">
-            {data.ingredientData.ingredientName}
+            {data.ingredientName}
           </Text>
 
           {/* Divider */}
@@ -55,7 +59,7 @@ const AmountsDetailsModal = ({
               {/* data */}
               <View className="flex border-0.5 border-r-0.5 border-zinc700 w-[55%]">
                 <Text className="flex w-full leading-7 text-center text-[12px] text-black bg-theme200">
-                    {data.amountLeft} {extractUnit(data.ingredientData[`${data.ingredientStore}Unit`], data.amountLeft)}
+                    {data.amountLeft} {extractUnit(data.ingredientData[data.ingredientStore].unit, data.amountLeft)}
                 </Text>
               </View>
             </View>
@@ -74,7 +78,7 @@ const AmountsDetailsModal = ({
               {/* data */}
               <View className="flex border-0.5 border-r-0.5 border-zinc700 w-[55%]">
                 <Text className="flex w-full leading-7 text-center text-[12px] text-black bg-theme200">
-                  {data.amountTotal === "" ? "?" : data.amountTotal} {extractUnit(data.ingredientData[`${data.ingredientStore}Unit`], data.amountTotal)}
+                  {data.amountTotal === "" ? "?" : data.amountTotal} {extractUnit(data.ingredientData[data.ingredientStore].unit, data.amountTotal)}
                 </Text>
               </View>
             </View>

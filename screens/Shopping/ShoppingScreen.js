@@ -22,10 +22,16 @@ const ShoppingScreen = () => {
   ]);
 
   // render scenes with passing whether the tab is selected as a prop
-  const renderScene = SceneMap({
-    list: (props) => <ShoppingList {...props} isSelectedTab={index === 0} />,
-    spotlight: (props) => <RecipeSpotlight {...props} isSelectedTab={index === 1} />,
-  });
+  const renderScene = ({ route }) => {
+    switch (route.key) {
+      case 'list':
+        return <ShoppingList isSelectedTab={index === 0} />;
+      case 'spotlight':
+        return <RecipeSpotlight isSelectedTab={index === 1} />;
+      default:
+        return null;
+    }
+  };
 
 
   ///////////////////////////////// HTML /////////////////////////////////

@@ -22,10 +22,16 @@ const PlanningScreen = () => {
   ]);
 
   // render scenes with passing whether the tab is selected as a prop
-  const renderScene = SceneMap({
-    details: (props) => <Details {...props} isSelectedTab={index === 0} />,
-    weekly: (props) => <WeeklyPlan {...props} isSelectedTab={index === 1} />,
-  });
+  const renderScene = ({ route }) => {
+    switch (route.key) {
+      case 'details':
+        return <Details isSelectedTab={index === 0} />;
+      case 'weekly':
+        return <WeeklyPlan isSelectedTab={index === 1} />;
+      default:
+        return null;
+    }
+  };
 
 
   ///////////////////////////////// HTML /////////////////////////////////

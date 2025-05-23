@@ -22,10 +22,16 @@ const PrepScreen = () => {
   ]);
 
   // render scenes with passing whether the tab is selected as a prop
-  const renderScene = SceneMap({
-    current: (props) => <CurrentFood {...props} isSelectedTab={index === 0} />,
-    meal: (props) => <MealPrep {...props} isSelectedTab={index === 1} />,
-  });
+  const renderScene = ({ route }) => {
+    switch (route.key) {
+      case 'current':
+        return <CurrentFood isSelectedTab={index === 0} />;
+      case 'meal':
+        return <MealPrep isSelectedTab={index === 1} />;
+      default:
+        return null;
+    }
+  };
 
 
   ///////////////////////////////// HTML /////////////////////////////////

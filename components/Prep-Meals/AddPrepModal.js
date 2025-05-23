@@ -1,19 +1,24 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity } from 'react-native';
+
+// UI components
+import { Modal, View, Text, TextInput } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { Picker } from '@react-native-picker/picker';
 
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
-import prepAdd from '../../firebase/Prep/prepAdd';
-import { spotlightDelete } from '../../firebase/Spotlights/spotlightDelete';
-
-// Fractions
+// fractions
 var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
+
+// firebase
+import prepAdd from '../../firebase/Preps/prepAdd';
+import { spotlightDelete } from '../../firebase/Spotlights/spotlightDelete';
 
 // initialize Firebase App
 import { getFirestore, doc, getDocs, getDoc, collection } from 'firebase/firestore';
@@ -48,7 +53,7 @@ const AddPrepModal = ({
   const getSpotlights = async () => {
     
     // gets the collection of spotlights
-    const querySnapshot = await getDocs(collection(db, 'spotlights'));
+    const querySnapshot = await getDocs(collection(db, 'SPOTLIGHTS'));
     
     // reformats each one
     const spotlightsArray = querySnapshot.docs.map((doc) => {
@@ -73,7 +78,7 @@ const AddPrepModal = ({
 
   // retrieves and stores the spotlight data of the given id
   const getSpotlightData = async (spotlightId) => {
-    const spotlightDoc = await getDoc(doc(db, 'spotlights', spotlightId));
+    const spotlightDoc = await getDoc(doc(db, 'SPOTLIGHTS', spotlightId));
     if (spotlightDoc.exists()) {
       const spotlightData = spotlightDoc.data();
       setSelectedSpotlightData(spotlightData);
@@ -125,7 +130,7 @@ const AddPrepModal = ({
         if (selectedCurrentIds[index] !== null) {
           
           // gets the current data
-          const currentDoc = await getDoc(doc(db, 'currents', selectedCurrentIds[index]));
+          const currentDoc = await getDoc(doc(db, 'CURRENTS', selectedCurrentIds[index]));
           const selectedCurrentData = currentDoc.data();
           currData[index] = selectedCurrentData;
           
@@ -135,8 +140,8 @@ const AddPrepModal = ({
           
           // fractional calculations
           const amount = new Fractional(selectedSpotlightData.ingredientAmounts[index]);
-          const servings = storeKey !== "" ? new Fractional(current.ingredientData[`${storeKey}TotalYield`]) : new Fractional(current.ingredientData.ServingSize);
-          const cals = storeKey !== "" ? new Fractional(current.ingredientData[`${storeKey}CalContainer`]) : new Fractional(current.ingredientData.CalServing);
+          const servings = storeKey !== "-" ? new Fractional(current.ingredientData[storeKey].totalYield) : new Fractional(current.ingredientData["-"].servingSize);
+          const cals = storeKey !== "-" ? new Fractional(current.ingredientData[storeKey].calContainer) : new Fractional(current.ingredientData["-"].calServing);
           const priceUnit = new Fractional(current.unitPrice);
           
           // invalid 
@@ -206,16 +211,16 @@ const AddPrepModal = ({
     // if a new prep is added
     } else {
       data = {
-        prepName: prepName,
-        prepNote: "",
-        prepMult: 0,
-        prepCal: "0", 
-        prepPrice: "0.00", 
-        currentData: [null, null, null, null, null, null, null, null, null, null, null, null], 
-        currentIds: ["", "", "", "", "", "", "", "", "", "", "", ""], 
         currentAmounts: ["", "", "", "", "", "", "", "", "", "", "", ""], 
         currentCals: ["", "", "", "", "", "", "", "", "", "", "", ""], 
+        currentData: [null, null, null, null, null, null, null, null, null, null, null, null], 
+        currentIds: ["", "", "", "", "", "", "", "", "", "", "", ""], 
         currentPrices: ["", "", "", "", "", "", "", "", "", "", "", ""],
+        prepCal: "0", 
+        prepMult: 0,
+        prepName: prepName,
+        prepNote: "",
+        prepPrice: "0.00", 
       };
     }
 
@@ -305,7 +310,7 @@ const AddPrepModal = ({
               {/* Check */}
               <Icon 
                 size={24}
-                color={'black'}
+                color="black"
                 name="checkmark"
                 onPress={() => {
                   if (selectedSpotlightData !== null) { setShowDelete(true) }
@@ -316,7 +321,7 @@ const AddPrepModal = ({
               {/* X */}
               <Icon 
                 size={24}
-                color={'black'}
+                color="black"
                 name="close-outline"
                 onPress={exitModal}
               />
@@ -333,7 +338,7 @@ const AddPrepModal = ({
               <View className="flex flex-row justify-center items-center mb-2 h-[50px] border-0.5 border-zinc500 bg-white rounded-md p-2 mx-4">
                 {/* Prep Name Input */}
                 <TextInput
-                  className="text-center mb-1 text-[14px] leading-[16px]"
+                  className="text-center mb-1 text-[14px] leading-[17px]"
                   placeholder={prepName}
                   placeholderTextColor={colors.zinc400}
                   multiline={true}
@@ -365,22 +370,10 @@ const AddPrepModal = ({
                     textStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
                     listItemContainerStyle={{ borderBottomWidth: 0.5, borderBottomColor: colors.theme100, }}
                     ArrowDownIconComponent={() => {
-                      return (
-                        <Icon
-                          size={18}
-                          color={ colors.theme100 }
-                          name="chevron-down"
-                        />
-                      );
+                      return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
                     }}
                     ArrowUpIconComponent={() => {
-                      return (
-                        <Icon
-                          size={18}
-                          color={ colors.theme100 }
-                          name="chevron-up"
-                        />
-                      );
+                      return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
                     }}
                   />
                 </View>
@@ -399,7 +392,7 @@ const AddPrepModal = ({
 
                             <View className={`flex w-full h-1/2 justify-center items-center border-b-0.5 ${index % 2 === 0 ? "bg-zinc350" : "bg-theme200"}`}>
                               <Text className="text-black text-[12px] font-semibold text-center px-1">
-                                {selectedSpotlightData?.ingredientData[index]?.ingredientName}
+                                {selectedSpotlightData?.ingredientNames[index]}
                               </Text>
                             </View>
 
@@ -410,11 +403,11 @@ const AddPrepModal = ({
                                 style={{ height: 25, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -10, }}
                                 itemStyle={{ color: 'black', textAlign: 'center', fontSize: 12, }}
                               >
-                                {currentData.map((item) => {
+                                {currentData.filter(curr => !(curr?.archive)).map((item) => {
                                   return (
                                     <Picker.Item
                                       key={item?.id || Math.random()}
-                                      label={item?.ingredientData?.ingredientName || ""}
+                                      label={item?.ingredientName || ""}
                                       value={item?.id || ""}
                                     />
                                   );

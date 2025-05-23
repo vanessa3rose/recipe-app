@@ -1,22 +1,16 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-import React, { useState, useEffect } from 'react';
+// react hooks
+import React from 'react';
+
+// UI components
 import { Modal, View, Text, TouchableOpacity } from 'react-native';
-
-import colors from '../../assets/colors';
-
-import { ingredientDelete } from '../../firebase/Ingredients/ingredientDelete';
-
-// Initialize Firebase App
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { app } from '../../firebase.config';
-const db = getFirestore(app);
 
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const RadioWarningModal = ({ 
-  prepName, prepDate, modalVisible, setModalVisible, closeModal, submitModal,
+  prepName, prepDate, modalVisible, closeModal, submitModal,
 }) => {
 
   
@@ -56,7 +50,7 @@ const RadioWarningModal = ({
 
             {/* Warning */}
             <View className="flex justify-center items-center">
-              <Text className="text-[15px] italic text-pink-700 font-medium">
+              <Text className="text-[15px] italic text-mauve700 font-medium">
                 {"Would you like to proceed?"}
               </Text>
             </View>

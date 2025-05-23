@@ -1,6 +1,6 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-// Initialize Firebase App
+// initialize firebase app
 import { getFirestore, collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -18,36 +18,36 @@ const recipeAdd = async ({
 
   try {
     
+    
     ///////////////////////////////// DATA /////////////////////////////////
     
-    const recipeCheck = false;
-    const recipeTags = [];
-    const recipeCal = "0";
-    const recipePrice = "0.00";
-    const recipeServing = "0.00";
-    const ingredientChecks = [ false, false, false, false, false, false, false, false, false, false, false, false ]; 
-    const ingredientData = [ null, null, null, null, null, null, null, null, null, null, null, null ];
-    const ingredientIds = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
-    const ingredientAmounts = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
-    const ingredientStores = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
-    const ingredientCals = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
-    const ingredientPrices = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
-    const ingredientServings = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
-    
     const recipe = {
-        recipeName, recipeCheck, recipeTags, recipeCal, recipePrice, recipeServing,
-        ingredientChecks, ingredientData, ingredientIds, ingredientAmounts, ingredientStores,
-        ingredientCals, ingredientPrices, ingredientServings,
+      recipeCal: "0",
+      recipeCheck: false,
+      recipeName: recipeName,
+      recipePrice: "0.00",
+      recipeServing: "0.00",
+      recipeTags: [],
+      ingredientAmounts: [ "", "", "", "", "", "", "", "", "", "", "", "" ],
+      ingredientCals: [ "", "", "", "", "", "", "", "", "", "", "", "" ],
+      ingredientChecks: [ false, false, false, false, false, false, false, false, false, false, false, false ],
+      ingredientData: [ null, null, null, null, null, null, null, null, null, null, null, null ],
+      ingredientIds: [ "", "", "", "", "", "", "", "", "", "", "", "" ],
+      ingredientNames: [ "", "", "", "", "", "", "", "", "", "", "", "" ], 
+      ingredientPrices: [ "", "", "", "", "", "", "", "", "", "", "", "" ],
+      ingredientServings: [ "", "", "", "", "", "", "", "", "", "", "", "" ], 
+      ingredientStores: [ "", "", "", "", "", "", "", "", "", "", "", "" ],
+      ingredientTypes: {0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [], 8: [], 9: [], 10: [], 11: []},
     };
     
     ///////////////////////////////// PROCESSING /////////////////////////////////
 
-    // Add the new ingredient to the Firestore 'recipes' collection
-    const docRef = await addDoc(collection(db, 'recipes'), recipeData === null ? recipe : recipeData);
+    // Add the new ingredient to the Firestore 'RECIPES' collection
+    const docRef = await addDoc(collection(db, 'RECIPES'), recipeData === null ? recipe : recipeData);
     setRecipeId(docRef.id);
     
     // stores the recipe data in the firebase
-    updateDoc(doc(db, 'globals', 'recipe'), { id: docRef.id });
+    updateDoc(doc(db, 'GLOBALS', 'recipe'), { id: docRef.id });
     
   } catch (e) {
     console.error("Error adding document: ", e);

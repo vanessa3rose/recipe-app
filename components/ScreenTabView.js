@@ -1,14 +1,9 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React from 'react';
-
 import { View } from 'react-native';
 import { TabView, TabBar } from 'react-native-tab-view';
-
-// initialize Firebase App
-import { getFirestore } from 'firebase/firestore';
-import { app } from '../firebase.config';
-const db = getFirestore(app);
 
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////

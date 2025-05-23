@@ -1,13 +1,15 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useState, useEffect } from 'react';
+
+// UI components
 import { Modal, View, Text, TouchableOpacity } from 'react-native';
 
-import colors from '../../assets/colors';
-
+// firebase
 import { ingredientDelete } from '../../firebase/Ingredients/ingredientDelete';
 
-// Initialize Firebase App
+// initialize firebase app
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -31,10 +33,10 @@ const DeleteIngredientModal = ({
 
   // retrieves the name of the selected ingredient
   const fetchIngredientName = async () => {
+    
     if (id) {
       try {
-        const docRef = doc(db, 'ingredients', id);
-        const docSnap = await getDoc(docRef);
+        const docSnap = await getDoc(doc(db, 'INGREDIENTS', id));
   
         if (docSnap.exists()) {
           setIngredientName(docSnap.data().ingredientName);
@@ -145,17 +147,17 @@ const DeleteIngredientModal = ({
           {/* Recipe Warning */}
           {recipeList && recipeList.length > 0 &&
             <View className="space-y-2">
-              <Text className="italic text-zinc600 text-center">
+              <Text className="text-zinc600 text-center">
                 recipes including this ingredient:
               </Text>
               <View className="flex flex-col pl-2">
                 {/* maps the recipe list */}
                 {recipeList?.map((recipe, index) => 
                   <View className="flex flex-row space-x-2" key={index}>
-                    <Text className="italic text-pink-700 text-left">
+                    <Text className="italic text-mauve700 text-left">
                       {"-"}
                     </Text>
-                    <Text className="italic text-pink-700 text-left">
+                    <Text className="italic text-mauve700 text-left">
                       {recipe}
                     </Text>
                   </View>
@@ -173,17 +175,17 @@ const DeleteIngredientModal = ({
           {/* Spotlight Warning */}
           {spotlightList && spotlightList.length > 0 &&
             <View className="space-y-2">
-              <Text className="italic text-zinc600 text-center">
+              <Text className="text-zinc600 text-center">
                 spotlights including this ingredient:
               </Text>
               <View className="flex flex-col pl-2">
                 {/* maps the spotlight list */}
                 {spotlightList?.map((spotlight, index) => 
                   <View className="flex flex-row space-x-2" key={index}>
-                    <Text className="italic text-pink-700 text-left">
+                    <Text className="italic text-mauve700 text-left">
                       {"-"}
                     </Text>
-                    <Text className="italic text-pink-700 text-left">
+                    <Text className="italic text-mauve700 text-left">
                       {spotlight}
                     </Text>
                   </View>
