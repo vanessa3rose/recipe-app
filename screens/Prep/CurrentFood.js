@@ -1,40 +1,40 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigationState } from '@react-navigation/native';
 
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Keyboard, } from 'react-native';
+// UI components
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Keyboard, Image} from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
+// store lists
+import storeKeys from '../../assets/storeKeys';
+import storeImages from '../../assets/storeImages';
+
+// fractions
+var Fractional = require('fractional').Fraction;
+
+// validation
+import validateFractionInput from '../../components/Validation/validateFractionInput';
+import extractUnit from '../../components/Validation/extractUnit';
+
+// modals
 import DeleteCurrentModal from '../../components/Prep-Currents/DeleteCurrentModal';
 import ModPriceModal from '../../components/Prep-Currents/ModPriceModal';
 import ViewCurrentModal from '../../components/Prep-Currents/ViewCurrentModal';
 import ViewIngredientModal from '../../components/MultiUse/ViewIngredientModal';
 import ModCurrentModal from '../../components/Prep-Currents/ModCurrentModal';
 
+// firebase
 import currentAdd from '../../firebase/Currents/currentAdd';
 import currentEdit from '../../firebase/Currents/currentEdit';
 
-// Fractions
-var Fractional = require('fractional').Fraction;
-import Fraction from 'fraction.js';
-import validateFractionInput from '../../components/Validation/validateFractionInput';
-
-import extractUnit from '../../components/Validation/extractUnit';
-
-// Logos
-import { Image } from 'react-native';
-import aldi from '../../assets/Logos/aldi.png'
-import marketbasket from '../../assets/Logos/market-basket.png'
-import starmarket from '../../assets/Logos/star-market.png'
-import stopandshop from '../../assets/Logos/stop-and-shop.png'
-import target from '../../assets/Logos/target.png'
-import walmart from '../../assets/Logos/walmart.png'
-
-// initialize Firebase App
+// initialize firebase app
 import { getFirestore, doc, updateDoc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -49,6 +49,7 @@ export default function CurrentFood ({ isSelectedTab }) {
 
   // keyboard listener
   useEffect(() => {
+
     // listens for keyboard show event
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
       setIsKeyboardOpen(true);
@@ -77,6 +78,7 @@ export default function CurrentFood ({ isSelectedTab }) {
 
   // when the tab is changed to CurrentFood
   useEffect(() => {
+    
     if (isSelectedTab) {
       updateIngredients();
       updatePreps();
@@ -113,7 +115,8 @@ export default function CurrentFood ({ isSelectedTab }) {
 
   // gets the snapshot of preps and calculates the overall number of meal preps
   const updatePreps = async () => {
-    const snapshot = await getDocs(collection(db, 'preps'));
+    
+    const snapshot = await getDocs(collection(db, 'PREPS'));
     setPrepsSnapshot(snapshot);
 
     let totalPreps = 0;
@@ -143,7 +146,7 @@ export default function CurrentFood ({ isSelectedTab }) {
   const [ingredientTypeList, setIngredientTypeList] = useState([]);
 
   // for store picker
-  const [selectedIngredientStore, setSelectedIngredientStore] = useState("");
+  const [selectedIngredientStore, setSelectedIngredientStore] = useState("-");
   
   // for filtering
   const [filteredIngredientData, setFilteredIngredientData] = useState([]);
@@ -155,7 +158,7 @@ export default function CurrentFood ({ isSelectedTab }) {
   const updateIngredients = async () => {
 
     // gets the data
-    const snapshot = await getDocs(collection(db, 'ingredients'));
+    const snapshot = await getDocs(collection(db, 'INGREDIENTS'));
     const data = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
@@ -174,7 +177,7 @@ export default function CurrentFood ({ isSelectedTab }) {
         { label: "ALL TYPES", value: "ALL TYPES" },
         ...[...new Set(
           ingredientData
-            .flatMap(item => item.ingredientType)
+            .flatMap(item => item.ingredientTypes)
             .filter(type => type !== undefined && type !== null)
         )]
           .sort((a, b) => a.localeCompare(b))
@@ -206,14 +209,14 @@ export default function CurrentFood ({ isSelectedTab }) {
     // filters for type
     if (selectedIngredientType !== "ALL TYPES") {
       filtered = filtered.filter(ingredient => 
-        Array.isArray(ingredient.ingredientType) && ingredient.ingredientType.includes(selectedIngredientType)
+        Array.isArray(ingredient.ingredientTypes) && ingredient.ingredientTypes.includes(selectedIngredientType)
       );
     }
 
     // filers for store
-    if (selectedIngredientStore !== "") {
+    if (selectedIngredientStore !== "-") {
       filtered = filtered.filter(ingredient => 
-        ingredient[`${selectedIngredientStore}Brand`] !== ""
+        ingredient.ingredientData[selectedIngredientStore]?.brand !== ""
       );
     }
 
@@ -238,8 +241,8 @@ export default function CurrentFood ({ isSelectedTab }) {
 
   // decides the next store
   const changeSelectedStore = () => {
-    const stores = ["", "a", "mb", "sm", "ss", "t", "w"];
-    setSelectedIngredientStore(stores[(stores.indexOf(selectedIngredientStore) + 1) % 7]); 
+    const ingredientStores = ["-", ...storeKeys];
+    setSelectedIngredientStore(ingredientStores[(ingredientStores.indexOf(selectedIngredientStore) + 1) % (storeKeys.length + 1)]); 
   }
 
 
@@ -249,6 +252,8 @@ export default function CurrentFood ({ isSelectedTab }) {
   const [searchIngredientQuery, setSearchIngredientQuery] = useState('');
   const [selectedIngredientId, setSelectedIngredientId] = useState("");
   const [selectedIngredientData, setSelectedIngredientData] = useState(null);
+  const [selectedIngredientName, setSelectedIngredientName] = useState("");
+  const [selectedIngredientTypes, setSelectedIngredientTypes] = useState([]);
 
 
   // for when an ingredient is selected from the dropdown that appears above the textinput
@@ -257,7 +262,9 @@ export default function CurrentFood ({ isSelectedTab }) {
     // stores the selection
     setSearchIngredientQuery(item.ingredientName);
     setSelectedIngredientId(item.id);
-    setSelectedIngredientData(item);
+    setSelectedIngredientData(item.ingredientData);
+    setSelectedIngredientName(item.ingredientName);
+    setSelectedIngredientTypes(item.ingredientTypes)
     
     // closes the dropdown
     setIngredientDropdownOpen(false);
@@ -272,6 +279,8 @@ export default function CurrentFood ({ isSelectedTab }) {
     // resets the search filtering
     setSearchIngredientQuery("");
     setSelectedIngredientData(null);
+    setSelectedIngredientName("");
+    setSelectedIngredientTypes("");
     setSelectedIngredientId("");
 
     // closes the type dropdown
@@ -286,54 +295,64 @@ export default function CurrentFood ({ isSelectedTab }) {
       
       // if submitting an existing ingredient
       if (selectedIngredientId !== "") {
-
-        const stores = ["a", "mb", "sm", "ss", "t", "w"];
-        const currStore = "a";
-
+        
+        const currStore = storeKeys[0];
         let nextStore = currStore;
         
         // if a store is not being filtered, calculates the initial store based on the brands that are and are not empty
-        if (selectedIngredientStore === "") {
+        if (selectedIngredientStore === "-") {
 
-          // loops over the 6 stores to find the next filled in one
-          for (let i = 0; i < 6; i++) {
-            if (selectedIngredientData[`${stores[(stores.indexOf(currStore) + i) % 6]}${'Brand'}`] !== "") {
-              nextStore = stores[(stores.indexOf(currStore) + i) % 6];
-              i = 6;
+          const ingredientKeys = ["-", ...storeKeys];
+
+          // loops over the stores to find the next filled in one
+          for (let i = 0; i < ingredientKeys.length; i++) {
+            if (selectedIngredientData[ingredientKeys[(ingredientKeys.indexOf(currStore) + i) % ingredientKeys.length]].brand !== "") {
+              nextStore = ingredientKeys[(ingredientKeys.indexOf(currStore) + i) % ingredientKeys.length];
+              break;
             }
           }
-      // otherwise, just use the selected store
-      } else {
-        nextStore = selectedIngredientStore;
-      }
+        // otherwise, just use the selected store
+        } else {
+          nextStore = selectedIngredientStore;
+        }
+        
+        // stores overall data
+        const data = {
+          '-': { calServing: "", servingSize: "", unit: "" },
+          ...selectedIngredientData,
+        };
 
         // adds the current ingredient
-        await currentAdd(selectedIngredientId, selectedIngredientData, nextStore, showArchive);
+        await currentAdd(
+          selectedIngredientId, data, selectedIngredientName, nextStore, selectedIngredientTypes, showArchive
+        );
 
-
+ 
       // if submitting a new (temporary) ingredient
       } else {
         
         // stores blank data with the name as the query
-        const data = ({
-          ingredientName: searchIngredientQuery,
-          CalServing: "",
-          ServingSize: "",
-          Unit: "",
-        });        
+        let data = { '-': { calServing: "", servingSize: "", unit: "" } };
+        storeKeys.forEach(storeKey => { data[storeKey] = { brand: "", calContainer: "", calServing: "", link: "", priceContainer: "", priceServing: "", servingContainer: "", servingSize: "", totalYield: "", unit: "" }; });       
         
         // adds the current ingredient
-        await currentAdd(selectedIngredientId, data, "", showArchive);
+        await currentAdd(selectedIngredientId, data, searchIngredientQuery, "-", [], showArchive);
       }
 
       // refreshes current 
-      await loadCurrents();
+      const currents = await loadCurrents();
       
       // stores the id of the selected ingredient if valid or the name if not (temp ingredient)
       setNewIds((prevNewIds) => [
         ...prevNewIds, 
         selectedIngredientId !== "" ? selectedIngredientId : searchIngredientQuery
       ]);
+
+      // finds the index of the new current and scrolls to the correct y value
+      const itemHeight = 50;
+      const idx = currents.map(current => current.ingredientName).indexOf(searchIngredientQuery);
+      setScrollY(idx * itemHeight);
+      if (verticalScrollRef.current) { verticalScrollRef.current.scrollTo({ y: idx * itemHeight, animated: false }); }
         
       // clears the search
       clearIngredientSearch();
@@ -353,7 +372,7 @@ export default function CurrentFood ({ isSelectedTab }) {
   const deleteIngredient = async (index) => {
     setDeletingId(currentIds[index]);
     setDeleteChecked(currentList[index].check);
-    setDeleteName(currentList[index].ingredientData.ingredientName);
+    setDeleteName(currentList[index].ingredientName);
     setDeleteModalVisible(true);
   }
 
@@ -391,7 +410,7 @@ export default function CurrentFood ({ isSelectedTab }) {
   const loadCurrents = async () => {
     
     // gets all of the current ingredients
-    const querySnapshot = await getDocs(collection(db, 'currents'));
+    const querySnapshot = await getDocs(collection(db, 'CURRENTS'));
 
     // to store the collected current ingredients
     let allData = [];
@@ -411,8 +430,8 @@ export default function CurrentFood ({ isSelectedTab }) {
   
     // sorts the combined array based on ingredientName in allData
     combinedData.sort((a, b) => {
-      const nameA = a.data.ingredientData.ingredientName.toLowerCase(); // Convert to lowercase for case-insensitive comparison
-      const nameB = b.data.ingredientData.ingredientName.toLowerCase();
+      const nameA = a.data.ingredientName.toLowerCase(); // Convert to lowercase for case-insensitive comparison
+      const nameB = b.data.ingredientName.toLowerCase();
       if (nameA < nameB) return -1;
       if (nameA > nameB) return 1;
       return 0; // return 0 if they are equal
@@ -428,6 +447,8 @@ export default function CurrentFood ({ isSelectedTab }) {
     setCurrAmountTotals(allData.map((doc) => doc.amountTotal));
     setCurrPrices(allData.map((doc) => doc.unitPrice));
     setCurrStores(allData.map((doc) => doc.ingredientStore));
+
+    return allData;
   }
 
 
@@ -456,14 +477,17 @@ export default function CurrentFood ({ isSelectedTab }) {
         // edit the preexisting current ingredient
         await currentEdit({
           editingId: currentIds[index],
-          ingredientId: currentList[index].ingredientId, 
-          ingredientData: currentList[index].ingredientData, 
-          check: newValue === "0",                              // ingredient checked if used
-          containerPrice: currentList[index].containerPrice, 
-          amountTotal: newValue, 
           amountLeft: currentList[index].amountLeft, 
+          amountTotal: newValue, 
+          archive: currentList[index].archive,
+          check: newValue === "0",
+          containerPrice: currentList[index].containerPrice, 
+          ingredientData: currentList[index].ingredientData,  
+          ingredientId: currentList[index].ingredientId, 
+          ingredientName: currentList[index].ingredientName, 
+          ingredientStore: currentList[index].ingredientStore, 
+          ingredientTypes: currentList[index].ingredientTypes, 
           unitPrice: currentList[index].unitPrice, 
-          ingredientStore: currentList[index].ingredientStore,
         });
       }
 
@@ -475,14 +499,17 @@ export default function CurrentFood ({ isSelectedTab }) {
     } else {
       await currentEdit({
         editingId: currentIds[index],
-        ingredientId: currentList[index].ingredientId, 
-        ingredientData: currentList[index].ingredientData, 
-        check: newValue === "0",                              // ingredient checked if used
-        containerPrice: currentList[index].containerPrice, 
-        amountTotal: newValue, 
         amountLeft: "?", 
+        amountTotal: newValue, 
+        archive: currentList[index].archive,
+        check: newValue === "0",
+        containerPrice: currentList[index].containerPrice, 
+        ingredientData: currentList[index].ingredientData,  
+        ingredientId: currentList[index].ingredientId, 
+        ingredientName: currentList[index].ingredientName, 
+        ingredientStore: currentList[index].ingredientStore, 
+        ingredientTypes: currentList[index].ingredientTypes, 
         unitPrice: currentList[index].unitPrice, 
-        ingredientStore: currentList[index].ingredientStore,
       });      
 
       // refreshes data
@@ -497,7 +524,7 @@ export default function CurrentFood ({ isSelectedTab }) {
   const calcAmountsLeft = async (index) => {
     
     // gets the current ingredient data
-    const currentDocSnap = await getDoc(doc(db, 'currents', currentIds[index]));
+    const currentDocSnap = await getDoc(doc(db, 'CURRENTS', currentIds[index]));
     const currentData = currentDocSnap.data();
     
     // stores the current amount total to subtract from if not empty
@@ -520,7 +547,7 @@ export default function CurrentFood ({ isSelectedTab }) {
       });
       
       // updates the data in the current ingredient doc
-      await updateDoc(doc(db, 'currents', currentIds[index]), { amountLeft: calcAmount.toString() });
+      await updateDoc(doc(db, 'CURRENTS', currentIds[index]), { amountLeft: calcAmount.toString() });
 
       // refreshes data
       await loadCurrents();
@@ -559,14 +586,17 @@ export default function CurrentFood ({ isSelectedTab }) {
       // edits the current ingredient
       await currentEdit({
         editingId: currentIds[priceIndex],
-        ingredientId: currentList[priceIndex].ingredientId, 
-        ingredientData: currentList[priceIndex].ingredientData, 
-        check: currentList[priceIndex].amountTotal === "0", 
-        containerPrice: newContainerPrice, 
-        amountTotal: currentList[priceIndex].amountTotal, 
         amountLeft: currentList[priceIndex].amountLeft, 
+        amountTotal: currentList[priceIndex].amountTotal, 
+        archive: currentList[priceIndex].archive,
+        check: currentList[priceIndex].amountTotal === "0",
+        containerPrice: newContainerPrice, 
+        ingredientData: currentList[priceIndex].ingredientData,  
+        ingredientId: currentList[priceIndex].ingredientId, 
+        ingredientName: currentList[priceIndex].ingredientName, 
+        ingredientStore: currentList[priceIndex].ingredientStore, 
+        ingredientTypes: currentList[priceIndex].ingredientTypes, 
         unitPrice: newUnitPrice, 
-        ingredientStore: currentList[priceIndex].ingredientStore,
       });
     }
 
@@ -574,7 +604,7 @@ export default function CurrentFood ({ isSelectedTab }) {
       ...prevNewIds, 
       currentList[priceIndex].ingredientId !== "" 
         ? currentList[priceIndex].ingredientId 
-        : currentList[priceIndex].ingredientData.ingredientName
+        : currentList[priceIndex].ingredientName
     ]);
     setPriceIndex(0);
 
@@ -594,14 +624,12 @@ export default function CurrentFood ({ isSelectedTab }) {
     // placeholder for new store
     let newValue = currStores[index];
 
-    // the list of stores
-    const stores = ["a", "mb", "sm", "ss", "t", "w"];
-
     // calculates the next store based on the brands that are and are not empty
-    for (let i = 1; i <= 6; i++) {
-      if (currentList[index].ingredientData[`${stores[(stores.indexOf(currStores[index]) + i) % 6]}${'Brand'}`] !== "") {
-        newValue = stores[(stores.indexOf(currStores[index]) + i) % 6];
-        i = 7;
+    for (let i = 1; i <= storeKeys.length; i++) {
+      const nextStore = storeKeys[(storeKeys.indexOf(currStores[index]) + i) % storeKeys.length];
+      if (currentList[index].ingredientData[nextStore].brand !== "") {
+        newValue = nextStore;
+        break;
       }
     }
 
@@ -612,21 +640,23 @@ export default function CurrentFood ({ isSelectedTab }) {
       return updatedStores;
     });
 
-
     // if the list of current stores is valid
     if (currStores !== null) {
 
       // edits the current ingredient
       await currentEdit({
         editingId: currentIds[index],
-        ingredientId: currentList[index].ingredientId, 
-        ingredientData: currentList[index].ingredientData, 
-        check: currentList[index].amountTotal === "0", 
-        containerPrice: currentList[index].containerPrice, 
-        amountTotal: currentList[index].amountTotal, 
         amountLeft: currentList[index].amountLeft, 
-        unitPrice: currentList[index].unitPrice, 
+        amountTotal: currentList[index].amountTotal, 
+        archive: currentList[index].archive,
+        check: currentList[index].amountTotal === "0",
+        containerPrice: currentList[index].containerPrice, 
+        ingredientData: currentList[index].ingredientData,  
+        ingredientId: currentList[index].ingredientId, 
+        ingredientName: currentList[index].ingredientName, 
         ingredientStore: newValue,
+        ingredientTypes: currentList[index].ingredientTypes, 
+        unitPrice: currentList[index].unitPrice, 
       });
 
       // reloads the current ingredients
@@ -641,30 +671,10 @@ export default function CurrentFood ({ isSelectedTab }) {
   const [currentModId, setCurrentModId] = useState(null);
   const [currentModData, setCurrentModData] = useState(null);
 
-  // when opening the mod modal to edit an already temp current
-  const openModIdModal = (currId) => {
+  // when opening the mod modal
+  const openModModal = (currData, currId) => {
+    setCurrentModData(currData);
     setCurrentModId(currId);
-    setCurrentModData(null);
-    setModModalVisible(true);
-  };
-
-  // when opening the mod modal to edit a non temp current
-  const openModDataModal = (index) => {
-    const initialData = {
-      id: currentIds[index],
-      name: currentList[index].ingredientData.ingredientName,
-      servingSize: currentList[index].ingredientData[`${currStores[index]}ServingSize`],
-      unit: currentList[index].ingredientData[`${currStores[index]}Unit`],
-      calServing: currentList[index].ingredientData[`${currStores[index]}CalServing`],
-      check: currentList[index].check,
-      amountTotal: currentList[index].amountTotal,
-      amountLeft: currentList[index].amountLeft,
-      unitPrice: currPrices[index],
-      containerPrice: currentList[index].containerPrice, 
-    }
-    
-    setCurrentModId(null);
-    setCurrentModData(initialData);
     setModModalVisible(true);
   }
 
@@ -685,6 +695,7 @@ export default function CurrentFood ({ isSelectedTab }) {
   ///////////////////////////////// VIEWING CURRENT /////////////////////////////////
 
   const [currentModalVisible, setCurrentModalVisible] = useState(false);
+  const [currentViewData, setCurrentViewData] = useState(null);
 
   // populated with snapshot
   const [currPrepList, setCurrPrepList] = useState(null);
@@ -692,15 +703,15 @@ export default function CurrentFood ({ isSelectedTab }) {
   const [currMultList, setCurrMultList] = useState(null);
   
   // when opening the mod modal to view a non temp current
-  const openViewDataModal = (index) => {
+  const openViewModal = (index) => {
     const initialData = {
-      name: currentList[index].ingredientData.ingredientName,
-      servingSize: currentList[index].ingredientData[`${currStores[index]}ServingSize`],
-      unit: currentList[index].ingredientData[`${currStores[index]}Unit`],
-      calServing: currentList[index].ingredientData[`${currStores[index]}CalServing`],
+      name: currentList[index].ingredientName,
+      servingSize: currentList[index].ingredientData[currStores[index]].servingSize,
+      unit: currentList[index].ingredientData[currStores[index]].unit,
+      calServing: currentList[index].ingredientData[currStores[index]].calServing,
     }
     
-    setCurrentModData(initialData);
+    setCurrentViewData(initialData);
 
     // empty arrays to populate
     const prepList = [];
@@ -711,12 +722,11 @@ export default function CurrentFood ({ isSelectedTab }) {
     prepsSnapshot.forEach((doc) => {
       for (let i = 0; i < 12; i++) {
         if (doc.data().currentData[i] !== null) {
-          const listId = currentList[index].ingredientId === "" ? currentList[index].ingredientData.ingredientName : currentList[index].ingredientId;
-          const dataId = doc.data().currentData[i].ingredientId === "" ? doc.data().currentData[i].ingredientData.ingredientName : doc.data().currentData[i].ingredientId;
-        
-          if (listId=== dataId) {
+          const listId = currentList[index].ingredientId === "" ? currentList[index].ingredientName : currentList[index].ingredientId;
+          const dataId = doc.data().currentData[i].ingredientId === "" ? doc.data().currentData[i].ingredientName : doc.data().currentData[i].ingredientId;
+          if (listId === dataId) {
             prepList.push(doc.data().prepName);
-            amountList.push(doc.data().currentAmounts[i] + " " + extractUnit(doc.data().currentData[i].ingredientData[`${doc.data().currentData[i].ingredientStore}Unit`], doc.data().currentAmounts[i]));
+            amountList.push(doc.data().currentAmounts[i] + " " + extractUnit(doc.data().currentData[i].ingredientData[doc.data().currentData[i].ingredientStore].unit, doc.data().currentAmounts[i]));
             multList.push(doc.data().prepMult);
           }
         }
@@ -732,8 +742,7 @@ export default function CurrentFood ({ isSelectedTab }) {
 
   // when closing the mod modal to edit an already temp current
   const closeViewModal = () => {
-    setCurrentModId(null);
-    setCurrentModData(null);
+    setCurrentViewData(null);
     setCurrentModalVisible(false);
   };
 
@@ -747,7 +756,7 @@ export default function CurrentFood ({ isSelectedTab }) {
   const getShoppingListWithStore = async (docPath, storeIdentifier) => {
     
     // gets the current data
-    const docSnap = await getDoc(doc(db, 'shopping', docPath));                   
+    const docSnap = await getDoc(doc(db, 'SHOPPING', docPath));                   
     const data = docSnap.exists() ? docSnap.data() : null;
 
     // adds the store attribute if data and id exist
@@ -760,34 +769,30 @@ export default function CurrentFood ({ isSelectedTab }) {
   
   // helper function to merge the lists of store shopping lists
   const mergeShoppingLists = async () => {
-
-    // gets the store shopping lists
-    const aData = await getShoppingListWithStore("aList", "a");
-    const mbData = await getShoppingListWithStore("mbList", "mb");
-    const smData = await getShoppingListWithStore("smList", "sm");
-    const ssData = await getShoppingListWithStore("ssList", "ss");
-    const tData = await getShoppingListWithStore("tList", "t");
-    const wData = await getShoppingListWithStore("wList", "w");
     
-    // the array of all shopping lists, stacked on top of each other
-    const allData = [aData, mbData, smData, ssData, tData, wData];
+    // the object of all shopping lists, stacked on top of each other
+    const allData = {};
+    for (const storeKey of storeKeys) {
+      allData[storeKey] = await getShoppingListWithStore("list" + storeKey, storeKey);
+    }
     
     // concatenates all the list's keys together
     const mergedList = {
-      amountNeeded: allData.map((storeData) => (storeData && storeData.id.length ? storeData.amountNeeded : [])).flat(),
-      brand: allData.map((storeData) => (storeData && storeData.id.length ? storeData.brand : [])).flat(),
-      check: allData.map((storeData) => (storeData && storeData.id.length ? storeData.check : [])).flat(),
-      costTotal: allData.map((storeData) => (storeData && storeData.id.length ? storeData.costTotal : [])).flat(),
-      costUnit: allData.map((storeData) => (storeData && storeData.id.length ? storeData.costUnit : [])).flat(),
-      id: allData.map((storeData) => (storeData && storeData.id.length ? storeData.id : [])).flat(),
-      included: allData.map((storeData) => (storeData && storeData.id.length ? storeData.included : [])).flat(),
-      link: allData.map((storeData) => (storeData && storeData.id.length ? storeData.link : [])).flat(),
-      name: allData.map((storeData) => (storeData && storeData.id.length ? storeData.name : [])).flat(),
-      notes: allData.map((storeData) => (storeData && storeData.id.length ? storeData.notes : [])).flat(),
-      store: allData.map((storeData) => (storeData && storeData.id.length ? storeData.store : [])).flat(),
-      totalYield: allData.map((storeData) => (storeData && storeData.id.length ? storeData.totalYield : [])).flat(),
-      unit: allData.map((storeData) => (storeData && storeData.id.length ? storeData.unit : [])).flat(),
-      yieldNeeded: allData.map((storeData) => (storeData && storeData.id.length ? storeData.yieldNeeded : [])).flat()
+      amountNeeded: storeKeys.map(storeKey => allData[storeKey].amountNeeded).flat(),
+      brand: storeKeys.map(storeKey => allData[storeKey].brand).flat(),
+      check: storeKeys.map(storeKey => allData[storeKey].check).flat(),
+      costTotal: storeKeys.map(storeKey => allData[storeKey].costTotal).flat(),
+      costUnit: storeKeys.map(storeKey => allData[storeKey].costUnit).flat(),
+      id: storeKeys.map(storeKey => allData[storeKey].id).flat(),
+      included: storeKeys.map(storeKey => allData[storeKey].included).flat(),
+      link: storeKeys.map(storeKey => allData[storeKey].link).flat(),
+      name: storeKeys.map(storeKey => allData[storeKey].name).flat(),
+      notes: storeKeys.map(storeKey => allData[storeKey].notes).flat(),
+      store: storeKeys.map(storeKey => allData[storeKey].store).flat(),
+      totalYield: storeKeys.map(storeKey => allData[storeKey].totalYield).flat(),
+      types: storeKeys.map(storeKey => allData[storeKey].types).flat(),
+      unit: storeKeys.map(storeKey => allData[storeKey].unit).flat(),
+      yieldNeeded: storeKeys.map(storeKey => allData[storeKey].yieldNeeded).flat()
     };
 
     return mergedList;
@@ -800,9 +805,9 @@ export default function CurrentFood ({ isSelectedTab }) {
     // the combined shopping list from the helper function
     const combinedData = await mergeShoppingLists();
     
-    // gets the list of ingredient IDs from currentList
-    const ingredientIds = currentList.map((ingredient) => ingredient.ingredientId);
-    const ingredientStores = currentList.map((ingredient) => ingredient.ingredientStore);
+    // gets the list of ingredient IDs from currentList - matching the archive
+    const ingredientIds = currentList.map((ingredient) => ingredient.ingredientId).filter((id, index) => currentList[index].archive === showArchive);
+    const ingredientStores = currentList.map((ingredient) => ingredient.ingredientStore).filter((store, index) => currentList[index].archive === showArchive);
     
     // loops over the combined shopping list to find them in the current list of ingredients
     for (let i = 0; i < combinedData.id.length; i++) {
@@ -813,38 +818,49 @@ export default function CurrentFood ({ isSelectedTab }) {
 
         // if the current ingredient of the combined list is in the current list
         if (index !== -1 && combinedData.store[i] === ingredientStores[index]) {
-                 
           // calculate the total amount and amount left using both the current and shopping list amounts
-          const amountTotal = ((new Fractional(currentList[index].amountTotal === "" ? "0" : currentList[index].amountTotal)).add(((new Fractional(combinedData.amountNeeded[i])).multiply(new Fractional(combinedData.totalYield[i]))).toString())).toString();
-          const amountLeft = ((new Fractional(currentList[index].amountLeft)).add(((new Fractional(combinedData.amountNeeded[i])).multiply(new Fractional(combinedData.totalYield[i]))).toString())).toString();
-          
+          const amountTotal = ((new Fractional(
+            currentList[index].amountTotal === "" ? "0" 
+            : currentList[index].amountTotal)).add(((new Fractional(combinedData.amountNeeded[i])).multiply(new Fractional(combinedData.totalYield[i]))).toString())).toString();
+          const amountLeft = 
+            currentList[index].amountLeft === "?" 
+            ? (new Fractional(combinedData.amountNeeded[i])).multiply(new Fractional(combinedData.totalYield[i])).toString()
+            : (new Fractional(currentList[index].amountLeft)).add(((new Fractional(combinedData.amountNeeded[i])).multiply(new Fractional(combinedData.totalYield[i]))).toString()).toString();
           // edits the current ingredient accordingly
           await currentEdit({
             editingId: currentIds[index],
-            ingredientId: currentList[index].ingredientId, 
-            ingredientData: currentList[index].ingredientData, 
+            amountLeft: amountLeft.toString(), 
+            amountTotal: amountTotal.toString(), 
+            archive: currentList[index].archive, 
             check: amountTotal.toString() === "0", 
             containerPrice: currentList[index].containerPrice, 
-            amountTotal: amountTotal.toString(), 
-            amountLeft: amountLeft.toString(), 
-            unitPrice: currentList[index].unitPrice, 
+            ingredientData: currentList[index].ingredientData, 
+            ingredientId: currentList[index].ingredientId, 
+            ingredientName: currentList[index].ingredientName, 
             ingredientStore: currentList[index].ingredientStore,
+            ingredientTypes: currentList[index].ingredientTypes,
+            unitPrice: currentList[index].unitPrice, 
           });
 
 
         // if the current ingredient of the combined list is new (not in the current list)
         } else {   
-
           // calculate the total amount and amount left based only on the shopping list
           const amountTotal = ((new Fractional(combinedData.amountNeeded[i])).multiply(new Fractional(combinedData.totalYield[i]))).toString();
           const amountLeft = ((new Fractional(combinedData.amountNeeded[i])).multiply(new Fractional(combinedData.totalYield[i]))).toString();
           
           // gets the ingredient data
-          const docSnap = await getDoc(doc(db, 'ingredients', combinedData.id[i])); 
+          const docSnap = await getDoc(doc(db, 'INGREDIENTS', combinedData.id[i])); 
           const data = docSnap.exists() ? docSnap.data() : null;
           
+          // stores overall data
+          const overallData = {
+            '-': { calServing: "", servingSize: "", unit: "" },
+            ...data.ingredientData,
+          };
+          
           // adds the current ingredient, since it is new
-          await currentAdd(combinedData.id[i], data, combinedData.store[i], showArchive, {
+          await currentAdd(combinedData.id[i], overallData, combinedData.name[i], combinedData.store[i], data.ingredientTypes, showArchive, {
             check: amountTotal.toString() === "0", 
             amountTotal: amountTotal.toString(), 
             amountLeft: amountLeft.toString(), 
@@ -944,11 +960,12 @@ export default function CurrentFood ({ isSelectedTab }) {
     });
     
     // updates db
-    await updateDoc(doc(db, 'currents', currentIds[index]), { archive: updatedItem.archive });
+    await updateDoc(doc(db, 'CURRENTS', currentIds[index]), { archive: updatedItem.archive });
   }
   
   // vertical scroll syncing
   const [scrollY, setScrollY] = useState(0);
+  const verticalScrollRef = useRef(null);
 
   const syncVerticalScroll = (e) => {
     const contentOffsetY = e.nativeEvent.contentOffset.y;
@@ -975,7 +992,7 @@ export default function CurrentFood ({ isSelectedTab }) {
         <View className="w-11/12 ml-[5px] border-[1px] border-black bg-zinc700">
 
           {/* HEADER ROW */}
-          <View className="flex flex-row absolute h-[30px] bg-theme900 border-[1px] border-black z-20">
+          <View className="flex flex-row absolute h-[30px] bg-theme900 border-[1px] border-black z-10">
               
             {/* meal prep filtering button */}
             <View className="flex items-center justify-center w-1/12">
@@ -1019,9 +1036,10 @@ export default function CurrentFood ({ isSelectedTab }) {
         
           {/* SCROLLABLE INGREDIENT GRID */}
           <ScrollView
-            className="flex-1 mt-[30px] w-full h-[70%]"
+            className="flex-1 my-[30px] w-full h-2/3"
             scrollEventThrottle={16}
             onScroll={syncVerticalScroll}
+            ref={verticalScrollRef}
             contentContainerStyle={{ flexDirection: 'row' }}
           >
             <View className="flex flex-col">
@@ -1068,11 +1086,11 @@ export default function CurrentFood ({ isSelectedTab }) {
                       {/* ingredient names */}
                       <TouchableOpacity 
                         activeOpacity={0.75}
-                        onPress={() => openViewDataModal(index)}
-                        className={`flex items-start justify-center w-2/5 border-b-0.5 border-r-0.5 border-theme900 pl-1 pr-[5px] ${curr.ingredientId === "" && newIds.indexOf(curr.ingredientData.ingredientName) !== -1 ? "bg-zinc500" : newIds.indexOf(curr.ingredientId) === -1 ? "bg-theme600" : "bg-zinc500"}`}
+                        onPress={() => openViewModal(index)}
+                        className={`flex items-start justify-center w-2/5 border-b-0.5 border-r-0.5 border-r-theme900 pl-1 pr-[5px] ${curr.ingredientId === "" && newIds.indexOf(curr.ingredientName) !== -1 ? "bg-zinc500 border-b-zinc700" : newIds.indexOf(curr.ingredientId) === -1 ? "bg-theme600 border-b-theme900" : "bg-zinc500 border-b-zinc700"}`}
                       >
                         <Text className="text-white text-[12px]">
-                          {curr && curr.ingredientData ? curr.ingredientData.ingredientName : ""}
+                          {curr && curr.ingredientData ? curr.ingredientName : ""}
                         </Text>
                       </TouchableOpacity>
 
@@ -1081,7 +1099,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                         <ViewCurrentModal 
                           modalVisible={currentModalVisible} 
                           closeModal={closeViewModal}
-                          ingredientData={currentModData}
+                          ingredientData={currentViewData}
                           prepList={currPrepList}
                           amountList={currAmountList}
                           multList={currMultList}
@@ -1119,21 +1137,21 @@ export default function CurrentFood ({ isSelectedTab }) {
 
                               {/* Unit */}
                               <View className="flex mr-[20px]">
-                                <Text className={`text-[12px] ${curr.ingredientData[`${currStores[index]}Unit`] === undefined || curr.ingredientData[`${currStores[index]}Unit`] === "" ? "bg-zinc200" : "bg-white"}`}>
-                                  {` ${curr.ingredientData[`${currStores[index]}Unit`] === undefined || curr.ingredientData[`${currStores[index]}Unit`] === "" ? "unit(s)" : curr.ingredientData[`${currStores[index]}Unit`]}`}
+                                <Text className={`text-[12px] ${curr.ingredientData[currStores[index]].unit === undefined || curr.ingredientData[currStores[index]].unit === "" ? "bg-zinc200" : "bg-white"}`}>
+                                  {` ${curr.ingredientData[currStores[index]].unit === undefined || curr.ingredientData[currStores[index]].unit === "" ? "unit(s)" : curr.ingredientData[currStores[index]].unit}`}
                                 </Text>
                               </View>
                             </View>
 
                             {/* Store Logo */}
                             <View className="flex justify-start absolute right-0 w-[30px] h-[50px] -mr-2">
-                              {currStores[index] === "" ? 
+                              {currStores[index] === "-" ? 
                                 <View className="mt-[6.5px] w-full justify-center items-center">
                                   <Icon
                                     name="create"
                                     size={18}
                                     color={colors.theme500}
-                                    onPress={() => openModIdModal(currentIds[index])}
+                                    onPress={() => openModModal(currentList[index], currentIds[index])}
                                   />
                                 </View>
                                 :
@@ -1141,34 +1159,26 @@ export default function CurrentFood ({ isSelectedTab }) {
                                   <TouchableOpacity 
                                     onPress={() => updateStores(index)} 
                                   >
-                                    <View className={`${currStores[index] === "a" ? "mt-[10px]" : "mt-[8px]"}`}>
-                                      <Image
-                                        source={
-                                          currStores[index] === "a" ? aldi :
-                                          currStores[index] === "mb" ? marketbasket :
-                                          currStores[index] === "sm" ? starmarket :
-                                          currStores[index] === "ss" ? stopandshop :
-                                          currStores[index] === "t" ? target :
-                                          currStores[index] === "w" ? walmart :
-                                          null
-                                        }
-                                        alt="store"
-                                        className={`${
-                                          currStores[index] === "a" ? "w-[15px] h-[10px]" : 
-                                          currStores[index] === "mb" ? "w-[15px] h-[14px]" : 
-                                          currStores[index] === "sm" ? "w-[15px] h-[15px]" :
-                                          currStores[index] === "ss" ? "w-[13px] h-[15px]" :
-                                          currStores[index] === "t" ? "w-[15px] h-[15px]" : 
-                                          currStores[index] === "w" ? "w-[15px] h-[15px]" : ""
-                                        }`}
-                                      />
+                                    <View className={`${currStores[index] === "Aldi" ? "mt-[10px]" : "mt-[8px]"}`}>
+                                      {currStores[index] === "-" ? (
+                                        <Text>-</Text>
+                                      ) : (
+                                        <Image
+                                          source={storeImages[currStores[index]]?.src}
+                                          alt="store"
+                                          style={{
+                                            width: storeImages[currStores[index]]?.width,
+                                            height: storeImages[currStores[index]]?.height,
+                                          }}
+                                        />
+                                      )}
                                     </View>
                                   </TouchableOpacity>
                                   <Icon 
                                     name="ellipsis-horizontal"
                                     color={colors.zinc500}
                                     size={18}
-                                    onPress={() => openModDataModal(index)}
+                                    onPress={() => openModModal(currentList[index], currentIds[index])}
                                   />
                                 </View>
                               }
@@ -1178,24 +1188,24 @@ export default function CurrentFood ({ isSelectedTab }) {
                       </View>
 
                       {/* Modal that appears to edit an ingredient */}
-                      {modModalVisible && currentIds[index] && (currentIds[index] === currentModId || currentIds[index] === currentModData?.id) && (
+                      {(modModalVisible && currentModData) && (
                         <ModCurrentModal 
                           modalVisible={modModalVisible} 
                           closeModal={closeModModal}
+                          initialData={currentModData}
                           editingId={currentModId}
-                          editingData={currentModData}
                         />
                       )}
 
                       {/* price */}
                       <TouchableOpacity
-                        className="flex flex-row items-center justify-center bg-white w-1/6 border-b-0.5 border-b-zinc450 bg-zinc200"
+                        className="flex flex-row items-center justify-center w-1/6 border-b-0.5 border-b-zinc450 bg-zinc100"
                         onPress={() => changePrice(index)}
                         activeOpacity={0.9}
                       >
                         {/* Amount */}
                         {Array.isArray(currPrices) && currPrices[index] !== "" &&
-                          <Text className={`text-[12px] leading-[15px] text-center ${(currPrices[index] === "0.00" || currPrices[index] === "0.0000") ? "bg-zinc100 p-0.5" : "bg-zinc200"}`}>
+                          <Text className={`text-[12px] leading-[15px] text-center ${(currPrices[index] === "0.00" || currPrices[index] === "0.0000") ? "bg-zinc200 p-0.5" : "bg-zinc100"}`}>
                             {/* $ or ¢ display */}
                             {currPrices[index] >= 0.01 || currPrices[index] === "0.00" || currPrices[index] === ""
                             ?
@@ -1220,11 +1230,11 @@ export default function CurrentFood ({ isSelectedTab }) {
         </View>
 
         {/* Archive Column */}
-        <View className="w-[20px] mt-[30px]">
+        <View className={`${currentList.length === 0 ? "w-[0px]" : "w-[20px]"} my-[30px]`}>
         
           {/* SCROLLABLE INGREDIENT GRID */}
           <ScrollView
-            className="w-full h-[70%]"
+            className="w-full h-2/3"
             contentOffset={{ y: scrollY }}
             scrollEnabled={false}
           >
@@ -1255,7 +1265,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                 <View className="flex flex-row h-[150px]"/>
               }
             </View>
-          </ScrollView>   
+          </ScrollView> 
         </View>
       </View>
 
@@ -1270,7 +1280,7 @@ export default function CurrentFood ({ isSelectedTab }) {
       />
 
       {/* ARCHIVE INDICATOR */}
-      <View className="flex flex-row w-11/12 mr-[15px] justify-center items-center space-x-3 bg-zinc900 mt-[-30px] h-[30px]">
+      <View className={`flex flex-row ${currentList.length === 0 ? "w-[0px]" : "w-11/12"} mr-[15px] justify-center items-center space-x-3 bg-zinc900 mt-[-30px] h-[30px]`}>
         
         {/* text */}
         <Text className="font-bold text-[12px] text-zinc300 italic">
@@ -1306,12 +1316,14 @@ export default function CurrentFood ({ isSelectedTab }) {
             </Text>
 
             {/* Submit */}
+            {searchIngredientQuery !== "" &&
             <Icon
               name="checkmark-circle"
               size={17}
               color={colors.zinc100}
               onPress={() => submitIngredient()}
             />
+            }
           </View>
         
           {/* Bottom Row */}
@@ -1322,7 +1334,7 @@ export default function CurrentFood ({ isSelectedTab }) {
               className="z-10 w-[30px] bg-zinc100 border-2 border-theme200 justify-center items-center"
               onPress={() => changeSelectedStore()}
             >
-              {selectedIngredientStore === "" 
+              {selectedIngredientStore === "-" 
               ? // when no store is selected
               <Icon
                 name="menu"
@@ -1331,24 +1343,12 @@ export default function CurrentFood ({ isSelectedTab }) {
               />
               : // when store is selected
               <Image
-                source={
-                  selectedIngredientStore === "a" ? aldi :
-                  selectedIngredientStore === "mb" ? marketbasket :
-                  selectedIngredientStore === "sm" ? starmarket :
-                  selectedIngredientStore === "ss" ? stopandshop :
-                  selectedIngredientStore === "t" ? target :
-                  selectedIngredientStore === "w" ? walmart :
-                  null
-                }
+                source={storeImages[selectedIngredientStore]?.src}
                 alt="store"
-                className={`${
-                  selectedIngredientStore === "a" ? "w-[18px] h-[12px]" : 
-                  selectedIngredientStore === "mb" ? "w-[19px] h-[18px]" : 
-                  selectedIngredientStore === "sm" ? "w-[18px] h-[18px]" :
-                  selectedIngredientStore === "ss" ? "w-[16px] h-[18px]" :
-                  selectedIngredientStore === "t" ? "w-[18px] h-[18px]" : 
-                  selectedIngredientStore === "w" ? "w-[18px] h-[18px]" : ""
-                }`}
+                style={{
+                  width: storeImages[selectedIngredientStore]?.width,
+                  height: storeImages[selectedIngredientStore]?.height,
+                }}
               />
               }
             </TouchableOpacity>
@@ -1397,7 +1397,7 @@ export default function CurrentFood ({ isSelectedTab }) {
           >
             <Text
               multiline={true}
-              className={`${searchIngredientQuery !== '' && searchIngredientQuery !== "" ? "text-black" : "text-zinc400"} ${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] py-[5px] text-[14px] leading-[16px]`}
+              className={`${searchIngredientQuery !== '' && searchIngredientQuery !== "" ? "text-black" : "text-zinc400"} ${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] py-[5px] text-[14px] leading-[17px]`}
             >
               {searchIngredientQuery !== '' && searchIngredientQuery !== "" ? searchIngredientQuery : "search for ingredient"}
             </Text>
@@ -1412,7 +1412,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                   <TouchableOpacity
                     key={index}
                     onPress={() => {pickIngredient(item)}}
-                    className={`p-2.5 ${index === 0 && "rounded-t-[5px]"} ${item.ingredientName === selectedIngredientData?.ingredientName && "bg-zinc400"} ${index < filteredIngredientData.length - 1 && "border-b-[1px] border-zinc400"}`}
+                    className={`p-2.5 ${index === 0 && "rounded-t-[5px]"} ${item.ingredientName === selectedIngredientName && "bg-zinc400"} ${index < filteredIngredientData.length - 1 && "border-b-[1px] border-zinc400"}`}
                   >
                     {/* name */}
                     <Text className="text-[13px] mr-4">
@@ -1420,7 +1420,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                     </Text>
 
                     {/* selected indicator */}
-                    {item.ingredientName === selectedIngredientData?.ingredientName &&
+                    {item.ingredientName === selectedIngredientName &&
                       <View className="flex-1 mt-2 mb-3 absolute right-1 items-center justify-center">
                         <Icon
                           name="checkmark"
@@ -1451,7 +1451,7 @@ export default function CurrentFood ({ isSelectedTab }) {
             <ViewIngredientModal
               modalVisible={ingredientModalVisible}
               setModalVisible={setIngredientModalVisible}
-              ingredientData={selectedIngredientData}
+              ingredient={{ingredientName: selectedIngredientName, ingredientData: selectedIngredientData}}
             />
           }
 
@@ -1459,23 +1459,18 @@ export default function CurrentFood ({ isSelectedTab }) {
           <View className="absolute right-0 bottom-0 flex flex-row">
           
             <View className="flex flex-row space-x-[-5px] ">
-              {/* Drop Up */}
+              {/* Drop Up/Down */}
               <Icon
-                name="chevron-up-outline"
+                name={ingredientDropdownOpen ? "chevron-down-outline" : "chevron-up-outline" }
                 size={20}
                 color="black"
                 onPress={() => {
-                  filterIngredientData(searchIngredientQuery);
-                  setIngredientDropdownOpen(true);
+                  if (ingredientDropdownOpen) { setIngredientDropdownOpen(false); }
+                  else {
+                    filterIngredientData(searchIngredientQuery);
+                    setIngredientDropdownOpen(true);
+                  }
                 }}
-              />
-
-              {/* Drop Down */}
-              <Icon
-                name="chevron-down-outline"
-                size={20}
-                color="black"
-                onPress={() => setIngredientDropdownOpen(false)}
               />
             </View>
 
@@ -1509,7 +1504,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                 onChangeText={filterIngredientData}
                 placeholder="search for ingredient"
                 placeholderTextColor={colors.zinc400}
-                className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[16px] z-10`}
+                className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[17px] z-10`}
                 multiline={true}
                 blurOnSubmit={true}
                 onFocus={() => {
@@ -1552,14 +1547,17 @@ export default function CurrentFood ({ isSelectedTab }) {
               {/* BUTTONS */}
               <View className="flex flex-row space-x-[-2px] absolute right-0 bottom-0 z-20">
 
-                {/* Drop Up */}
+                {/* Drop Up/Down */}
                 <Icon
-                  name="chevron-up-outline"
+                  name={ingredientDropdownOpen ? "chevron-down-outline" : "chevron-up-outline" }
                   size={20}
                   color="black"
-                  onPress={() =>  {
-                    setIngredientDropdownOpen(true);
-                    filterIngredientData(searchIngredientQuery);
+                  onPress={() => {
+                    if (ingredientDropdownOpen) { setIngredientDropdownOpen(false); }
+                    else {
+                      filterIngredientData(searchIngredientQuery);
+                      setIngredientDropdownOpen(true);
+                    }
                   }}
                 />
 

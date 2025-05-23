@@ -1,17 +1,22 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useState, useEffect } from 'react';
+
+// UI components
 import { Modal, View, Text, TextInput } from 'react-native';
 
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
+// firebase
 import recipeAdd from '../../firebase/Recipes/recipeAdd';
 import { recipeDelete } from '../../firebase/Recipes/recipeDelete';
 import { spotlightDelete } from '../../firebase/Spotlights/spotlightDelete';
-import { prepDelete } from '../../firebase/Prep/prepDelete';
+import { prepDelete } from '../../firebase/Preps/prepDelete';
 
-// initialize Firebase App
+// initialize firebase app
 import { getFirestore, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -22,7 +27,7 @@ const db = getFirestore(app);
 const ModMealModal = ({
     modalVisible, closeModal, editingId, setEditingId, editingData, setEditingData, defaultName, type
 }) => {
-
+  
 
   ///////////////////////////////// ON OPEN /////////////////////////////////  
   
@@ -59,11 +64,11 @@ const ModMealModal = ({
 
           // if a snapshot is being edited, determines whether the new name is different from the recipe's
           if (type === "spotlight" && editingData.recipeId !== null) {
-            const docSnap = await getDoc(doc(db, 'recipes', editingData.recipeId)); 
+            const docSnap = await getDoc(doc(db, 'RECIPES', editingData.recipeId)); 
             if (docSnap.exists()) { editingData.spotlightNameEdited = docSnap.data().recipeName !== mealName; }
           }
 
-          updateDoc(doc(db, type + "s", editingId), editingData);  
+          updateDoc(doc(db, type.toUpperCase() + "S", editingId), editingData);  
           
           // closes the modal for editing
           exitModal("edit"); 
@@ -143,7 +148,7 @@ const ModMealModal = ({
               {/* Check */}
               <Icon 
                 size={24}
-                color={'black'}
+                color="black"
                 name="checkmark"
                 onPress={submitModal}
               />
@@ -151,7 +156,7 @@ const ModMealModal = ({
               {/* X */}
               <Icon 
                 size={24}
-                color={'black'}
+                color="black"
                 name="close-outline"
                 onPress={() => exitModal("")}
               />
@@ -169,8 +174,8 @@ const ModMealModal = ({
             {/* Meal Name */}
             <View className={`flex items-center justify-center border-0.5 border-zinc500 bg-white rounded-md px-2 ${editingId !== null || type !== "recipe" ? "w-[90%]" : "w-5/6"}`}>
               <TextInput
-                className="text-center mb-1 text-[14px] leading-[16px]"
-                placeholder={editingId || type !== "recipe" ? mealName : ("Recipe " + defaultName)}
+                className="text-center mb-1 text-[14px] leading-[17px]"
+                placeholder={(editingId || type !== "recipe") ? mealName : ("Recipe " + defaultName)}
                 placeholderTextColor={colors.zinc400}
                 multiline={true}
                 blurOnSubmit={true}
@@ -200,7 +205,7 @@ const ModMealModal = ({
               <View className="h-[1px] bg-zinc400 mt-2 mb-4 w-full"/>
 
               {/* warning */}
-              <Text className="text-pink-600 italic">
+              <Text className="text-mauve600 italic">
                 {type === "prep" ? "meal " : ""}{type}{" name is required"}
               </Text>
             </View>

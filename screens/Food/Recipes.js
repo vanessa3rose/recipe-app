@@ -1,41 +1,39 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigationState } from '@react-navigation/native';
 
-import Icon from 'react-native-vector-icons/Ionicons';
-import colors from '../../assets/colors';
-
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Linking, Keyboard, } from 'react-native';
+// UI components
+import { View, Text, ScrollView, TextInput, TouchableOpacity, Linking, Keyboard, Image } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { Picker } from '@react-native-picker/picker';
 
+// visual effects
+import Icon from 'react-native-vector-icons/Ionicons';
+import colors from '../../assets/colors';
+
+// store lists
+import storeKeys from '../../assets/storeKeys';
+import storeImages from '../../assets/storeImages';
+
+// fractions
+var Fractional = require('fractional').Fraction;
+import Fraction from 'fraction.js';
+
+// validation
+import validateFractionInput from '../../components/Validation/validateFractionInput';
+import extractUnit from '../../components/Validation/extractUnit';
+
+// modals
 import CalcIngredientModal from '../../components/MultiUse/CalcIngredientModal';
 import ModMealModal from '../../components/MultiUse/ModMealModal';
 import ViewIngredientModal from '../../components/MultiUse/ViewIngredientModal';
 import NewTagModal from '../../components/Food-Recipes/NewTagModal';
 import ModTagModal from '../../components/Food-Recipes/ModTagModal';
 
-import { allIngredientFetch } from '../../firebase/Ingredients/allIngredientFetch'; 
-
-// Fractions
-var Fractional = require('fractional').Fraction;
-import Fraction from 'fraction.js';
-import validateFractionInput from '../../components/Validation/validateFractionInput';
-
-import extractUnit from '../../components/Validation/extractUnit';
-
-// Logos
-import { Image } from 'react-native';
-import aldi from '../../assets/Logos/aldi.png'
-import marketbasket from '../../assets/Logos/market-basket.png'
-import starmarket from '../../assets/Logos/star-market.png'
-import stopandshop from '../../assets/Logos/stop-and-shop.png'
-import target from '../../assets/Logos/target.png'
-import walmart from '../../assets/Logos/walmart.png'
-
-// initialize Firebase App
-import { getFirestore, doc, updateDoc, getDoc, collection, getDocs, query } from 'firebase/firestore';
+// initialize firebase app
+import { getFirestore, doc, updateDoc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
 
@@ -79,7 +77,7 @@ export default function Recipes ({ isSelectedTab }) {
   // when the tab is switched to recipes
   useEffect(() => {
 
-    if (isSelectedTab) {    
+    if (isSelectedTab) {   
       refreshRecipes();
       fetchGlobalRecipe(); 
       updateIngredients();
@@ -95,7 +93,9 @@ export default function Recipes ({ isSelectedTab }) {
     // if the page has changed to the current one, refetch the spotlight snapshot
     if (isSelectedTab && previousIndexRef !== null && previousIndexRef.current !== currentIndex && currentIndex === 3) {
       setTimeout(() => {
+        refreshRecipes();
         fetchGlobalRecipe(); 
+        updateIngredients();
       }, 1000);
     }
 
@@ -107,14 +107,14 @@ export default function Recipes ({ isSelectedTab }) {
   ///////////////////////////////// GETTING INGREDIENT DATA /////////////////////////////////
 
   // for the full ingredient data
-  const [ingredientData, setIngredientData] = useState([]);
+  const [ingredientsSnapshot, setIngredientsSnapshot] = useState([]);
 
   // for type picker
   const [selectedIngredientType, setSelectedIngredientType] = useState("ALL TYPES"); 
   const [ingredientTypeList, setIngredientTypeList] = useState([]);
 
   // for store picker
-  const [selectedIngredientStore, setSelectedIngredientStore] = useState("");
+  const [selectedIngredientStore, setSelectedIngredientStore] = useState("-");
 
   // for filtering
   const [filteredIngredientData, setFilteredIngredientData] = useState([]);
@@ -127,8 +127,8 @@ export default function Recipes ({ isSelectedTab }) {
 
     // only does so on opening, not closing
     if (ingredientDropdownOpen) {
-      setTagDropdownOpen(false); // tag dropdown
-      setRecipeDropdownOpen(false);         // recipe dropdown
+      setTagDropdownOpen(false);      // tag dropdown
+      setRecipeDropdownOpen(false);   // recipe dropdown
     }
   }, [ingredientDropdownOpen]);
 
@@ -137,15 +137,15 @@ export default function Recipes ({ isSelectedTab }) {
   const updateIngredients = async () => {
     
     // fetches and stores the full data
-    const data = await allIngredientFetch();
-    setIngredientData(data);
+    const querySnapshot = await getDocs(collection(db, 'INGREDIENTS'));
+    setIngredientsSnapshot(querySnapshot);
     
     // sorts the list of types from that data alphabetically
     const ingredientTypeList = [
       { label: "ALL TYPES", value: "ALL TYPES" },
       ...[...new Set(
-        data
-          .flatMap(item => item.ingredientType)
+        querySnapshot.docs
+          .flatMap(item => item.data().ingredientTypes)
           .filter(type => type !== undefined && type !== null)
       )]
         .sort((a, b) => a.localeCompare(b))
@@ -154,38 +154,54 @@ export default function Recipes ({ isSelectedTab }) {
           value: type,
         })),
     ];
-
+    
     // sets the list of types
     setIngredientTypeList(ingredientTypeList);
 
+    // extracts the ingredients
+    const ingredients = querySnapshot.docs.map((doc) => {
+      const formattedIngredient = {
+        id: doc.id,
+        ... doc.data()
+      }
+      return formattedIngredient;
+    })
+    .sort((a, b) => a.ingredientName.localeCompare(b.ingredientName)); // sort by ingredientName alphabetically
+
     // filters the ingredient data based on the selected type
-    setFilteredIngredientData(data);
+    setFilteredIngredientData(ingredients);
   }
 
   // filters the ingredients based on the "search for ingredient" text input
   const filterIngredientData = (ingredientQuery) => {
-
-    // filters for ingredient search
-    let filtered = ingredientData.filter(ingredient => {
-      const queryWords = ingredientQuery
-        .toLowerCase()
-        .split(' ')
-        .filter(word => word.trim() !== ''); // splits into words and remove empty strings
     
-      return queryWords.every(word => ingredient.ingredientName.toLowerCase().includes(word));
-    });
+    let filtered = [];
+    
+    // filters for ingredient search
+    if (ingredientsSnapshot?.docs?.length > 0) {
+      filtered = ingredientsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(ingredient => {
+          const queryWords = ingredientQuery
+            .toLowerCase()
+            .split(' ')
+            .filter(word => word.trim() !== ''); // splits into words and remove empty strings
+      
+        return queryWords.every(word => ingredient.ingredientName.toLowerCase().includes(word));
+      }).sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
+    }
 
     // filters for type
     if (selectedIngredientType !== "ALL TYPES") {
       filtered = filtered.filter(ingredient => 
-        Array.isArray(ingredient.ingredientType) && ingredient.ingredientType.includes(selectedIngredientType)
+        Array.isArray(ingredient.ingredientTypes) && ingredient.ingredientTypes.includes(selectedIngredientType)
       );
     }
 
-    // filers for store
-    if (selectedIngredientStore !== "") {
+    // filters for store
+    if (selectedIngredientStore !== "-") {
       filtered = filtered.filter(ingredient => 
-        ingredient[`${selectedIngredientStore}Brand`] !== ""
+        ingredient.ingredientData[selectedIngredientStore].brand !== ""
       );
     }
 
@@ -214,8 +230,8 @@ export default function Recipes ({ isSelectedTab }) {
 
   // decides the next store
   const changeSelectedStore = () => {
-    const stores = ["", "a", "mb", "sm", "ss", "t", "w"];
-    setSelectedIngredientStore(stores[(stores.indexOf(selectedIngredientStore) + 1) % 7]); 
+    const ingredientStores = ["-", ...storeKeys];
+    setSelectedIngredientStore(ingredientStores[(ingredientStores.indexOf(selectedIngredientStore) + 1) % (storeKeys.length + 1)]); 
   }
   
 
@@ -237,7 +253,7 @@ export default function Recipes ({ isSelectedTab }) {
     setSearchIngredientQuery(item.ingredientName);
     setSelectedIngredientName(item.ingredientName);
     setSelectedIngredientId(item.id);
-
+ 
     // closes the dropdown
     setIngredientDropdownOpen(false);
     Keyboard.dismiss();
@@ -265,7 +281,7 @@ export default function Recipes ({ isSelectedTab }) {
     if (selectedIngredientName !== "" && selectedRecipeId) {
 
       // gets the data of the searched ingredient
-      const docSnap = await getDoc(doc(db, 'ingredients', selectedIngredientId)); 
+      const docSnap = await getDoc(doc(db, 'INGREDIENTS', selectedIngredientId)); 
       const data = docSnap.exists() ? docSnap.data() : null;
       
       // checks the checkbox if the overall checkbox is true
@@ -275,17 +291,18 @@ export default function Recipes ({ isSelectedTab }) {
       
       // sets the ingredient's data to be default
       selectedRecipeData.ingredientIds[selectedIngredientIndex - 1] = selectedIngredientId;
-      selectedRecipeData.ingredientData[selectedIngredientIndex - 1] = data;
+      selectedRecipeData.ingredientData[selectedIngredientIndex - 1] = data.ingredientData;
+      selectedRecipeData.ingredientNames[selectedIngredientIndex - 1] = data.ingredientName;
+      selectedRecipeData.ingredientTypes[selectedIngredientIndex - 1] = data.ingredientTypes;
 
       // if a store is not being filtered, calculates the initial store based on the brands that are and are not empty
-      if (selectedIngredientStore === "") {
-        const stores = ["a", "mb", "sm", "ss", "t", "w"];
-        const currStore = "a";
+      if (selectedIngredientStore === "-") {
+        const currStore = storeKeys[0];
   
-        for (let i = 0; i < 6; i++) {
-          if (selectedRecipeData.ingredientData[selectedIngredientIndex - 1][`${stores[(stores.indexOf(currStore) + i) % 6]}${'Brand'}`] !== "") {
-            selectedRecipeData.ingredientStores[selectedIngredientIndex - 1] = stores[(stores.indexOf(currStore) + i) % 6];
-            i = 6;
+        for (let i = 0; i < storeKeys.length; i++) {
+          if (selectedRecipeData.ingredientData[selectedIngredientIndex - 1][storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length]].brand !== "") {
+            selectedRecipeData.ingredientStores[selectedIngredientIndex - 1] = storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length];
+            break;
           }
         }
       // otherwise, just use the selected store
@@ -304,7 +321,7 @@ export default function Recipes ({ isSelectedTab }) {
       }
 
       // stores the recipe data in the firebase
-      await updateDoc(doc(db, 'recipes', selectedRecipeId), calcData);
+      await updateDoc(doc(db, 'RECIPES', selectedRecipeId), calcData);
   
       // updates the selected recipe
       setSelectedRecipeData({ ...calcData });
@@ -323,6 +340,8 @@ export default function Recipes ({ isSelectedTab }) {
       // the current ingredient data 
       let checksArr = selectedRecipeData.ingredientChecks;
       let dataArr = selectedRecipeData.ingredientData;
+      let namesArr = selectedRecipeData.ingredientNames;
+      let typesArr = selectedRecipeData.ingredientTypes;
       let idsArr = selectedRecipeData.ingredientIds;
       let amountsArr = selectedRecipeData.ingredientAmounts;
       let storesArr = selectedRecipeData.ingredientStores;
@@ -333,6 +352,8 @@ export default function Recipes ({ isSelectedTab }) {
       // to store the new ingredient data - default values at first
       let newChecksArr = [ false, false, false, false, false, false, false, false, false, false, false, false ];
       let newDataArr = [ null, null, null, null, null, null, null, null, null, null, null, null ];
+      let newNamesArr = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
+      let newTypesArr = {0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [], 8: [], 9: [], 10: [], 11: []}; 
       let newIdsArr = [ "", "", "", "", "", "", "", "", "", "", "", "" ];
       let newAmountsArr = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
       let newStoresArr = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
@@ -350,6 +371,8 @@ export default function Recipes ({ isSelectedTab }) {
           if(dataArr[i] !== null) {
             newChecksArr[index] = checksArr[i];
             newDataArr[index] = dataArr[i];
+            newNamesArr[index] = namesArr[i];
+            newTypesArr[index] = typesArr[i];
             newIdsArr[index] = idsArr[i];
             newAmountsArr[index] = amountsArr[i];
             newStoresArr[index] = storesArr[i];
@@ -375,6 +398,8 @@ export default function Recipes ({ isSelectedTab }) {
           if(dataArr[i] !== null) {
             newChecksArr[index] = checksArr[i];
             newDataArr[index] = dataArr[i];
+            newNamesArr[index] = namesArr[i];
+            newTypesArr[index] = typesArr[i];
             newIdsArr[index] = idsArr[i];
             newAmountsArr[index] = amountsArr[i];
             newStoresArr[index] = storesArr[i];
@@ -388,6 +413,8 @@ export default function Recipes ({ isSelectedTab }) {
       // stores the newly shifted data
       selectedRecipeData.ingredientChecks = newChecksArr;
       selectedRecipeData.ingredientData = newDataArr;
+      selectedRecipeData.ingredientNames = newNamesArr;
+      selectedRecipeData.ingredientTypes = newTypesArr;
       selectedRecipeData.ingredientIds = newIdsArr;
       selectedRecipeData.ingredientAmounts = newAmountsArr;
       selectedRecipeData.ingredientStores = newStoresArr;
@@ -406,7 +433,7 @@ export default function Recipes ({ isSelectedTab }) {
       }
 
       // stores the recipe data in the firebase
-      updateDoc(doc(db, 'recipes', selectedRecipeId), calcData);
+      updateDoc(doc(db, 'RECIPES', selectedRecipeId), calcData);
   
       // updates the selected recipe
       setSelectedRecipeData(calcData);
@@ -428,6 +455,8 @@ export default function Recipes ({ isSelectedTab }) {
     // resets the ingredient data at the selected index to be null
     selectedRecipeData.ingredientChecks[selectedIngredientIndex - 1] = false;
     selectedRecipeData.ingredientData[selectedIngredientIndex - 1] = null;
+    selectedRecipeData.ingredientNames[selectedIngredientIndex - 1] = "";
+    selectedRecipeData.ingredientTypes[selectedIngredientIndex - 1] = [];
     selectedRecipeData.ingredientIds[selectedIngredientIndex - 1] = "";
     selectedRecipeData.ingredientAmounts[selectedIngredientIndex - 1] = "";
     selectedRecipeData.ingredientStores[selectedIngredientIndex - 1] = "";
@@ -449,7 +478,7 @@ export default function Recipes ({ isSelectedTab }) {
     }
 
     // stores the recipe data in the firebase
-    updateDoc(doc(db, 'recipes', selectedRecipeId), calcData);
+    updateDoc(doc(db, 'RECIPES', selectedRecipeId), calcData);
 
     // updates the selected recipe
     setSelectedRecipeData(calcData);
@@ -472,12 +501,12 @@ export default function Recipes ({ isSelectedTab }) {
   
       // general variables
       const ingredient = selectedRecipeData.ingredientData[index];
-      const brandKey = `${selectedRecipeData.ingredientStores[index]}Brand`;
-      const unitKey = `${selectedRecipeData.ingredientStores[index]}Unit`;
+      const brandKey = ingredient[selectedRecipeData.ingredientStores[index]].brand;
+      const unitKey = ingredient[selectedRecipeData.ingredientStores[index]].unit;
     
       // checks if the brand is valid, meaning the ingredient has data
-      if (ingredient && ingredient[brandKey] && ingredient[brandKey] !== "" && ingredient[unitKey] && ingredient[unitKey] !== "") {
-    
+      if (ingredient && brandKey && brandKey !== "" && unitKey && unitKey !== "") {
+        
         // updates the current ingredient amounts
         setCurrIngredientAmounts((prev) => {
           const updated = [...prev];
@@ -490,7 +519,7 @@ export default function Recipes ({ isSelectedTab }) {
         let calcData = calcAmounts(selectedRecipeData);
         
         // stores the recipe data in the firebase
-        updateDoc(doc(db, 'recipes', selectedRecipeId), calcData);
+        updateDoc(doc(db, 'RECIPES', selectedRecipeId), calcData);
         
         // updates the selected recipe's data
         setSelectedRecipeData(calcData);
@@ -515,13 +544,13 @@ export default function Recipes ({ isSelectedTab }) {
         // general variables
         const ingredient = data.ingredientData[index];
         const storeKey = data.ingredientStores[index];
-        const brandKey = ingredient[`${storeKey}Brand`];
+        const brandKey = ingredient[storeKey].brand;
 
         // fractional calculations
         const amount = new Fractional(value);
-        const totalYield = new Fractional(ingredient[`${storeKey}TotalYield`]);
-        const calContainer = new Fractional(ingredient[`${storeKey}CalContainer`]);
-        const priceContainer = new Fractional(ingredient[`${storeKey}PriceContainer`]);
+        const totalYield = new Fractional(ingredient[storeKey].totalYield);
+        const calContainer = new Fractional(ingredient[storeKey].calContainer);
+        const priceContainer = new Fractional(ingredient[storeKey].priceContainer);
         
         // invalid (1)
         if (value === "" || brandKey === "") {
@@ -584,7 +613,7 @@ export default function Recipes ({ isSelectedTab }) {
 
             // overall if the current checkbox is checked
             if (data.ingredientChecks[index]) {
-              totalServing = (index === 0 || totalServing > new Fraction(totalYield.divide(amount).toString()) * 1) ? new Fraction(totalYield.divide(amount).toString()) * 1 : totalServing;
+              totalServing = (totalServing === 0 || totalServing > new Fraction(totalYield.divide(amount).toString()) * 1) ? new Fraction(totalYield.divide(amount).toString()) * 1 : totalServing;
             }
 
           // set individual servings to 0 if arguments are not valid
@@ -606,7 +635,7 @@ export default function Recipes ({ isSelectedTab }) {
     data.recipeCal = ((new Fraction(totalCal.toString())) * 1).toFixed(0);
     data.recipePrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
     data.recipeServing = ((new Fraction(totalServing.toString())) * 1).toFixed(2);
-
+    
     return data;
   }
 
@@ -615,9 +644,6 @@ export default function Recipes ({ isSelectedTab }) {
 
   // to transition to the next store
   const changeStore = (index) => {
-    
-    // the list of stores
-    const stores = ["a", "mb", "sm", "ss", "t", "w"];
 
     // the current store
     const currStore = selectedRecipeData.ingredientStores[index];
@@ -626,10 +652,10 @@ export default function Recipes ({ isSelectedTab }) {
     let nextStore = currStore;
 
     // calculates the next store based on the brands that are and are not empty
-    for (let i = 1; i <= 6; i++) {
-      if (selectedRecipeData.ingredientData[index][`${stores[(stores.indexOf(currStore) + i) % 6]}${'Brand'}`] !== "") {
-        nextStore = stores[(stores.indexOf(currStore) + i) % 6];
-        i = 7;
+    for (let i = 1; i <= storeKeys.length; i++) {
+      if (selectedRecipeData.ingredientData[index][storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length]].brand !== "") {
+        nextStore = storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length];
+        break;
       }
     }
 
@@ -640,7 +666,7 @@ export default function Recipes ({ isSelectedTab }) {
     let calcData = calcAmounts(selectedRecipeData);
 
     // stores the recipe data in the firebase
-    updateDoc(doc(db, 'recipes', selectedRecipeId), calcData);
+    updateDoc(doc(db, 'RECIPES', selectedRecipeId), calcData);
 
     // updates the selected recipe
     setSelectedRecipeData(calcData);
@@ -676,14 +702,14 @@ export default function Recipes ({ isSelectedTab }) {
     try {
 
       // gets the global recipe id
-      const globalDoc = (await getDoc(doc(db, 'globals', 'recipe')));
+      const globalDoc = (await getDoc(doc(db, 'GLOBALS', 'recipe')));
       if (globalDoc.exists()) {
 
         let recipeId = globalDoc.data().id;
         if (recipeId) {
 
           // gets the recipe data
-          const recipeDoc = (await getDoc(doc(db, 'recipes', recipeId)));
+          const recipeDoc = (await getDoc(doc(db, 'RECIPES', recipeId)));
           if (recipeDoc.exists()) {
             const recipeData = recipeDoc.data();
 
@@ -729,11 +755,10 @@ export default function Recipes ({ isSelectedTab }) {
     if (selectedRecipeId) {
 
       // stores the recipe data in the firebase
-      updateDoc(doc(db, 'globals', 'recipe'), { id: selectedRecipeId });
+      updateDoc(doc(db, 'GLOBALS', 'recipe'), { id: selectedRecipeId });
 
       // gets the data
-      const docRef = doc(db, 'recipes', selectedRecipeId);        // creates a reference to the document
-      const docSnap = await getDoc(docRef);                       // fetches the document
+      const docSnap = await getDoc(doc(db, 'RECIPES', selectedRecipeId));
 
       // sets the recipe based on the given id and data
       if (docSnap.exists()) {
@@ -751,7 +776,7 @@ export default function Recipes ({ isSelectedTab }) {
           }
 
           // updates the collection data
-          await updateDoc(doc(db, 'recipes', selectedRecipeId), calcData);
+          await updateDoc(doc(db, 'RECIPES', selectedRecipeId), calcData);
       
           // updates the selected data
           setSelectedRecipeData({ ...calcData });
@@ -777,7 +802,7 @@ export default function Recipes ({ isSelectedTab }) {
   const refreshRecipes = async () => {
     
     // gets the collection of recipes
-    const querySnapshot = await getDocs(collection(db, 'recipes'));
+    const querySnapshot = await getDocs(collection(db, 'RECIPES'));
 
     // reformats each one
     const recipesArray = querySnapshot.docs.map((doc) => {
@@ -808,15 +833,15 @@ export default function Recipes ({ isSelectedTab }) {
   const [filteredRecipeList, setFilteredRecipeList] = useState([]);
 
   // to filter the recipe list based on the top section
-  const filterRecipeList = async (recipeQuery, ingredientQuery) => {
+  const filterRecipeList = async (recipeQuery, ingredientQuery, recipeTag) => {
     
     // maps over the current (full) list of recipes
     let filtered = recipeList.filter(recipe =>
   
       // tags - if ALL TAGS show all, if NO TAGS show only the recipes with no tags
-      (selectedRecipeTag === "ALL TAGS" || 
-        (selectedRecipeTag === "NO TAGS" && recipe.recipeTags.length === 0) || 
-        recipe.recipeTags.some(tag => tag === selectedRecipeTag)) &&
+      (recipeTag === "ALL TAGS" || 
+        (recipeTag === "NO TAGS" && recipe.recipeTags.length === 0) || 
+        recipe.recipeTags.some(tag => tag === recipeTag)) &&
       
       // recipe keywords
       (recipeQuery?.length > 0 
@@ -832,19 +857,18 @@ export default function Recipes ({ isSelectedTab }) {
         ? ingredientQuery
             .split(' ') // Split the string into an array of keywords
             .every(keyword => 
-              recipe.ingredientData.some(ingredient =>
-                ingredient &&
-                ingredient.ingredientName &&
-                ingredient.ingredientName.toLowerCase().includes(keyword.toLowerCase())
+              recipe.ingredientNames.some(name =>
+                name.toLowerCase().includes(keyword.toLowerCase())
               )
             )
         : true)
     );
-
+    
     // sets the filtered data
     if (filtered.length !== 0) {
       setRecipeKeywordQuery(recipeQuery);
       setIngredientKeywordQuery(ingredientQuery);
+      setSelectedRecipeTag(recipeTag);
       setFilteredRecipeList(filtered);
     } else {
       setFilteredRecipeList(filteredRecipeList);
@@ -857,19 +881,13 @@ export default function Recipes ({ isSelectedTab }) {
       setTagDropdownOpen(false);
 
       // stores the recipe data in the firebase
-      await updateDoc(doc(db, 'globals', 'recipe'), { id: null });
+      await updateDoc(doc(db, 'GLOBALS', 'recipe'), { id: null });
     } 
   }
 
-  // for when a tag is changed
-  useEffect(() => {
-    filterRecipeList(recipeKeywordQuery, ingredientKeywordQuery);
-    setRecipeDropdownOpen(true);
-  }, [selectedRecipeTag]);
-
   // for when the data changes
   useEffect(() => {
-    filterRecipeList(recipeKeywordQuery, ingredientKeywordQuery);
+    filterRecipeList(recipeKeywordQuery, ingredientKeywordQuery, selectedRecipeTag);
     setRecipeDropdownOpen(false);
   }, [recipeList]);
 
@@ -880,12 +898,12 @@ export default function Recipes ({ isSelectedTab }) {
 
   // when closing the new recipe modal
   const closeNewModal = (type) => { 
+    
     setNewModalVisible(false);
 
-    // resets filtering
-    setRecipeKeywordQuery("");
-    setIngredientKeywordQuery("");
-    setSelectedRecipeTag("ALL TAGS");
+    // resets filtering - blank recipe and ingredient keyword query; all tags
+    filterRecipeList("", "", "ALL TAGS");
+    setRecipeDropdownOpen(true);
 
     // resets ingredients
     setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
@@ -914,15 +932,15 @@ export default function Recipes ({ isSelectedTab }) {
 
   // when closing the add modal to edit
   const closeEditModal = (type) => {
+    
     setEditModalVisible(false);
     
     // if deleting the recipe
     if (type === "delete") {
 
-      // resets filtering
-      setRecipeKeywordQuery("");
-      setIngredientKeywordQuery("");
-      setSelectedRecipeTag("ALL TAGS");
+      // resets filtering - blank recipe and ingredient keyword query; all tags
+      filterRecipeList("", "", "ALL TAGS");
+      setRecipeDropdownOpen(true);
   
       // resets ingredients
       setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
@@ -947,6 +965,7 @@ export default function Recipes ({ isSelectedTab }) {
 
   // gets the unique list of tags based on the recipes in the system
   const fetchUniqueRecipeTags = async (querySnapshot) => {
+    
     try {
   
       // to store the collected recipe tags
@@ -1022,7 +1041,7 @@ export default function Recipes ({ isSelectedTab }) {
     selectedRecipeData.recipeTags = uniqueTags;
 
     // stores the recipe data in the firebase
-    updateDoc(doc(db, 'recipes', selectedRecipeId), selectedRecipeData);
+    updateDoc(doc(db, 'RECIPES', selectedRecipeId), selectedRecipeData);
 
     // updates the selected recipe
     setSelectedRecipeData(selectedRecipeData);
@@ -1053,7 +1072,7 @@ export default function Recipes ({ isSelectedTab }) {
       selectedRecipeData.recipeTags = uniqueTags;
 
       // stores the recipe data in the firebase
-      updateDoc(doc(db, 'recipes', selectedRecipeId), selectedRecipeData);
+      updateDoc(doc(db, 'RECIPES', selectedRecipeId), selectedRecipeData);
   
       // updates the selected recipe
       setSelectedRecipeData(selectedRecipeData);
@@ -1108,7 +1127,7 @@ export default function Recipes ({ isSelectedTab }) {
       let calcData = calcAmounts(selectedRecipeData);
 
       // stores the recipe data in the firebase
-      updateDoc(doc(db, 'recipes', selectedRecipeId), calcData);
+      updateDoc(doc(db, 'RECIPES', selectedRecipeId), calcData);
   
       // updates the selected recipe
       setSelectedRecipeData(calcData);
@@ -1142,7 +1161,7 @@ export default function Recipes ({ isSelectedTab }) {
       let calcData = calcAmounts(selectedRecipeData);
 
       // stores the recipe data in the firebase
-      updateDoc(doc(db, 'recipes', selectedRecipeId), calcData);
+      updateDoc(doc(db, 'RECIPES', selectedRecipeId), calcData);
   
       // updates the selected recipe
       setSelectedRecipeData(calcData);
@@ -1177,7 +1196,7 @@ export default function Recipes ({ isSelectedTab }) {
   ///////////////////////////////// VIEWING INGREDIENT /////////////////////////////////
 
   const [ingredientModalVisible, setIngredientModalVisible] = useState(false);
-  const [selectedIngredientData, setSelectedIngredientData] = useState("");
+  const [selectedIngredient, setSelectedIngredient] = useState("");
   
   // when the selected ingredient id chanegs get its data
   useEffect(() => {
@@ -1188,8 +1207,8 @@ export default function Recipes ({ isSelectedTab }) {
 
   // to get the ingredient data from the db
   const fetchIngredientData = async (id) => {
-    const docSnap = await getDoc(doc(db, 'ingredients', id));
-    if (docSnap.exists()) { setSelectedIngredientData(docSnap.data()); }
+    const docSnap = await getDoc(doc(db, 'INGREDIENTS', id));
+    if (docSnap.exists()) { setSelectedIngredient(docSnap.data()); }
   }
   
   
@@ -1223,10 +1242,10 @@ export default function Recipes ({ isSelectedTab }) {
             {/* text input */}
             <TextInput
               value={recipeKeywordQuery}
-              onChangeText={(value) => filterRecipeList(value, ingredientKeywordQuery)}
+              onChangeText={(value) => filterRecipeList(value, ingredientKeywordQuery, selectedRecipeTag)}
               placeholder="recipe keyword(s)"
               placeholderTextColor={colors.zinc400}
-              className="flex-1 bg-white radius-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 text-[14px] leading-[16px]"
+              className="flex-1 bg-white radius-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 text-[14px] leading-[17px]"
             />
 
             {/* clear button */}
@@ -1237,7 +1256,7 @@ export default function Recipes ({ isSelectedTab }) {
                 color="black"
                 onPress={() => {
                   setRecipeKeywordQuery("");
-                  filterRecipeList("", ingredientKeywordQuery);
+                  filterRecipeList("", ingredientKeywordQuery, selectedRecipeTag);
                 }}
               />
             </View>
@@ -1249,10 +1268,10 @@ export default function Recipes ({ isSelectedTab }) {
             {/* text input */}
             <TextInput
               value={ingredientKeywordQuery}
-              onChangeText={(value) => filterRecipeList(recipeKeywordQuery, value)}
+              onChangeText={(value) => filterRecipeList(recipeKeywordQuery, value, selectedRecipeTag)}
               placeholder="ingredient keyword(s)"
               placeholderTextColor={colors.zinc400}
-              className="flex-1 bg-white radius-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 text-[14px] leading-[16px]"
+              className="flex-1 bg-white radius-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 text-[14px] leading-[17px]"
             />
             {/* clear button */}
             <View className="absolute right-0 h-[30px] justify-center">
@@ -1262,7 +1281,7 @@ export default function Recipes ({ isSelectedTab }) {
                 color="black"
                 onPress={() => {
                   setIngredientKeywordQuery([]);
-                  filterRecipeList(recipeKeywordQuery, []);
+                  filterRecipeList(recipeKeywordQuery, [], selectedRecipeTag);
                 }}
               />
             </View>
@@ -1276,7 +1295,10 @@ export default function Recipes ({ isSelectedTab }) {
           <View className="flex z-0 bg-theme200 border-0.5 border-theme400 ml-[10px]">
             <Picker
               selectedValue={selectedRecipeTag}
-              onValueChange={(itemValue) => setSelectedRecipeTag(itemValue)}
+              onValueChange={(itemValue) => {
+                filterRecipeList(recipeKeywordQuery, ingredientKeywordQuery, itemValue);
+                setRecipeDropdownOpen(true);
+              }}
               style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -25, }}
               itemStyle={{ color:'black', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
             >
@@ -1327,24 +1349,24 @@ export default function Recipes ({ isSelectedTab }) {
           <View className="flex-col items-center justify-center h-[50px] w-[27.5px] z-30">
               {/* Add a new recipe */}
               <Icon
-                  size={15}
-                  color="white"
-                  name="add-outline"
-                  onPress={() => {
-                    setNewModalVisible(true);
-                    setTagDropdownOpen(false);
-                  }}
+                size={15}
+                color="white"
+                name="add-outline"
+                onPress={() => {
+                  setNewModalVisible(true);
+                  setTagDropdownOpen(false);
+                }}
               />
               {/* Edit/Delete the current recipe */}
               {selectedRecipeData !== null &&
               <Icon
-                  size={15}
-                  color="white"
-                  name="ellipsis-horizontal-outline"
-                  onPress={() => {
-                    setEditModalVisible(true);
-                    setTagDropdownOpen(false);
-                  }}
+                size={15}
+                color="white"
+                name="ellipsis-horizontal-outline"
+                onPress={() => {
+                  setEditModalVisible(true);
+                  setTagDropdownOpen(false);
+                }}
               />
               }
           </View>
@@ -1369,22 +1391,10 @@ export default function Recipes ({ isSelectedTab }) {
               textStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
               listItemContainerStyle={{ borderBottomWidth: 0.5, borderBottomColor: colors.theme100, }}
               ArrowDownIconComponent={() => {
-                return (
-                  <Icon
-                    size={18}
-                    color={ colors.theme100 }
-                    name="chevron-down"
-                  />
-                );
+                return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
               }}
               ArrowUpIconComponent={() => {
-                return (
-                  <Icon
-                    size={18}
-                    color={ colors.theme100 }
-                    name="chevron-up"
-                  />
-                );
+                return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
               }}
             />
           </View>
@@ -1458,10 +1468,10 @@ export default function Recipes ({ isSelectedTab }) {
               <View className="flex pl-1 items-start justify-center w-[145px] bg-theme600 border-b-0.5 border-r-0.5 border-theme900 pr-[5px] z-20">
                 <View className="flex flex-wrap flex-row">
                   <Text 
-                    className={`text-white text-[10px] ${selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData.ingredientStores[index] + "Link"] ? 'underline' : 'none'}`}
-                    onPress={selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData.ingredientStores[index] + "Link"] ? () => Linking.openURL(selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData.ingredientStores[index] + "Link"]) : undefined }
+                    className={`text-white text-[10px] ${selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData.ingredientStores[index]].link ? 'underline' : 'none'}`}
+                    onPress={selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData.ingredientStores[index]].link ? () => Linking.openURL(selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData.ingredientStores[index]].link) : undefined }
                   >
-                    {selectedRecipeData && selectedRecipeData.ingredientData[index] ? selectedRecipeData.ingredientData[index].ingredientName : ""}
+                    {selectedRecipeData && selectedRecipeData.ingredientData[index] ? selectedRecipeData.ingredientNames[index] : ""}
                   </Text>
                 </View>
               </View>
@@ -1494,7 +1504,7 @@ export default function Recipes ({ isSelectedTab }) {
                     />
                     {/* Unit */}
                     <Text className="text-[10px]">
-                      {` ${selectedRecipeData.ingredientData[index][`${selectedRecipeData.ingredientStores[index]}Unit`]}` === undefined ? " unit(s)": ` ${extractUnit(selectedRecipeData.ingredientData[index][`${selectedRecipeData.ingredientStores[index]}Unit`], currIngredientAmounts[index])}`}
+                      {` ${selectedRecipeData.ingredientData[index][selectedRecipeData.ingredientStores[index]].unit}` === undefined ? " unit(s)": ` ${extractUnit(selectedRecipeData.ingredientData[index][selectedRecipeData.ingredientStores[index]].unit, currIngredientAmounts[index])}`}
                     </Text>
                   </View>
                 : null }
@@ -1503,7 +1513,8 @@ export default function Recipes ({ isSelectedTab }) {
 
               {/* details */}
               <TouchableOpacity 
-                onPress={() => showCalcModal(index)}
+                onPress={selectedRecipeData?.ingredientData?.[index] ? () => showCalcModal(index) : undefined}
+                activeOpacity={selectedRecipeData?.ingredientData?.[index] ? 0.8 : 1}
                 className="flex flex-col items-center justify-center absolute w-full h-full pl-[290px] bg-white border-b-0.5 border-b-zinc400 border-l-0.5 border-l-zinc400 z-0"
               >
                 <View className="flex flex-row">
@@ -1557,13 +1568,14 @@ export default function Recipes ({ isSelectedTab }) {
             setModalVisible={setCalcModalVisible}
             submitModal={submitCalcModal}
             ingredientData={selectedRecipeData?.ingredientData[calcIndex]}
+            ingredientName={selectedRecipeData?.ingredientNames[calcIndex]}
             ingredientStore={selectedRecipeData?.ingredientStores[calcIndex]}
             initialCals={selectedRecipeData?.ingredientCals[calcIndex].toFixed(0)}
             initialPrice={selectedRecipeData?.ingredientPrices[calcIndex].toFixed(2)}
             initialServings={selectedRecipeData?.ingredientServings[calcIndex].toFixed(2)}
             initialAmount={selectedRecipeData?.ingredientAmounts[calcIndex]}
             amountUsed={null}
-            amountContainer={selectedRecipeData?.ingredientData[calcIndex][`${selectedRecipeData?.ingredientStores[calcIndex]}TotalYield`] === "" ? 0 : new Fractional (selectedRecipeData?.ingredientData[calcIndex][`${selectedRecipeData?.ingredientStores[calcIndex]}TotalYield`]).toString()}
+            amountContainer={selectedRecipeData?.ingredientData[calcIndex][selectedRecipeData?.ingredientStores[calcIndex]].totalYield === "" ? 0 : new Fractional (selectedRecipeData?.ingredientData[calcIndex][selectedRecipeData?.ingredientStores[calcIndex]].totalYield).toString()}
             servingSize={null}
           />
         }
@@ -1584,30 +1596,18 @@ export default function Recipes ({ isSelectedTab }) {
                     onPress={() => changeStore(index)} 
                     className="flex items-center justify-center w-[30px]"
                   >
-                    {selectedRecipeData?.ingredientStores?.[index] === "" ? 
-                    <Text>-</Text>
-                    :
-                    <Image
-                      source={
-                        selectedRecipeData?.ingredientStores?.[index] === "a" ? aldi :
-                        selectedRecipeData?.ingredientStores?.[index] === "mb" ? marketbasket :
-                        selectedRecipeData?.ingredientStores?.[index] === "sm" ? starmarket :
-                        selectedRecipeData?.ingredientStores?.[index] === "ss" ? stopandshop :
-                        selectedRecipeData?.ingredientStores?.[index] === "t" ? target :
-                        selectedRecipeData?.ingredientStores?.[index] === "w" ? walmart :
-                        null
-                      }
-                      alt="store"
-                      className={`${
-                        selectedRecipeData?.ingredientStores?.[index] === "a" ? "w-[18px] h-[12px]" : 
-                        selectedRecipeData?.ingredientStores?.[index] === "mb" ? "w-[19px] h-[18px]" : 
-                        selectedRecipeData?.ingredientStores?.[index] === "sm" ? "w-[18px] h-[18px]" :
-                        selectedRecipeData?.ingredientStores?.[index] === "ss" ? "w-[16px] h-[18px]" :
-                        selectedRecipeData?.ingredientStores?.[index] === "t" ? "w-[18px] h-[18px]" : 
-                        selectedRecipeData?.ingredientStores?.[index] === "w" ? "w-[18px] h-[18px]" : ""
-                      }`}
-                    />
-                    }
+                    {selectedRecipeData?.ingredientStores?.[index] === "" ? (
+                      <Text>-</Text>
+                    ) : (
+                      <Image
+                        source={storeImages[selectedRecipeData.ingredientStores[index]]?.src}
+                        alt="store"
+                        style={{
+                          width: storeImages[selectedRecipeData.ingredientStores[index]]?.width,
+                          height: storeImages[selectedRecipeData.ingredientStores[index]]?.height,
+                        }}
+                      />
+                    )}
                   </TouchableOpacity>
                 }
             </View>
@@ -1640,16 +1640,14 @@ export default function Recipes ({ isSelectedTab }) {
               {tagDropdownOpen && (
                 <View className="absolute mb-[2px] left-0 right-0 bottom-[100%] bg-white z-80 w-[150px] rounded-[5px] max-h-[175px]">
                   {/* Fixed "NEW TAG" Option */}
-                  <View className="flex flex-row w-full items-center border-0.5 border-black bg-zinc400 rounded-t">
-                    <TouchableOpacity
-                      className="p-2.5"
-                      onPress={() => toggleTag('NEW TAG')}
-                    >
-                      <Text className="text-white font-bold">
-                        NEW TAG
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity 
+                    className="flex flex-row w-full items-center border-0.5 border-black p-2.5 bg-zinc400 rounded-t"
+                    onPress={() => toggleTag('NEW TAG')}
+                  >
+                    <Text className="text-white font-bold">
+                      NEW TAG
+                    </Text>
+                  </TouchableOpacity>
 
                   {/* Scrollable Tag List */}
                   <ScrollView>
@@ -1809,7 +1807,7 @@ export default function Recipes ({ isSelectedTab }) {
               className="z-10 w-[30px] bg-zinc100 border-2 border-zinc700 justify-center items-center"
               onPress={() => changeSelectedStore()}
             >
-              {selectedIngredientStore === "" 
+              {selectedIngredientStore === "-" 
               ? // when no store is selected
               <Icon
                 name="menu"
@@ -1818,24 +1816,12 @@ export default function Recipes ({ isSelectedTab }) {
               />
               : // when store is selected
               <Image
-                source={
-                  selectedIngredientStore === "a" ? aldi :
-                  selectedIngredientStore === "mb" ? marketbasket :
-                  selectedIngredientStore === "sm" ? starmarket :
-                  selectedIngredientStore === "ss" ? stopandshop :
-                  selectedIngredientStore === "t" ? target :
-                  selectedIngredientStore === "w" ? walmart :
-                  null
-                }
+                source={storeImages[selectedIngredientStore]?.src || null}
                 alt="store"
-                className={`${
-                  selectedIngredientStore === "a" ? "w-[18px] h-[12px]" : 
-                  selectedIngredientStore === "mb" ? "w-[19px] h-[18px]" : 
-                  selectedIngredientStore === "sm" ? "w-[18px] h-[18px]" :
-                  selectedIngredientStore === "ss" ? "w-[16px] h-[18px]" :
-                  selectedIngredientStore === "t" ? "w-[18px] h-[18px]" : 
-                  selectedIngredientStore === "w" ? "w-[18px] h-[18px]" : ""
-                }`}
+                style={{
+                  width: storeImages[selectedIngredientStore]?.width,
+                  height: storeImages[selectedIngredientStore]?.height,
+                }}
               />
               }
             </TouchableOpacity>
@@ -1908,7 +1894,7 @@ export default function Recipes ({ isSelectedTab }) {
           >
             <Text
               multiline={true}
-              className={`${searchIngredientQuery !== '' && searchIngredientQuery !== "" ? "text-black" : "text-zinc400"} ${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] py-[5px] text-[14px] leading-[16px]`}
+              className={`${searchIngredientQuery !== '' && searchIngredientQuery !== "" ? "text-black" : "text-zinc400"} ${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] py-[5px] text-[14px] leading-[17px]`}
             >
               {searchIngredientQuery !== '' && searchIngredientQuery !== "" ? searchIngredientQuery : "search for ingredient"}
             </Text>
@@ -1962,7 +1948,7 @@ export default function Recipes ({ isSelectedTab }) {
             <ViewIngredientModal
               modalVisible={ingredientModalVisible}
               setModalVisible={setIngredientModalVisible}
-              ingredientData={selectedIngredientData}
+              ingredient={selectedIngredient}
             />
           }
 
@@ -2055,7 +2041,7 @@ export default function Recipes ({ isSelectedTab }) {
                 onChangeText={filterIngredientData}
                 placeholder="search for ingredient"
                 placeholderTextColor={colors.zinc400}
-                className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[16px] z-10`}
+                className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[17px] z-10`}
                 multiline={true}
                 blurOnSubmit={true}
                 onFocus={() => {

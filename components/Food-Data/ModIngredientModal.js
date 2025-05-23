@@ -1,21 +1,31 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-import React, { useState, useEffect } from 'react';
+// react hooks
+import React, { useState, useEffect, useRef } from 'react';
+
+// UI components
 import { Modal, View, Text, TextInput, ScrollView, TouchableOpacity } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
-import ingredientAdd from '../../firebase/Ingredients/ingredientAdd';
-import ingredientEdit from '../../firebase/Ingredients/ingredientEdit';
+// store lists
+import storeKeys from '../../assets/storeKeys';
+import storeLabels from '../../assets/storeLabels';
 
+// validation
 import capitalizeInput from '../Validation/capitalizeInput';
 import validateFractionInput from '../Validation/validateFractionInput';
 import validateDecimalInput from '../Validation/validateDecimalInput';
 import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
 
-// initialize Firebase App
+// firebase
+import ingredientAdd from '../../firebase/Ingredients/ingredientAdd';
+import ingredientEdit from '../../firebase/Ingredients/ingredientEdit';
+
+// initialize firebase app
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -25,9 +35,8 @@ const db = getFirestore(app);
 
 const ModIngredientModal = ({ 
   modalVisible, closeModal, cancelModal, 
-  editingId, initialStore, 
-  initialTypeList, 
-  aInitialBrandList, mbInitialBrandList, smInitialBrandList, ssInitialBrandList, tInitialBrandList, wInitialBrandList,
+  addingType, editingId, initialStore, 
+  initialTypeList, initialBrandLists,
 }) => {
 
   ///////////////////////////////// VARIABLES /////////////////////////////////
@@ -35,45 +44,46 @@ const ModIngredientModal = ({
   // Ingredient Name
   const [ingredientName, setIngredientName] = useState('');
 
-  // Data
-  const [link, setLink] = useState({ a: "", mb: "", sm: "", ss: "", t: "",  w: "" });
-  const [servingSize, setServingSize] = useState({ a: "", mb: "", sm: "", ss: "", t: "",  w: "" });
-  const [unit, setUnit] = useState({ a: "", mb: "", sm: "", ss: "", t: "",  w: "" });
-  const [servingContainer, setServingContainer] = useState({ a: "", mb: "", sm: "", ss: "", t: "",  w: "" });
-  const [calServing, setCalServing] = useState({ a: "", mb: "", sm: "", ss: "", t: "",  w: "" });
-  const [priceContainer, setPriceContainer] = useState({ a: "", mb: "", sm: "", ss: "", t: "",  w: "" });
+  // Data - set up like {storeKeys[0]: "", storeKeys[1]: "", ...}
+  const [link, setLink] = useState(Object.fromEntries(storeKeys.map(storeKey => [storeKey, ""])));
+  const [servingSize, setServingSize] = useState(Object.fromEntries(storeKeys.map(storeKey => [storeKey, ""])));
+  const [unit, setUnit] = useState(Object.fromEntries(storeKeys.map(storeKey => [storeKey, ""])));
+  const [servingContainer, setServingContainer] = useState(Object.fromEntries(storeKeys.map(storeKey => [storeKey, ""])));
+  const [calServing, setCalServing] = useState(Object.fromEntries(storeKeys.map(storeKey => [storeKey, ""])));
+  const [priceContainer, setPriceContainer] = useState(Object.fromEntries(storeKeys.map(storeKey => [storeKey, ""])));
+
 
   // Store Selection
   const [selectedStore, setSelectedStore] = useState(null);
-  const [storeList, setStoreList] = useState(['a', 'mb', 'sm', 'ss', 't', 'w']);
-  const [nameList, setNameList] = useState(['ALDI', 'MARKET BASKET', 'STAR MARKET', 'STOP & SHOP', 'TARGET', 'WALMART']);
+  const [storeList, setStoreList] = useState(storeKeys);
+  const [nameList, setNameList] = useState(storeLabels.map(label => label.toUpperCase()));
 
   // toggle store section visibility
   const toggleStoreSection = (store) => {
     
     // clears custom type
-    if (selectedStore && getBrandData(selectedStore).brand === 'CUSTOM') { getBrandData(selectedStore).setBrand(""); }
+    if (selectedStore && brand[selectedStore] === 'CUSTOM') { setBrand(prev => ({ ...prev, [selectedStore]: "" })); }
 
     setSelectedStore(selectedStore === store ? null : store);
     
     // reorders the store list to put the selected one first
-    let abrv = ['a', 'mb', 'sm', 'ss', 't', 'w'];
-    let name = ['ALDI', 'MARKET BASKET', 'STAR MARKET', 'STOP & SHOP', 'TARGET', 'WALMART']
+    let keys = [...storeKeys];
+    let labels = [...storeLabels.map(label => label.toUpperCase())];
     
     // only does so if there is a dropdown open; if not, will reset instead
     if (selectedStore !== store) {
 
       // creates and reorderspairs of abbreviation and name
-      let storePairs = abrv.map((abbr, index) => ({ abbr, name: name[index] }));
-      storePairs = [storePairs.find(pair => pair.abbr === store), ...storePairs.filter(pair => pair.abbr !== store)];
+      let storePairs = keys.map((key, index) => ({ key, label: labels[index] }));
+      storePairs = [storePairs.find(pair => pair.key === store), ...storePairs.filter(pair => pair.key !== store)];
     
       // extracts reordered arrays
-      abrv = storePairs.map(pair => pair.abbr);
-      name = storePairs.map(pair => pair.name);
+      keys = storePairs.map(pair => pair.key);
+      labels = storePairs.map(pair => pair.label);
     }
 
-    setStoreList(abrv);
-    setNameList(name);
+    setStoreList(keys);
+    setNameList(labels);
 
     setCustomBrand("");
   };
@@ -81,7 +91,11 @@ const ModIngredientModal = ({
 
   ///////////////////////////////// TYPE LIST /////////////////////////////////
 
+  const [typeList, setTypeList] = useState([]);
   const [ingredientTypes, setIngredientTypes] = useState([]);
+
+  // to reset scrolling
+  const scrollRef = useRef(null);
 
   // updates the tag list
   const toggleType = (type, currTypeList) => {
@@ -94,6 +108,9 @@ const ModIngredientModal = ({
       alphabetizeTypes(updatedIngredientTypes, currTypeList); // alphabetizes updated state
       return updatedIngredientTypes;
     });
+
+    // resets tag scrolling
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   // helper function to alphabetize the list of types based on selected ones
@@ -120,10 +137,7 @@ const ModIngredientModal = ({
     setTypeList(updatedTypeList);
   };
   
-
-
-  ///////////////////////////////// CUSTOM TYPE /////////////////////////////////
-  
+  // for a custom type
   const [showCustomType, setShowCustomType] = useState(false);
   const [customType, setCustomType] = useState('');
 
@@ -154,54 +168,38 @@ const ModIngredientModal = ({
   };
 
 
-  ///////////////////////////////// CUSTOM BRAND /////////////////////////////////
+  ///////////////////////////////// BRAND LIST /////////////////////////////////
 
-  const [aBrand, aSetBrand] = useState("");
-  const [mbBrand, mbSetBrand] = useState("");
-  const [smBrand, smSetBrand] = useState("");
-  const [ssBrand, ssSetBrand] = useState("");
-  const [tBrand, tSetBrand] = useState("");
-  const [wBrand, wSetBrand] = useState("");
+  const [brand, setBrand] = useState(Object.fromEntries(storeKeys.map(storeKey => [storeKey, ""])));
+  const [brandDropdownOpen, setBrandDropdownOpen] = useState(Object.fromEntries(storeKeys.map(storeKey => [storeKey, false])));
+  const [brandLists, setBrandLists] = useState(Object.fromEntries(storeKeys.map(storeKey => [storeKey, []])));
 
+  // for a custom brand
   const [customBrand, setCustomBrand] = useState("");
-  const [brandDropdownOpen, setBrandDropdownOpen] = useState({ a: false, mb: false, sm: false, ss: false, t: false,  w: false });
-
-  // helper function to get individual brand getters/setters
-  const getBrandData = (store) => {
-    const brandData = {
-      a: { brand: aBrand, setBrand: aSetBrand, brandList: aBrandList, setBrandList: aSetBrandList },
-      mb: { brand: mbBrand, setBrand: mbSetBrand, brandList: mbBrandList, setBrandList: mbSetBrandList },
-      sm: { brand: smBrand, setBrand: smSetBrand, brandList: smBrandList, setBrandList: smSetBrandList },
-      ss: { brand: ssBrand, setBrand: ssSetBrand, brandList: ssBrandList, setBrandList: ssSetBrandList },
-      t: { brand: tBrand, setBrand: tSetBrand, brandList: tBrandList, setBrandList: tSetBrandList },
-      w: { brand: wBrand, setBrand: wSetBrand, brandList: wBrandList, setBrandList: wSetBrandList },
-    };
-    
-    return brandData[store];
-  };  
 
   // when adding a custom brand
   const addCustomBrand = () => {
-
+    
     if (customBrand !== "") {
-      
-      if (!getBrandData(selectedStore).brandList.some((brand) => brand.value === customBrand.toLowerCase())) {
-        const updatedIngredientTypes = [
-          ...getBrandData(selectedStore).brandList,
+      if (!brandLists[selectedStore].some((brand) => brand.value.toLowerCase() === customBrand.toLowerCase())) {
+
+        // new brand list
+        const updatedBrandList = [
+          ...brandLists[selectedStore],
           { label: customBrand, value: customBrand },
         ];
 
         // sort, keeping "CUSTOM" at the top
-        updatedIngredientTypes.sort((a, b) => {
+        updatedBrandList.sort((a, b) => {
           if (a.label === "CUSTOM") return -1;
           if (b.label === "CUSTOM") return 1;
           return a.label.localeCompare(b.label);
         });
         
         
-        getBrandData(selectedStore).setBrandList(updatedIngredientTypes);     // updates the items list with the new custom type
-        getBrandData(selectedStore).setBrand(customBrand);                    // sets the value to the newly added custom type   
-        setCustomBrand("");                                                   // clears the custom type input field
+        setBrandLists(prev => ({ ...prev, [selectedStore]: updatedBrandList }));    // updates the items list with the new custom type
+        setBrand(prev => ({ ...prev, [selectedStore]: customBrand }));              // sets the value to the newly added custom type   
+        setCustomBrand("");                                                         // clears the custom type input field
       }
     }
   };
@@ -209,57 +207,49 @@ const ModIngredientModal = ({
 
   ///////////////////////////////// OPENING MODAL /////////////////////////////////
 
-  const [typeList, setTypeList] = useState([]);
-  const [aBrandList, aSetBrandList] = useState([]);
-  const [mbBrandList, mbSetBrandList] = useState([]);
-  const [smBrandList, smSetBrandList] = useState([]);
-  const [ssBrandList, ssSetBrandList] = useState([]);
-  const [tBrandList, tSetBrandList] = useState([]);
-  const [wBrandList, wSetBrandList] = useState([]);
-
-  // setting initial types
+  // setting initial lists
   useEffect(() => {
+    
     if (modalVisible) {
+      
+      // sets initial types
       setTypeList(initialTypeList);
-      aSetBrandList(aInitialBrandList);
-      mbSetBrandList(mbInitialBrandList);
-      smSetBrandList(smInitialBrandList);
-      ssSetBrandList(ssInitialBrandList);
-      tSetBrandList(tInitialBrandList);
-      wSetBrandList(wInitialBrandList);
+  
+      // dynamically sets initial brand lists
+      storeKeys.forEach((storeKey) => setBrandLists(prev => ({ ...prev, [storeKey]: initialBrandLists[storeKey] })));
     }
-  }, [modalVisible])
+  }, [modalVisible]);
 
   // if editing an ingredient 
   useEffect(() => {
+    
     if (editingId) {
       const fetchIngredientData = async () => {
         try {
-          const docRef = doc(db, 'ingredients', editingId);  // creates a reference to the document
-          const docSnap = await getDoc(docRef);              // fetches the document
+          const docSnap = await getDoc(doc(db, 'INGREDIENTS', editingId));
 
           if (docSnap.exists()) {
-            const data = docSnap.data();                     // accesses the document data
+            const data = docSnap.data();
             
             // sets the ingredient data
             setIngredientName(data.ingredientName || '');
-            setIngredientTypes(data.ingredientType || []);
+            setIngredientTypes(data.ingredientTypes || []);
             
-            setTimeout(() => alphabetizeTypes(data.ingredientType, initialTypeList), 1000);      // sorts types        
+            // sorts types
+            setTimeout(() => alphabetizeTypes(data.ingredientTypes, initialTypeList), 1000);      // sorts types        
 
-            aSetBrand(data.aBrand);
-            mbSetBrand(data.mbBrand);
-            smSetBrand(data.smBrand);
-            ssSetBrand(data.ssBrand);
-            tSetBrand(data.tBrand);
-            wSetBrand(data.wBrand);
-            
-            setLink({ a: data.aLink || '', mb: data.mbLink || '', sm: data.smLink || '', ss: data.ssLink || '', t: data.tLink || '', w: data.wLink || '' });
-            setServingSize({ a: data.aServingSize || '', mb: data.mbServingSize || '', sm: data.smServingSize || '', ss: data.ssServingSize || '', t: data.tServingSize || '', w: data.wServingSize || '' });
-            setUnit({ a: data.aUnit || '', mb: data.mbUnit || '', sm: data.smUnit || '', ss: data.ssUnit || '', t: data.tUnit || '', w: data.wUnit || '' });
-            setServingContainer({ a: data.aServingContainer || '', mb: data.mbServingContainer || '', sm: data.smServingContainer || '', ss: data.ssServingContainer || '', t: data.tServingContainer || '', w: data.wServingContainer || '' });
-            setCalServing({ a: data.aCalServing || '', mb: data.mbCalServing || '', sm: data.smCalServing || '', ss: data.ssCalServing || '', t: data.tCalServing || '', w: data.wCalServing || '' });
-            setPriceContainer({ a: data.aPriceContainer || '', mb: data.mbPriceContainer || '', sm: data.smPriceContainer || '', ss: data.ssPriceContainer || '', t: data.tPriceContainer || '', w: data.wPriceContainer || '' });
+            // sets store lists
+            storeKeys.forEach((storeKey) => {
+              
+              // sets lists
+              setBrand(prev => ({ ...prev, [storeKey]: (data.ingredientData[storeKey]?.brand || '') }));
+              setLink(prev => ({ ...prev, [storeKey]: data.ingredientData[storeKey]?.link || '' }));
+              setServingSize(prev => ({ ...prev, [storeKey]: data.ingredientData[storeKey]?.servingSize || '' }));
+              setUnit(prev => ({ ...prev, [storeKey]: data.ingredientData[storeKey]?.unit || '' }));
+              setServingContainer(prev => ({ ...prev, [storeKey]: data.ingredientData[storeKey]?.servingContainer || '' }));
+              setCalServing(prev => ({ ...prev, [storeKey]: data.ingredientData[storeKey]?.calServing || '' }));
+              setPriceContainer(prev => ({ ...prev, [storeKey]: data.ingredientData[storeKey]?.priceContainer || '' }));
+            });
           }
 
         } catch (error) {
@@ -268,7 +258,19 @@ const ModIngredientModal = ({
       };
 
       fetchIngredientData();
+
+    // otherwise, just stores the initial type and sorts
+    } else { 
+      // if the current type is 'all types'
+      if (addingType !== "-") {
+        setIngredientTypes([addingType]); 
+        setTimeout(() => alphabetizeTypes([addingType], initialTypeList), 1000);
+      // if it is a type
+      } else {
+        setTimeout(() => alphabetizeTypes(initialTypeList), 1000);
+      }
     }
+
   }, [editingId]);
 
   // when the initial store is populated
@@ -287,7 +289,7 @@ const ModIngredientModal = ({
 
   // to submit the modal
   const submitModal = () => {
-
+    
     // if the name is empty
     if (ingredientName === "") { 
       setNameValid(false); 
@@ -296,27 +298,24 @@ const ModIngredientModal = ({
       setCustomValid(true);
     
     // if all stores are empty
-    } else if (getBrandData('a').brand === "" && getBrandData('mb').brand === "" && getBrandData('sm').brand === "" && getBrandData('ss').brand === "" && getBrandData('t').brand === "" && getBrandData('w').brand === "") {
+    } else if (storeKeys.every(storeKey => brand[storeKey] === "")) {
       setNameValid(true);
       setStoreValid(false);
       setBrandValid(true);
       setCustomValid(true);
 
     // if a required brand is empty
-    } else if ((getBrandData('a').brand === "" && (servingSize.a !== "" || unit.a !== "" || servingContainer.a !== "" || calServing.a !== "" || priceContainer.a !== ""))
-        || (getBrandData('mb').brand === "" && (servingSize.mb !== "" || unit.mb !== "" || servingContainer.mb !== "" || calServing.mb !== "" || priceContainer.mb !== ""))
-        || (getBrandData('sm').brand === "" && (servingSize.sm !== "" || unit.sm !== "" || servingContainer.sm !== "" || calServing.sm !== "" || priceContainer.sm !== ""))
-        || (getBrandData('ss').brand === "" && (servingSize.ss !== "" || unit.ss !== "" || servingContainer.ss !== "" || calServing.ss !== "" || priceContainer.ss !== ""))
-        || (getBrandData('t').brand === "" && (servingSize.t !== "" || unit.t !== "" || servingContainer.t !== "" || calServing.t !== "" || priceContainer.t !== ""))
-        || (getBrandData('w').brand === "" && (servingSize.w !== "" || unit.w !== "" || servingContainer.w !== "" || calServing.w !== "" || priceContainer.w !== ""))
-      ) {
+    } else if (storeKeys.some(storeKey => 
+      brand[storeKey] === "" && 
+      (servingSize[storeKey] !== "" || unit[storeKey] !== "" || servingContainer[storeKey] !== "" || calServing[storeKey] !== "" || priceContainer[storeKey] !== "")
+    )) {
       setNameValid(true);
       setStoreValid(true);
       setBrandValid(false);
       setCustomValid(true);
     
     // if a CUSTOM is remaining
-    } else if (showCustomType || getBrandData('a').brand === 'CUSTOM' || getBrandData('mb').brand === 'CUSTOM' || getBrandData('sm').brand === 'CUSTOM' || getBrandData('ss').brand === 'CUSTOM' || getBrandData('t').brand === 'CUSTOM' || getBrandData('w').brand === 'CUSTOM') {
+    } else if (showCustomType || storeKeys.some(storeKey => brand[storeKey] === 'CUSTOM')) {
       setNameValid(true);
       setStoreValid(true);
       setBrandValid(true);
@@ -331,75 +330,57 @@ const ModIngredientModal = ({
       setCustomValid(true);
 
       // determines type list -- factors in empty
-      const types = ingredientTypes.includes("") && ingredientTypes.length > 1 ? ingredientTypes.filter((type) => type !== "") 
-                    : ingredientTypes.length === 0 ? [""] : ingredientTypes;
-      
+      const types = ingredientTypes.includes("") && ingredientTypes.length > 1 ? 
+        ingredientTypes.filter((type) => type !== "") : 
+        ingredientTypes.length === 0 ? [""] : ingredientTypes;
+
+      // reformats store list
+      const ingredientStores = ['-', ...storeKeys];
+          
       // collect the ingredient's data
-      let ingredientData = {
-        ingredientName, 
-        ingredientType: types,
-        aLink: link.a,                         mbLink: link.mb,                         smLink: link.sm,                         ssLink: link.ss,                         tLink: link.t,                         wLink: link.w, 
-        aBrand: getBrandData('a').brand,       mbBrand: getBrandData('mb').brand,       smBrand: getBrandData('sm').brand,       ssBrand: getBrandData('ss').brand,       tBrand: getBrandData('t').brand,       wBrand: getBrandData('w').brand,
-        aServingSize: servingSize.a,           mbServingSize: servingSize.mb,           smServingSize: servingSize.sm,           ssServingSize: servingSize.ss,           tServingSize: servingSize.t,           wServingSize: servingSize.w,
-        aUnit: unit.a,                         mbUnit: unit.mb,                         smUnit: unit.sm,                         ssUnit: unit.ss,                         tUnit: unit.t,                         wUnit: unit.w,
-        aServingContainer: servingContainer.a, mbServingContainer: servingContainer.mb, smServingContainer: servingContainer.sm, ssServingContainer: servingContainer.ss, tServingContainer: servingContainer.t, wServingContainer: servingContainer.w,
-        aCalServing: calServing.a,             mbCalServing: calServing.mb,             smCalServing: calServing.sm,             ssCalServing: calServing.ss,             tCalServing: calServing.t,             wCalServing: calServing.w,
-        aPriceContainer: priceContainer.a,     mbPriceContainer: priceContainer.mb,     smPriceContainer: priceContainer.sm,     ssPriceContainer: priceContainer.ss,     tPriceContainer: priceContainer.t,     wPriceContainer: priceContainer.w,
+      const ingredientData = {};
+      for (let i = 0; i < ingredientStores.length; i++) {
+        ingredientData[ingredientStores[i]] = {
+          brand: brand[ingredientStores[i]] || "",
+          calServing: calServing?.[ingredientStores[i]] || "",
+          link: link?.[ingredientStores[i]] || "",
+          priceContainer: priceContainer?.[ingredientStores[i]] || "",
+          servingContainer: servingContainer?.[ingredientStores[i]] || "",
+          servingSize: servingSize?.[ingredientStores[i]] || "",
+          unit: unit?.[ingredientStores[i]] || ""
+        };
+      }
+
+      // the overall data
+      let docData = {
+        ingredientName,
+        ingredientTypes: types,
+        ingredientData
       };
       
-      // if editing an ingredient
-      if (editingId) {
+      // submission
+      try {
 
-        try {  
+        // if editing an ingredient
+        if (editingId) { ingredientEdit({ editingId: editingId, updatedIngredient: docData }); } 
+        // if adding an ingredient
+        else { ingredientAdd({ newIngredient: docData }); }
 
-          // update the ingredient
-          ingredientData = { editingId, ...ingredientData };
-          ingredientEdit(ingredientData);
-          
-          // close the modal
-          exitModal(true); 
+        exitModal(true, docData);
 
-        } catch (error) {
-          console.error('Error updating ingredient:', error);
-        }
-      
-      // if adding an ingredient
-      } else {
-        
-        try {
-          // call the ingredientAdd function
-          ingredientAdd(ingredientData);
-          exitModal(true);
-
-        } catch(e) {
-          console.error('Error adding ingredient:', e);
-        }
+      } catch (e) {
+        console.error('Error saving ingredient:', e);
       }
     }
   };
 
   // to close the modal
-  const exitModal = (isConfirmed) => {
-    
-    if (isConfirmed) { closeModal(typeList, aBrandList, mbBrandList, smBrandList, ssBrandList, tBrandList, wBrandList); }
+  const exitModal = (isConfirmed, data) => {
+    if (isConfirmed) { closeModal(typeList, brandLists, data); }
     else { cancelModal(); }
 
     setIngredientName("");
     setIngredientTypes([]);
-
-    aSetBrand("");
-    mbSetBrand("");
-    smSetBrand("");
-    ssSetBrand("");
-    tSetBrand("");
-    wSetBrand("");
-
-    setLink({ a: "", mb: "", sm: "", ss: "", t: "",  w: "" });
-    setServingSize({ a: "", mb: "", sm: "", ss: "", t: "",  w: "" });
-    setUnit({ a: "", mb: "", sm: "", ss: "", t: "",  w: "" });
-    setServingContainer({ a: "", mb: "", sm: "", ss: "", t: "",  w: "" });
-    setCalServing({ a: "", mb: "", sm: "", ss: "", t: "",  w: "" });
-    setPriceContainer({ a: "", mb: "", sm: "", ss: "", t: "",  w: "" });
   };
 
   
@@ -410,44 +391,15 @@ const ModIngredientModal = ({
 
   // to clear all data from the given store
   const clearStoreData = (store) => {
-
-    // clear brand
-    getBrandData(store).setBrand("");
-
-    // clear serving size
-    setServingSize((prev) => {
-      const updated = { ...prev }; 
-      updated[store] = "";
-      return updated;
-    });
-
-    // clear unit
-    setUnit((prev) => {
-      const updated = { ...prev }; 
-      updated[store] = "";
-      return updated;
-    });
-
-    // clear servings per container
-    setServingContainer((prev) => {
-      const updated = { ...prev }; 
-      updated[store] = "";
-      return updated;
-    });
-
-    // clear calories per serving
-    setCalServing((prev) => {
-      const updated = { ...prev }; 
-      updated[store] = "";
-      return updated;
-    });
-
-    // clear price per container
-    setPriceContainer((prev) => {
-      const updated = { ...prev }; 
-      updated[store] = "";
-      return updated;
-    });
+    
+    // clears data
+    setBrand(prev => ({ ...prev, [store]: "" }))
+    setLink((prev) => ({ ...prev, [store]: "" }));
+    setServingSize((prev) => ({ ...prev, [store]: "" }));
+    setUnit((prev) => ({ ...prev, [store]: "" }));
+    setServingContainer((prev) => ({ ...prev, [store]: "" }));
+    setCalServing((prev) => ({ ...prev, [store]: "" }));
+    setPriceContainer((prev) => ({ ...prev, [store]: "" }));
   }
 
 
@@ -468,7 +420,7 @@ const ModIngredientModal = ({
 
         {/* Modal Content */}
         <View className="flex w-4/5 bg-zinc200 px-7 py-5 rounded-2xl">
-
+        
           {/* Title */}
           <Text className="text-[20px] font-bold">{editingId ? "EDIT INGREDIENT" : "ADD INGREDIENT"}</Text>
 
@@ -480,7 +432,7 @@ const ModIngredientModal = ({
             {/* Ingredient Name */}
             <View className="flex bg-white w-5/12 border-0.5 border-zinc500 rounded-md p-2 justify-center items-center">
               <TextInput
-                className="text-center pb-1 text-[14px] leading-[16px]"
+                className="text-center pb-1 text-[14px] leading-[17px]"
                 placeholder="Ingredient Name"
                 placeholderTextColor={colors.zinc400}
                 multiline={true}
@@ -508,7 +460,7 @@ const ModIngredientModal = ({
                     onPress={() => setShowCustomType(!showCustomType)}
                   />
                 </View>
-
+                
                 {showCustomType
                 ? // adding custom type
                   <View className="flex flex-row justify-center items-center bg-theme200 w-full h-2/3 border-2 border-zinc600">
@@ -540,6 +492,7 @@ const ModIngredientModal = ({
                   <ScrollView
                     className="border-2 border-zinc600"
                     vertical
+                    ref={scrollRef}
                     scrollEventThrottle={16}
                     contentContainerStyle={{ flexDirection: 'col' }}
                   >
@@ -580,7 +533,7 @@ const ModIngredientModal = ({
               <View className="flex flex-row h-[30px] w-full justify-center items-center mb-3">
 
                 {/* clear button for filled in stores */}
-                {getBrandData(store).brand !== "" &&
+                {(brand[store] !== "" || link[store] !== "" || servingSize[store] !== "" || unit[store] !== "" || servingContainer[store] !== "" || calServing[store] !== "" || priceContainer[store] !== "") &&
                   <View className="absolute left-3 flex justify-center items-center border-2 border-theme100 rounded-full">
                     <Icon
                       name="ban"
@@ -593,15 +546,15 @@ const ModIngredientModal = ({
 
                 {/* store name */}
                 <Text
-                  className={`text-[18px] font-semibold text-zinc600 flex text-center mr-2 ${getBrandData(store).brand !== "" ? "border-b-[0.75px] border-theme900" : ""}`}
+                  className={`text-[18px] font-semibold text-zinc600 flex text-center mr-2 ${brand[store] !== "" ? "border-b-[0.75px] border-theme900" : ""}`}
                   onPress={() => toggleStoreSection(store)}
                 >
-                    {nameList[index]}
+                  {nameList[index]}
                 </Text>
                 
                 {/* link input */}
                 <TextInput
-                  className="absolute right-2 flex bg-zinc100 border-[1px] border-zinc300 rounded-md px-2 w-[40px] h-[30px] ml-2 text-[14px] leading-[16px]"
+                  className="absolute right-2 flex bg-zinc100 border-[1px] border-zinc300 rounded-md px-2 w-[40px] h-[30px] ml-2 text-[14px] leading-[17px]"
                   placeholder="link"
                   placeholderTextColor={colors.zinc400}
                   value={link[store]}
@@ -635,37 +588,52 @@ const ModIngredientModal = ({
                 </View>
                 }
               </View>
-
+              
               {/* details */}
               <View className="z-40">
                 {selectedStore === store && (
                   <>
                     {/* BRAND DROPDOWN */}
-                    <View className={`${getBrandData(store).brand !== 'CUSTOM' ? "flex justify-center mb-4" : "flex flex-row w-full justify-evenly mb-4"}`}>
+                    <View className={`${brand[store] !== 'CUSTOM' ? "flex justify-center mb-4" : "flex flex-row w-full justify-evenly mb-4"}`}>
                       {/* Dropdown Picker */}
-                      <View className={`${getBrandData(store).brand === 'CUSTOM' ? "w-1/2" : "w-full"} z-40`}>
+                      <View className={`${brand[store] === 'CUSTOM' ? "w-1/2" : "w-full"} z-40`}>
                         <DropDownPicker
                           open={brandDropdownOpen[store]}
                           setOpen={(open) => setBrandDropdownOpen((prev) => ({ ...prev, [store]: open }))}
-                          value={getBrandData(store).brand}
-                          setValue={getBrandData(store).setBrand}
-                          items={getBrandData(store).brandList.length === 0 ? [{ label: "", value: "no_data", disabled: true }] : getBrandData(store).brandList}
-                          setItems={getBrandData(store).setBrandList}
+                          value={brand[store]}
+                          setValue={(valueOrFn) => {
+                            const value = typeof valueOrFn === 'function' ? valueOrFn(brand[store]) : valueOrFn;
+                            setBrand(prev => ({ ...prev, [store]: value }));
+                          }}
+                          items={brandLists[store].length === 0 ? [{ label: "", value: "no_data", disabled: true }] : brandLists[store]}
+                          setItems={(items) => setBrandLists(prev => ({ ...prev, [store]: items }))}
                           placeholder="Select Brand"
                           style={{ backgroundColor: colors.theme200, borderWidth: 1, borderColor: colors.zinc400}}
                           dropDownContainerStyle={{ backgroundColor: 'white', borderWidth: 0.5, borderColor: colors.zinc400}}
                           listItemContainerStyle={{ borderBottomWidth: 1, borderBottomColor: colors.zinc200, }}
                           textStyle={{ color: 'black', textAlign: 'center', }}
-                          TickIconComponent={() => getBrandData(store).brand !== 'CUSTOM' && <Icon name="checkmark" size={18} color="black" /> }
+                          TickIconComponent={() => brand[store] !== 'CUSTOM' && <Icon name="checkmark" size={18} color="black" /> }
                         />
+                        
+                        {/* Button to clear the current store's brand */}
+                        {brandDropdownOpen[store] &&
+                        <View className="absolute -right-4 justify-center h-full">
+                          <Icon
+                            name="close"
+                            size={15}
+                            color={colors.zinc450}
+                            onPress={() => setBrand(prev => ({ ...prev, [store]: "" })) }
+                          />
+                        </View>
+                        }
                       </View>
 
                       {/* Frozen Custom Selection */}
                       {brandDropdownOpen[store] &&
                         <TouchableOpacity
-                          className={`flex flex-row justify-center items-center absolute top-10 mt-[9.5px] border-x-[0.5px] border-x-zinc400 border-b-[1px] border-b-zinc200 ${getBrandData(store).brand !== 'CUSTOM' ? "w-full" : "w-1/2"} h-[40px] z-50 bg-zinc100`}
+                          className={`flex flex-row justify-center items-center absolute top-10 mt-[9.5px] border-x-[0.5px] border-x-zinc400 border-b-[1px] border-b-zinc200 ${brand[store] !== 'CUSTOM' ? "w-full" : "w-1/2"} h-[40px] z-50 bg-zinc100`}
                           onPress={() => {
-                            getBrandData(store).setBrand('CUSTOM')
+                            setBrand(prev => ({ ...prev, [store]: 'CUSTOM' }));
                             setBrandDropdownOpen(false);
                           }}
                         >
@@ -676,14 +644,14 @@ const ModIngredientModal = ({
                       }
 
                       {/* Custom Brand Input */}
-                      {getBrandData(store).brand === 'CUSTOM' && (
+                      {brand[store] === 'CUSTOM' && (
                         <>
                           <View className="flex flex-row justify-between w-full h-[50px]">
 
                             {/* Inputing a new brand */}
                             <View className="flex bg-white border-0.5 border-zinc500 rounded-md py-1 px-2 ml-2 w-2/5 h-full z-10 justify-center items-center">
                               <TextInput
-                                className="text-center pb-1 text-[14px] leading-[16px]"
+                                className="text-center pb-1 text-[14px] leading-[17px]"
                                 placeholder="Custom Brand"
                                 placeholderTextColor={colors.zinc400}
                                 value={customBrand}
@@ -707,7 +675,7 @@ const ModIngredientModal = ({
                                 size={18}
                                 name={'close-outline'}
                                 color={colors.zinc700}
-                                onPress={() => getBrandData(store).setBrand("")}
+                                onPress={() => setBrand(prev => ({ ...prev, [store]: "" }))}
                               />
                             </View>
                           </View>
@@ -727,10 +695,10 @@ const ModIngredientModal = ({
                           Serving Size
                         </Text>
 
-                        <View className="flex-1 flex-row border-0.5 border-zinc500">
+                        <View className="flex-1 flex-row justify-center items-center bg-theme100 border-0.5 border-zinc500 px-2">
                           {/* Size */}
                           <TextInput
-                            className="bg-theme100 p-1 flex-1 text-center text-[14px] leading-[16px]"
+                            className="p-1 flex text-center text-[14px] leading-[17px]"
                             placeholder="0 0/0"
                             placeholderTextColor={colors.zinc400}
                             value={servingSize[store]}
@@ -745,7 +713,7 @@ const ModIngredientModal = ({
 
                           {/* Units */}
                           <TextInput
-                            className="bg-theme100 p-1 flex-1 text-[14px] leading-[16px]"
+                            className="p-1 flex text-center text-[14px] leading-[17px]"
                             placeholder="unit(s)"
                             placeholderTextColor={colors.zinc400}
                             value={unit[store]}
@@ -771,7 +739,7 @@ const ModIngredientModal = ({
 
                         {/* Input */}
                         <TextInput
-                          className="flex-1 bg-theme100 border-0.5 border-zinc500 p-1 text-center text-[14px] leading-[16px]"
+                          className="flex-1 bg-theme100 border-0.5 border-zinc500 p-1 text-center text-[14px] leading-[17px] px-2"
                           placeholder="0 0/0"
                           placeholderTextColor={colors.zinc400}
                           value={servingContainer[store]}
@@ -795,7 +763,7 @@ const ModIngredientModal = ({
 
                         {/* Input */}
                         <TextInput
-                          className="flex-1 bg-theme100 border-0.5 border-zinc500 p-1 text-center text-[14px] leading-[16px]"
+                          className="flex-1 bg-theme100 border-0.5 border-zinc500 p-1 text-center text-[14px] leading-[17px] px-2"
                           placeholder="0"
                           placeholderTextColor={colors.zinc400}
                           value={calServing[store]}
@@ -818,11 +786,11 @@ const ModIngredientModal = ({
                         </Text>
 
                         {/* Input */}
-                        <View className="flex-1 flex-row border-0.5 border-zinc500 p-1 bg-theme100">
+                        <View className="flex-1 flex-row justify-center items-center border-0.5 border-zinc500 p-1 bg-theme100 px-2">
 
                           {/* Dummy $ */}
                           <TextInput
-                            className="flex-1 text-right text-[14px] leading-[16px]"
+                            className="flex text-right text-[14px] leading-[17px]"
                             placeholder="$"
                             placeholderTextColor={priceContainer[store] ? "black" : colors.zinc400}
                             editable={false}
@@ -830,7 +798,7 @@ const ModIngredientModal = ({
 
                           {/* User Input */}
                           <TextInput
-                            className="flex-1 bg-theme100 text-left text-[14px] leading-[16px]"
+                            className="flex text-left text-[14px] leading-[17px]"
                             placeholder="0.00"
                             placeholderTextColor={colors.zinc400}
                             value={priceContainer[store]}
@@ -859,28 +827,28 @@ const ModIngredientModal = ({
           <View className="flex flex-row items-center justify-between">
             {/* Warning if no name is given */}
             {isNameValid ? null : 
-              <Text className="text-pink-600 italic">
+              <Text className="text-mauve600 italic">
                 ingredient name is required
               </Text>
             }
 
             {/* Warning if no store is filled in */}
             {isStoreValid ? null : 
-              <Text className="text-pink-600 italic">
+              <Text className="text-mauve600 italic">
                 at least one store must have data
               </Text>
             }
 
             {/* Warning if no name or type is given */}
             {isBrandValid ? null : 
-              <Text className="text-pink-600 italic">
+              <Text className="text-mauve600 italic">
                 filled in stores must have a brand
               </Text>
             }
 
             {/* Warning if a custom is not filled out */}
             {isCustomValid ? null : 
-              <Text className="text-pink-600 italic">
+              <Text className="text-mauve600 italic">
                 submit all 'custom' values
               </Text>
             }
@@ -891,7 +859,7 @@ const ModIngredientModal = ({
               {/* Check */}
               <Icon 
                 size={24}
-                color={'black'}
+                color="black"
                 name="checkmark"
                 onPress={submitModal}
               />
@@ -899,9 +867,9 @@ const ModIngredientModal = ({
               {/* X */}
               <Icon 
                 size={24}
-                color={'black'}
+                color="black"
                 name="close-outline"
-                onPress={() => exitModal(false)}
+                onPress={() => exitModal(false, null)}
               />
             </View>
           </View>

@@ -1,6 +1,6 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-// Initialize Firebase App
+// initialize firebase app
 import { getFirestore, collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -23,23 +23,25 @@ const spotlightAdd = async ({ numSpotlights = 0 } = {}) => {
       spotlightPrice: "0.00", 
       spotlightServing: "0.00", 
       recipeId: null, 
-      ingredientData: [null, null, null, null, null, null, null, null, null, null, null, null], 
-      ingredientNameEdited: [true, true, true, true, true, true, true, true, true, true, true, true], 
-      ingredientAmountEdited: [true, true, true, true, true, true, true, true, true, true, true, true], 
-      ingredientStoreEdited: [true, true, true, true, true, true, true, true, true, true, true, true], 
-      ingredientIds: ["", "", "", "", "", "", "", "", "", "", "", ""], 
       ingredientAmounts: ["", "", "", "", "", "", "", "", "", "", "", ""], 
-      ingredientStores: ["", "", "", "", "", "", "", "", "", "", "", ""], 
+      ingredientAmountEdited: [true, true, true, true, true, true, true, true, true, true, true, true], 
       ingredientCals: ["", "", "", "", "", "", "", "", "", "", "", ""], 
+      ingredientData: [null, null, null, null, null, null, null, null, null, null, null, null], 
+      ingredientIds: ["", "", "", "", "", "", "", "", "", "", "", ""], 
+      ingredientNames: ["", "", "", "", "", "", "", "", "", "", "", ""], 
+      ingredientNameEdited: [true, true, true, true, true, true, true, true, true, true, true, true], 
       ingredientPrices: ["", "", "", "", "", "", "", "", "", "", "", ""], 
       ingredientServings: ["", "", "", "", "", "", "", "", "", "", "", ""], 
+      ingredientStores: ["", "", "", "", "", "", "", "", "", "", "", ""], 
+      ingredientStoreEdited: [true, true, true, true, true, true, true, true, true, true, true, true], 
+      ingredientTypes: {0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [], 8: [], 9: [], 10: [], 11: []}, 
     };
     
-    // adds the new ingredient to the 'spotlights' collection
-    const docRef = await addDoc(collection(db, 'spotlights'), spotlight);
+    // adds the new spotlight to the 'SPOTLIGHTS' collection
+    const docRef = await addDoc(collection(db, 'SPOTLIGHTS'), spotlight);
 
     // stores the spotlight data in the firebase
-    updateDoc(doc(db, 'globals', 'spotlight'), { id: docRef.id });
+    updateDoc(doc(db, 'GLOBALS', 'spotlight'), { id: docRef.id });
 
     return [docRef.id, spotlight];
 

@@ -1,22 +1,25 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import { Calendar } from 'react-native-calendars';
 
-import colors from '../../assets/colors';
+// UI components
+import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, Keyboard } from 'react-native';
+
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
+import colors from '../../assets/colors';
 
-// Fractions
+// fractions
 var Fractional = require('fractional').Fraction;
-import Fraction from 'fraction.js';
+
+// validation
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 import validateDecimalInput from '../../components/Validation/validateDecimalInput';
 import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
 
-// Initialize Firebase App
-import { getFirestore, updateDoc, doc, collection } from 'firebase/firestore';
+// initialize firebase app
+import { getFirestore, updateDoc, setDoc, getDoc, doc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
 
@@ -27,6 +30,30 @@ const SnackListModal = ({
   date, dispDate, data, snapshot, 
   modalVisible, setModalVisible, closeModal,
 }) => {
+
+
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [keyboardType, setKeyboardType] = useState("");
+
+  // keyboard listener
+  useEffect(() => {
+
+    // listens for keyboard show event
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setIsKeyboardOpen(true);
+    });
+
+    // listens for keyboard hide event
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardOpen(false);
+    });
+
+    // cleans up listeners on unmount
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, [keyboardType]);
 
 
   ///////////////////////////////// DEEP SEARCH /////////////////////////////////
@@ -56,6 +83,7 @@ const SnackListModal = ({
   useEffect(() => {
     if (modalVisible) {
       setSnackData(data?.snackData || null);
+      setIsEditing(data === null || data.snackData === null || data?.snackData?.length === 0);
     }
   }, [modalVisible]);
   
@@ -83,6 +111,8 @@ const SnackListModal = ({
 
 
   ///////////////////////////////// CHANGE SNACKS /////////////////////////////////
+
+  const [isEditing, setIsEditing] = useState(false);
 
   // to add another snack
   const addSnack = () => {
@@ -152,15 +182,46 @@ const SnackListModal = ({
     // figures out if snack data is empty and should be null
     const isEmpty = JSON.stringify(sortObjectKeys(snackData)) === JSON.stringify(sortObjectKeys([{"amount":"","price":"","name":"","cal":"","unit":""}]));
 
+    // refactored snackData
+    const newSnackData = snackData.map((snack) => ({
+      ...snack,
+      price: (isNaN(snack.price) || snack.price === "")
+        ? "0.00"
+        : ((new Fractional(snack.price)).numerator / (new Fractional(snack.price)).denominator).toFixed(2),
+    }));
+    
     // compiled data
-    const docData = {
-      snackData: isEmpty ? null : snackData,
-      snackCal,
-      snackPrice,
+    const compiledData = {
+      snackData: isEmpty ? null : newSnackData,
+      snackCal: snackCal === "" ? "0" : snackCal,
+      snackPrice: snackPrice === "" ? "0.00" : snackPrice,
     };
+    
+    // retrieves the current doc data
+    const currData = await getDoc(doc(db, 'PLANS', formattedDate));
 
-    // updates db
-    updateDoc(doc(db, 'plans', formattedDate), { "snacks": docData });
+    // if it exists, just set the snacks
+    if (currData.exists()) {
+      updateDoc(doc(db, 'PLANS', formattedDate), { "snacks": compiledData });
+
+    // otherwise, create a null doc first
+    } else {
+      const docData = { 
+        date: formattedDate,
+        meals: {
+          lunch: {
+            prepId: null,          
+            prepData: null,
+          },
+          dinner: {
+            prepId: null,         
+            prepData: null,
+          },
+        },
+        snacks: compiledData,
+      };
+      setDoc(doc(db, 'PLANS', formattedDate), docData);
+    }
     
     // closes the modal, indicating that a custom prep was made
     closeModal();
@@ -181,7 +242,7 @@ const SnackListModal = ({
       <View className="flex-1 justify-center items-center">
       
         {/* Background Overlay */}
-        <TouchableOpacity onPress={() => setModalVisible(false)} className="absolute bg-black opacity-50 w-full h-full"/>
+        <View className="absolute bg-black opacity-50 w-full h-full"/>
         
         {/* Modal Content */}
         <View className="flex w-5/6 py-5 px-5 bg-zinc200 rounded-2xl z-50">
@@ -192,13 +253,13 @@ const SnackListModal = ({
             <Text className="text-[20px] font-bold">
               {dispDate}
             </Text>
-    
-            {/* Check */}
-            <Icon 
-              size={24}
-              color={'black'}
-              name="checkmark"
-              onPress={() => submitSnacks()}
+
+            {/* Set Editing */}
+            <Icon
+              name={isEditing ? "backspace" : "create"}
+              size={20}
+              color={colors.zinc800}
+              onPress={() => setIsEditing(!isEditing)}
             />
           </View>
 
@@ -206,10 +267,10 @@ const SnackListModal = ({
           <View className="h-[1px] bg-zinc400 mb-4"/>
 
 
-          <View className="flex flex-col justify-center items-center px-4 w-full mb-2">
+          <View className="flex flex-col justify-center items-center w-full ml-[-10px] mb-2">
 
             {/* TOP ROW */}
-            <View className="flex flex-row items-center justify-center border-0.5 mb-2 bg-zinc600">
+            <View className="flex flex-row items-center justify-center border-0.5 ml-[20px] mb-2 bg-zinc600">
 
               {/* Title */}
               <View className="flex justify-center items-center px-1.5 py-1 w-1/2 border-r-0.5 bg-zinc700">
@@ -235,19 +296,24 @@ const SnackListModal = ({
 
             {/* GRID */}
             {snackData !== null && 
-              <View className="flex flex-col z-10 border-[1px] border-zinc700">
+              <ScrollView 
+                className={`flex flex-col w-full mr-[-40px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) && "max-h-[100px]"}`}
+                scrollEnabled={keyboardType === "grid" && isKeyboardOpen}
+              >
                   
                 {/* Frozen Columns */}
                 {snackData?.map((snack, index) =>  
-                  <View key={`frozen-${index}`} className="flex flex-row h-[30px] bg-white">
-                    <View className="bg-black w-full flex-row">
-
+                  <View key={`frozen-${index}`} className="flex flex-row min-h-[30px]">
+                  
+                    {/* snack */}
+                    <View className={`flex-1 flex-row bg-zinc500 border-x-[1px] ${index === 0 && "border-t-[1px]"} ${index === snackData.length - 1 && "border-b-[1px]"} border-zinc700`}>
+                      
                       {/* snack names */}
                       <View className="flex items-center justify-center w-1/2 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">
                         <View className="flex flex-wrap flex-row">
                           {/* Input */}
                           <TextInput
-                            className="text-white font-semibold text-[10px] text-center px-2"
+                            className="text-white font-semibold text-[10px] text-center px-2 pb-1"
                             placeholder="snack name"
                             placeholderTextColor={colors.zinc350}
                             value={snack.name || ""}
@@ -261,6 +327,11 @@ const SnackListModal = ({
                                 return updated;
                               });
                             }}
+                            multiline={true}
+                            blurOnSubmit={true}
+                            onFocus={() => setKeyboardType("grid")}
+                            onBlur={() => setKeyboardType("")}
+                            editable={isEditing}
                           />
                         </View>
                       </View>
@@ -283,6 +354,9 @@ const SnackListModal = ({
                               return updated;
                             });
                           }}
+                          onFocus={() => setKeyboardType("grid")}
+                          onBlur={() => setKeyboardType("")}
+                          editable={isEditing}
                         />
                         {/* Unit Input */}
                         <TextInput
@@ -300,6 +374,9 @@ const SnackListModal = ({
                               return updated;
                             });
                           }}
+                          onFocus={() => setKeyboardType("grid")}
+                          onBlur={() => setKeyboardType("")}
+                          editable={isEditing}
                         />
                       </View>
                       
@@ -307,7 +384,7 @@ const SnackListModal = ({
                       <View className="flex flex-col w-1/6 items-center justify-center px-1 bg-white border-b-0.5 border-zinc400">
 
                         {/* calories */}
-                        <View className="flex flex-row h-2/5 w-full space-x-0.5 justify-center items-center bg-white">
+                        <View className="flex flex-row w-full space-x-0.5 justify-center items-center bg-white">
                           
                           {/* Amount Input */}
                           <TextInput
@@ -325,6 +402,9 @@ const SnackListModal = ({
                                 return updated;
                               });
                             }}
+                            onFocus={() => setKeyboardType("grid")}
+                            onBlur={() => setKeyboardType("")}
+                            editable={isEditing}
                           />
 
                           {/* Label */}
@@ -334,7 +414,7 @@ const SnackListModal = ({
                         </View>
 
                         {/* price */}
-                        <View className="flex flex-row h-2/5 w-full justify-center items-center bg-white">
+                        <View className="flex flex-row w-full justify-center items-center bg-white">
 
                           {/* Label */}
                           <Text className="text-[8px] text-center">
@@ -357,7 +437,9 @@ const SnackListModal = ({
                                 return updated;
                               });
                             }}
+                            onFocus={() => setKeyboardType("grid")}
                             onBlur={() => {
+                              setKeyboardType("");
                               setSnackData((prev) => {
                                 const updated = [...prev];
                                 updated[index] = {
@@ -367,36 +449,71 @@ const SnackListModal = ({
                                 return updated;
                               });
                             }}
+                            editable={isEditing}
                           />
                         </View>
                       </View>
                     </View>
 
                     {/* Delete Current Snack */}
-                    <View className="flex justify-center items-center h-full w-[20px] absolute right-[-20px]">
+                    <View className="flex w-[20px] z-50 justify-center items-center">
+                      {isEditing &&
                       <Icon
                         name="close"
                         size={15}
                         color={colors.zinc600}
                         onPress={() => deleteSnack(index)}
                       />
+                      }
                     </View>
                   </View>
                 )}
-              </View>
+              </ScrollView>
             }
 
             {/* Add Another Snack Row */}
-            <TouchableOpacity 
-              className="flex justify-center items-center w-full bg-zinc350 py-0.5 border-x-[1px] border-b-[1px] border-zinc400"
-              onPress={() => addSnack()}
-            >
-              <Icon
-                name="add"
-                size={14}
-                color={colors.zinc900}
+            {isEditing &&
+            <View className="flex flex-row items-center justify-center ml-[20px]">
+              <TouchableOpacity 
+                className="flex justify-center items-center bg-zinc350 w-full py-0.5 border-b-[1px] border-x-[1px] border-zinc400"
+                onPress={() => addSnack()}
+              >
+                <Icon
+                  name="add"
+                  size={14}
+                  color={colors.zinc900}
+                />
+              </TouchableOpacity>
+            </View>
+            }
+          </View>
+                        
+
+          {/* Divider */}
+          <View className="h-[1px] bg-zinc400 w-full my-2"/>
+
+          {/* BOTTOM ROW */}
+          <View className="flex flex-row items-center justify-between w-full">
+
+            {/* Buttons */}
+            <View className="flex flex-row justify-center items-center space-x-[-2px] ml-auto">
+
+              {/* submit */}
+              <Icon 
+                size={24}
+                color="black"
+                name="checkmark"
+                onPress={() => submitSnacks()}
               />
-            </TouchableOpacity>
+
+              {/* Close */}
+              <Icon
+                size={24}
+                color="black"
+                name="close-outline"
+                onPress={() => setModalVisible(false)}
+              />
+            </View>
           </View>
         </View>
       </View>

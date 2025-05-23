@@ -1,10 +1,12 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-import React, { useState, useEffect } from 'react';
+// react hooks
+import React from 'react';
+
+// UI components
 import { Modal, View, Text, TouchableOpacity } from 'react-native';
 
-import colors from '../../assets/colors';
-
+// firebase
 import { currentDelete } from '../../firebase/Currents/currentDelete';
 
 
@@ -51,7 +53,7 @@ const DeleteCurrentModal = ({
               <Text className="italic text-zinc600 text-center px-5">
                 before proceededing, delete any used up meal preps that include this ingredient
               </Text>
-              <Text className="italic text-pink-700 text-center">
+              <Text className="italic text-mauve700 text-center">
                 this action will prevent prematurely removing the ingredient from today's meal preps in the planning tab
               </Text>
             </View>

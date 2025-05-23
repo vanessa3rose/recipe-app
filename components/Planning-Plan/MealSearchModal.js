@@ -1,10 +1,14 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useState, useEffect } from 'react';
+
+// UI components
 import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 
-import colors from '../../assets/colors';
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
+import colors from '../../assets/colors';
 
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
@@ -16,33 +20,44 @@ const MealSearchModal = ({
 
   ///////////////////////////////// DEEP SEARCH /////////////////////////////////
 
-  // recursively sorts the array by keys alphabetically
-  const sortObjectKeys = (obj) => {
-    if (Array.isArray(obj)) {
-        return obj.map(sortObjectKeys);
-    } else if (obj !== null && typeof obj === "object") {
-        const sortedObj = {};
-        Object.keys(obj).sort().forEach((key) => {
-            sortedObj[key] = sortObjectKeys(obj[key]);
-        });
-        return sortedObj;
+  // checks if two preps' data are equal
+  function deepPrepEqual(a, b) {
+    const ignoredKeys = [
+      "prepNote", "prepMult", 
+      "amountLeft", "amountTotal", "archive", "check", 
+      "ingredientData", "ingredientId", "ingredientStore", "ingredientTypes", 
+      "id", "containerPrice", "unitPrice"
+    ];
+
+    if (a === b) return true;
+  
+    if (typeof a !== typeof b || a === null || b === null) return false;
+  
+    if (Array.isArray(a) && Array.isArray(b)) {
+      if (a.length !== b.length) return false;
+      return a.every((item, i) => deepPrepEqual(item, b[i]));
     }
-    return obj;
-  };
+  
+    if (typeof a === 'object') {
+      const aKeys = Object.keys(a).filter(key => !ignoredKeys.includes(key));
+      const bKeys = Object.keys(b).filter(key => !ignoredKeys.includes(key));
+  
+      if (aKeys.length !== bKeys.length) return false;
+      return aKeys.every(key => deepPrepEqual(a[key], b[key]));
+    }
+  
+    return false;
+  }
 
-  // to get the index of the object from the array of arrays
-  function deepIndexOf(arr, obj) {
-
-    // loops over all objects in the array of arrays
-    for (let i = 0; i < arr.length; i++) {
-      if (JSON.stringify(sortObjectKeys(arr[i])) === JSON.stringify(sortObjectKeys(obj))) {
+  // finds a specific prep within a list
+  function deepPrepIndexOf(array, target) {
+    for (let i = 0; i < array.length; i++) {
+      if (deepPrepEqual(array[i], target)) {
         return i;
       }
     }
-
-    // returns -1 if the value isn't found
     return -1;
-  }
+  }  
 
 
   ///////////////////////////////// ON OPEN /////////////////////////////////
@@ -56,6 +71,7 @@ const MealSearchModal = ({
 
   // getting DB data
   const [uniquePrepIds, setUniquePrepIds] = useState(null);
+  const [uniquePrepNames, setUniquePrepNames] = useState(null);
   const [uniquePrepData, setUniquePrepData] = useState(null);
   const [uniquePrepDates, setUniquePrepDates] = useState(null);
   const [uniquePrepMeals, setUniquePrepMeals] = useState(null);
@@ -65,97 +81,111 @@ const MealSearchModal = ({
   const loadPreps = async () => {
 
     // to get the unique list of preps
+    let prepNames = [];
     let prepIds = [];
     let prepData = [];
     let prepDates = [];
     let prepMeals = [];
-    
+
+
     // loops through all the plans
     snapshot.docs.map((plan) => {
+      
 
       // LUNCH PREPS
-      const lunchIndex = deepIndexOf(prepData, plan.data().meals?.lunch?.prepData);
-      if (plan.data().meals.lunch.prepData !== null) {
+      if (plan.data().meals.lunch.prepData) {
+        const lunchNameIndex = prepNames.indexOf(plan.data().meals.lunch.prepData.prepName);
 
-        // new
-        if ((!plan.data().meals.lunch.prepId.includes("LUNCH") && !prepIds.includes(plan.data().meals.lunch.prepId))
-          || (plan.data().meals.lunch.prepId.includes("LUNCH") && lunchIndex === -1)
-          || (!plan.data().meals.lunch.prepId.includes("LUNCH") && plan.data().meals.lunch.prepData.prepName !== prepData[prepIds.indexOf(plan.data().meals.lunch.prepId)].prepName)
-        ) {
-          prepIds.push(plan.data().meals.lunch.prepId); 
-          prepData.push(plan.data().meals.lunch.prepData); 
-          prepDates.push([plan.id]);
-          prepMeals.push(["LUNCH"]);
-        
-        // existing meal prep
-        } else if (!plan.data().meals.lunch.prepId.includes("LUNCH") && prepIds.includes(plan.data().meals.lunch.prepId)) {
-          const index = prepIds.indexOf(plan.data().meals.lunch.prepId);
-          prepDates[index] = [...prepDates[index], plan.id].flat();
-          prepMeals[index] = [...prepMeals[index], "LUNCH"].flat();
-        
-        // existing custom prep
-        } else if (plan.data().meals.lunch.prepId.includes("LUNCH") && lunchIndex !== -1) {
-          prepDates[lunchIndex] = [...prepDates[lunchIndex], plan.id].flat();
-          prepMeals[lunchIndex] = [...prepMeals[lunchIndex], "LUNCH"].flat();
+        // completely new
+        if (lunchNameIndex === -1) {
+          prepNames.push(plan.data().meals.lunch.prepData.prepName); 
+          prepIds.push([plan.data().meals.lunch.prepId]);
+          prepData.push([plan.data().meals.lunch.prepData]); 
+          prepDates.push([[plan.id]]);
+          prepMeals.push([["LUNCH"]]);
+
+        // otherwise - exact match or alternate found
+        } else {
+          
+          const lunchDataIndex = deepPrepIndexOf(prepData[lunchNameIndex], plan.data().meals.lunch.prepData);
+
+          // alternative found
+          if (lunchDataIndex === -1) {
+            prepIds[lunchNameIndex].push(plan.data().meals.lunch.prepId);
+            prepData[lunchNameIndex].push(plan.data().meals.lunch.prepData);
+            prepDates[lunchNameIndex].push([plan.id]);
+            prepMeals[lunchNameIndex].push(["LUNCH"]);
+          
+          // exact match found
+          } else {
+            prepDates[lunchNameIndex][lunchDataIndex].push(plan.id);
+            prepMeals[lunchNameIndex][lunchDataIndex].push("LUNCH");
+          }
         }
       }
 
-
       // DINNER PREPS
-      const dinnerIndex = deepIndexOf(prepData, plan.data().meals.dinner.prepData);
-      if (plan.data().meals.dinner.prepData !== null) {
+      if (plan.data().meals.dinner.prepData) {
+        const dinnerNameIndex = prepNames.indexOf(plan.data().meals.dinner.prepData.prepName);
 
-        // new
-        if ((!plan.data().meals.dinner.prepId.includes("DINNER") && !prepIds.includes(plan.data().meals.dinner.prepId))
-          || (plan.data().meals.dinner.prepId.includes("DINNER") && dinnerIndex === -1)
-          || (!plan.data().meals.dinner.prepId.includes("DINNER") && plan.data().meals.dinner.prepData.prepName !== prepData[prepIds.indexOf(plan.data().meals.dinner.prepId)].prepName)
-        ) {
-          prepIds.push(plan.data().meals.dinner.prepId); 
-          prepData.push(plan.data().meals.dinner.prepData); 
-          prepDates.push([plan.id]);
-          prepMeals.push(["DINNER"]);
-        
-        // existing meal prep
-        } else if (!plan.data().meals.dinner.prepId.includes("DINNER") && prepIds.includes(plan.data().meals.dinner.prepId)) {
-          const index = prepIds.indexOf(plan.data().meals.dinner.prepId);
-          prepDates[index] = [...prepDates[index], plan.id].flat();
-          prepMeals[index] = [...prepMeals[index], "DINNER"].flat();
+        // completely new
+        if (dinnerNameIndex === -1) {
+          prepNames.push(plan.data().meals.dinner.prepData.prepName); 
+          prepIds.push([plan.data().meals.dinner.prepId]);
+          prepData.push([plan.data().meals.dinner.prepData]); 
+          prepDates.push([[plan.id]]);
+          prepMeals.push([["DINNER"]]);
 
-        // existing custom prep
-        } else if (plan.data().meals.dinner.prepId.includes("DINNER") && dinnerIndex !== -1) {
-          prepDates[dinnerIndex] = [...prepDates[dinnerIndex], plan.id].flat();
-          prepMeals[dinnerIndex] = [...prepMeals[dinnerIndex], "DINNER"].flat();
+        // otherwise - exact match or alternate found
+        } else {
+          const dinnerDataIndex = deepPrepIndexOf(prepData[dinnerNameIndex], plan.data().meals.dinner.prepData);
+
+          // alternative found
+          if (dinnerDataIndex === -1) {
+            prepIds[dinnerNameIndex].push(plan.data().meals.dinner.prepId);
+            prepData[dinnerNameIndex].push(plan.data().meals.dinner.prepData);
+            prepDates[dinnerNameIndex].push([plan.id]);
+            prepMeals[dinnerNameIndex].push(["DINNER"]);
+          
+          // exact match found
+          } else {
+            prepDates[dinnerNameIndex][dinnerDataIndex].push(plan.id);
+            prepMeals[dinnerNameIndex][dinnerDataIndex].push("DINNER");
+          }
         }
       }
     })
     
     // combined data to sort
-    let combined = prepIds.map((id, index) => ({
-      prepId: id,
-      prepData: prepData[index],
-      prepDate: prepDates[index],
-      prepMeal: prepMeals[index],
-    }));
-    
-    // sorts based on prepData.prepName
-    combined.sort((a, b) => a.prepData.prepName.localeCompare(b.prepData.prepName));
+    let combined = prepNames.map((name, index) => ({
+      name: name,
+      id: prepIds[index],
+      data: prepData[index],
+      date: prepDates[index],
+      meal: prepMeals[index],
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
     
     // stores extracted, sorted values
-    setUniquePrepIds(combined.map(item => item.prepId));
-    setUniquePrepData(combined.map(item => item.prepData));
-    setUniquePrepDates(combined.map(item => item.prepDate));
-    setUniquePrepMeals(combined.map(item => item.prepMeal));
-
-    setFilteredPrepData(combined.map(item => item.prepData));
-    setFilteredPrepDates(combined.map(item => item.prepDate));
-    setFilteredPrepMeals(combined.map(item => item.prepMeal));
+    setUniquePrepNames(combined.map(item => item.name));
+    setUniquePrepIds(combined.map(item => item.id));
+    setUniquePrepData(combined.map(item => item.data));
+    setUniquePrepDates(combined.map(item => item.date));
+    setUniquePrepMeals(combined.map(item => item.meal));
+    
+    setFilteredPrepNames(combined.map(item => item.name));
+    setFilteredPrepIds(combined.map(item => item.id));
+    setFilteredPrepData(combined.map(item => item.data));
+    setFilteredPrepDates(combined.map(item => item.date));
+    setFilteredPrepMeals(combined.map(item => item.meal));
   }
 
 
   ///////////////////////////////// SHOWING DETAILS /////////////////////////////////
 
   const [openPrepIndex, setOpenPrepIndex] = useState(-1);
-  const [openCustomIndex, setOpenCustomIndex] = useState(-1);
+  const [openSimpleIndex, setOpenSimpleIndex] = useState(-1);
+  const [openComplexIndex, setOpenComplexIndex] = useState(-1);
   const [openDatesIndex, setOpenDatesIndex] = useState(-1);
 
   // to format the given date as "mm/dd/yy"
@@ -172,41 +202,52 @@ const MealSearchModal = ({
 
   ///////////////////////////////// SEARCH SECTION /////////////////////////////////
 
+  const [currIndex, setCurrIndex] = useState(0);
   const [prepKeywordQuery, setPrepKeywordQuery] = useState("");
   const [prepTypeFilter, setPrepTypeFilter] = useState("");
 
+  const [filteredPrepNames, setFilteredPrepNames] = useState(null);
+  const [filteredPrepIds, setFilteredPrepIds] = useState(null);
   const [filteredPrepData, setFilteredPrepData] = useState(null);
   const [filteredPrepDates, setFilteredPrepDates] = useState(null);
   const [filteredPrepMeals, setFilteredPrepMeals] = useState(null);
   
   // to filter the list of preps in the search section
   const filterPreps = (searchQuery, typeFilter) => {
+    
     setPrepKeywordQuery(searchQuery);
     setPrepTypeFilter(typeFilter);
     setOpenPrepIndex(-1);
-    setOpenCustomIndex(-1);
+    setOpenSimpleIndex(-1);
+    setOpenComplexIndex(-1);
+    setCurrIndex(0);
 
     // to get the unique list of preps
+    let prepNames = [];
     let prepIds = [];
     let prepData = [];
     let prepDates = [];
     let prepMeals = [];
 
     // adds the data to the prep lists that matches the filtering
-    uniquePrepData.map((prep, index) => {
-      if (searchQuery.split(' ').every(keyword => prep.prepName.toLowerCase().includes(keyword.toLowerCase()))
+    uniquePrepNames.map((name, index) => {
+      if (searchQuery.split(' ').every(keyword => name.toLowerCase().includes(keyword.toLowerCase()))
         && (typeFilter === "" 
-           || (typeFilter === "prep" && !(uniquePrepIds[index].includes("LUNCH") || uniquePrepIds[index].includes("DINNER")))
-           || (typeFilter === "custom" && (uniquePrepIds[index].includes("LUNCH") || uniquePrepIds[index].includes("DINNER"))))
+          || (typeFilter === "prep" && !(uniquePrepIds[index][0].includes("LUNCH") || uniquePrepIds[index][0].includes("DINNER") || uniquePrepIds[index][0].includes("!")))
+          || (typeFilter === "complex" && uniquePrepIds[index][0].includes("!"))
+          || (typeFilter === "simple" && (uniquePrepIds[index][0].includes("LUNCH") || uniquePrepIds[index][0].includes("DINNER"))))
       ) {
+        prepNames.push(name);
         prepIds.push(uniquePrepIds[index]);
-        prepData.push(prep);
+        prepData.push(uniquePrepData[index]);
         prepDates.push(uniquePrepDates[index]);
         prepMeals.push(uniquePrepMeals[index]);
       }
     })
 
     // stores the data
+    setFilteredPrepNames(prepNames);
+    setFilteredPrepIds(prepIds);
     setFilteredPrepData(prepData);
     setFilteredPrepDates(prepDates);
     setFilteredPrepMeals(prepMeals);
@@ -252,7 +293,7 @@ const MealSearchModal = ({
                 onChangeText={(value) => filterPreps(value, prepTypeFilter)}
                 placeholder="recipe keyword(s)"
                 placeholderTextColor={colors.zinc400}
-                className="flex-1 w-5/6 bg-white radius-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 py-1.5 rounded-md text-[14px] leading-[16px]"
+                className="flex-1 w-5/6 bg-white radius-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 py-1.5 rounded-md text-[14px] leading-[17px]"
               />
   
               {/* BUTTONS */}
@@ -260,10 +301,10 @@ const MealSearchModal = ({
 
                 {/* type filtering */}
                 <Icon
-                  name={prepTypeFilter === "prep" ? "information-circle" : prepTypeFilter === "custom" ? "ellipse" : "ellipse-outline"}
+                  name={prepTypeFilter === "prep" ? "information-circle" : prepTypeFilter === "complex" ? "stop-circle" : prepTypeFilter === "simple" ? "ellipse" : "ellipse-outline"}
                   color={colors.zinc700}
                   size={18}
-                  onPress={() => filterPreps(prepKeywordQuery, prepTypeFilter === "prep" ? "custom" : prepTypeFilter === "custom" ? "" : "prep")}
+                  onPress={() => filterPreps(prepKeywordQuery, prepTypeFilter === "prep" ? "complex" : prepTypeFilter === "complex" ? "simple" : prepTypeFilter === "simple" ? "" : "prep")}
                 />
 
                 {/* clear */}
@@ -280,6 +321,8 @@ const MealSearchModal = ({
             </View>
             
             {/* Filtered List of Preps */}
+            {filteredPrepData?.length > 0 
+            ?
             <ScrollView
               vertical
               scrollEventThrottle={16}
@@ -294,11 +337,29 @@ const MealSearchModal = ({
                   {/* GENERAL DETAILS */}
                   <View className="flex flex-row border-y-[1px] border-zinc600">
                     
-                    {/* name */}
-                    <View className="flex flex-wrap w-3/4 bg-theme300 py-2 justify-center items-center px-2">
-                      <Text className="text-[13px] italic">
-                        {prep.prepName}
-                      </Text>
+                    {/* Overall Name Display */}
+                    <View className="flex flex-row w-3/4 bg-theme300 py-2 pl-2 pr-1 space-x-2 items-center justify-between">
+                      {/* name */}
+                      <View className="flex-1">
+                        <Text className="text-left text-[13px] italic">
+                          {filteredPrepNames?.[index]}
+                        </Text>
+                      </View>
+
+                      {/* indicator of selected option */}
+                      <TouchableOpacity 
+                        className="" 
+                        onPress={(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? () => setCurrIndex((currIndex + 1) % prep.length) : undefined}
+                        activeOpacity={!(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) && 1}
+                      >
+                        <Text className="text-[12px] font-semibold text-theme900">
+                          {
+                          (openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index)
+                          ? `${currIndex + 1}/${prep.length}`
+                          : `(${prep.length})`
+                          }
+                        </Text>
+                      </TouchableOpacity>
                     </View>
 
                     {/* dates */}
@@ -308,37 +369,60 @@ const MealSearchModal = ({
                         size={18}
                         color={colors.zinc700}
                         onPress={() => {
+                          setCurrIndex((openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0)
                           setOpenDatesIndex(openDatesIndex === index ? -1 : index)
                           setOpenPrepIndex(-1)
-                          setOpenCustomIndex(-1)
+                          setOpenComplexIndex(-1)
+                          setOpenSimpleIndex(-1)
                         }}
                       />
                     </View>
 
                     {/* open ingredients button */}
-                    {!(Array.isArray(prep.currentData) && prep.currentData.length === 12 && prep.currentData.every((item) => item === null)) 
-                    ?
-                      <View className="flex w-1/12 py-2 justify-center items-center bg-zinc350">
-                        <Icon
-                          name="information-circle"
-                          color={colors.zinc800}
-                          size={20}
-                          onPress={() => {
-                            setOpenPrepIndex(openPrepIndex === index ? -1 : index)
-                            setOpenCustomIndex(-1)
-                            setOpenDatesIndex(-1)
-                          }}
-                        />
-                      </View>
-                    : // if custom
+                    {(filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("LUNCH") 
+                      || filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("DINNER")) 
+                    ? // if simple custom
                     <View className="flex w-1/12 py-2 justify-center items-center bg-zinc350">
                       <Icon
                         name="ellipse"
                         color={colors.zinc400}
                         size={18}
                         onPress={() => {
-                          setOpenCustomIndex(openCustomIndex === index ? -1 : index)
+                          setCurrIndex((openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0)
+                          setOpenSimpleIndex(openSimpleIndex === index ? -1 : index)
+                          setOpenComplexIndex(-1)
                           setOpenPrepIndex(-1)
+                          setOpenDatesIndex(-1)
+                        }}
+                      />
+                    </View>
+                    : (filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("!"))
+                    ? // if complex custom
+                    <View className="flex w-1/12 py-2 justify-center items-center bg-zinc350">
+                      <Icon
+                        name="stop-circle"
+                        color={colors.zinc450}
+                        size={20}
+                        onPress={() => {
+                          setCurrIndex((openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0)
+                          setOpenComplexIndex(openComplexIndex === index ? -1 : index)
+                          setOpenSimpleIndex(-1)
+                          setOpenPrepIndex(-1)
+                          setOpenDatesIndex(-1)
+                        }}
+                      />
+                    </View>
+                    : // if original
+                    <View className="flex w-1/12 py-2 justify-center items-center bg-zinc350">
+                      <Icon
+                        name="information-circle"
+                        color={colors.zinc800}
+                        size={20}
+                        onPress={() => {
+                          setCurrIndex((openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0)
+                          setOpenPrepIndex(openPrepIndex === index ? -1 : index)
+                          setOpenComplexIndex(-1)
+                          setOpenSimpleIndex(-1)
                           setOpenDatesIndex(-1)
                         }}
                       />
@@ -364,17 +448,17 @@ const MealSearchModal = ({
                         contentContainerStyle={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
                         className="flex flex-col w-[27.5%] py-1"
                       >
-                        {filteredPrepMeals[index].indexOf("LUNCH") !== -1
+                        {filteredPrepMeals[index]?.[currIndex].indexOf("LUNCH") !== -1
                         ?
                         <>
-                          {filteredPrepMeals[index].map((meal, i) => 
+                          {filteredPrepMeals[index]?.[currIndex].map((meal, i) => 
                             <View key={i}>
                               {meal === "LUNCH" &&
-                                <View className={`flex flex-row ${i !== filteredPrepMeals[index].indexOf("LUNCH") && "border-t-0.5 border-theme500"} justify-center items-center space-x-2 py-0.5`}>
+                                <View className={`flex flex-row ${i !== filteredPrepMeals[index]?.[currIndex].indexOf("LUNCH") && "border-t-0.5 border-theme500"} justify-center items-center space-x-2 py-0.5`}>
                                   {/* current date */}
                                   <View className="flex">
                                     <Text className="text-zinc800 text-[12px] text-center">
-                                      {formatDateShort(filteredPrepDates[index][i])}
+                                      {formatDateShort(filteredPrepDates[index]?.[currIndex][i])}
                                     </Text>
                                   </View>
 
@@ -384,9 +468,9 @@ const MealSearchModal = ({
                                     size={14}
                                     color={colors.theme700}
                                     onPress={() => {
-                                      const [year, month, day] = filteredPrepDates[index][i].split("-");
+                                      const [year, month, day] = filteredPrepDates[index]?.[currIndex][i].split("-");
                                       closeModal("LUNCH", {
-                                        dateString: filteredPrepDates[index][i],
+                                        dateString: filteredPrepDates[index]?.[currIndex][i],
                                         day: parseInt(day, 10).toString(),
                                         month: parseInt(month, 10).toString(),
                                         year: parseInt(year, 10).toString(),
@@ -423,17 +507,17 @@ const MealSearchModal = ({
                         contentContainerStyle={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
                         className="flex flex-col w-[27.5%] py-1"
                       >
-                        {filteredPrepMeals[index].indexOf("DINNER") !== -1
+                        {filteredPrepMeals[index]?.[currIndex].indexOf("DINNER") !== -1
                         ?
                         <>
-                          {filteredPrepMeals[index].map((meal, i) => 
+                          {filteredPrepMeals[index]?.[currIndex].map((meal, i) => 
                             <View key={i}>
                               {meal === "DINNER" &&
-                                <View className={`flex flex-row ${i !== filteredPrepMeals[index].indexOf("DINNER") && "border-t-0.5 border-theme500"} justify-center items-center space-x-2 py-0.5`}>
+                                <View className={`flex flex-row ${i !== filteredPrepMeals[index]?.[currIndex].indexOf("DINNER") && "border-t-0.5 border-theme500"} justify-center items-center space-x-2 py-0.5`}>
                                   {/* current date */}
                                   <View className="flex">
                                     <Text className="text-zinc800 text-[12px] text-center">
-                                      {formatDateShort(filteredPrepDates[index][i])}
+                                      {formatDateShort(filteredPrepDates[index]?.[currIndex][i])}
                                     </Text>
                                   </View>
 
@@ -443,9 +527,9 @@ const MealSearchModal = ({
                                     size={14}
                                     color={colors.theme700}
                                     onPress={() => {
-                                      const [year, month, day] = filteredPrepDates[index][i].split("-");
+                                      const [year, month, day] = filteredPrepDates[index]?.[currIndex][i].split("-");
                                       closeModal("DINNER", {
-                                        dateString: filteredPrepDates[index][i],
+                                        dateString: filteredPrepDates[index]?.[currIndex][i],
                                         day: parseInt(day, 10).toString(),
                                         month: parseInt(month, 10).toString(),
                                         year: parseInt(year, 10).toString(),
@@ -465,21 +549,20 @@ const MealSearchModal = ({
                     </View>
                   )}
 
-                  {/* INGREDIENT DETAILS */}
-                  {openPrepIndex === index && (
+                  {/* COMPLEX DETAILS */}
+                  {(openPrepIndex === index || openComplexIndex === index) && (
                     <View className="flex flex-row w-full">
                       {/* Ingredient List */}
                       <View className="flex flex-col w-3/4 bg-zinc300 py-1 items-start justify-center">
-                        {prep.currentData.slice()
-                        .sort((a, b) => a?.ingredientData?.ingredientName?.localeCompare(b?.ingredientData?.ingredientName)).map((current, i) => 
+                        {prep[currIndex].currentData.slice().map((current, i) => 
                           current !== null && (
                             <View key={i} className="flex flex-row w-full pl-2 pr-5 space-x-1">
                               {/* current ingredient name */}
                               <Text className="text-zinc800 text-[11px] text-center">
-                                {"-"}
+                                {"⁃"}
                               </Text>
                               <Text className="text-zinc800 text-[11px] text-left">
-                                {current.ingredientData.ingredientName}
+                                {current.ingredientName}
                               </Text>
                             </View>
                           )
@@ -490,32 +573,39 @@ const MealSearchModal = ({
                       <View className="flex flex-col w-1/4 bg-zinc350 justify-center space-y-0.5 py-1">
                         {/* total calories */}
                         <Text className="text-theme900 font-medium text-[11px] text-center">
-                          {prep.prepCal} {"cal"}
+                          {prep[currIndex].prepCal} {"cal"}
                         </Text>
                         {/* total price */}
                         <Text className="text-theme900 font-medium text-[11px] text-center">
-                          {"$"}{prep.prepPrice}
+                          {"$"}{prep[currIndex].prepPrice}
                         </Text>
                       </View>
                     </View>
                   )}
 
-                  {/* CUSTOM DETAILS */}
-                  {openCustomIndex === index && (
+                  {/* SIMPLE DETAILS */}
+                  {openSimpleIndex === index && (
                     <View className="flex flex-row w-full bg-zinc300 justify-center items-center space-x-5 py-1">
                       {/* total calories */}
                       <Text className="text-theme900 font-medium text-[11px] text-center">
-                        {prep.prepCal} {"cal"}
+                        {prep[currIndex].prepCal} {"cal"}
                       </Text>
                       {/* total price */}
                       <Text className="text-theme900 font-medium text-[11px] text-center">
-                        {"$"}{prep.prepPrice}
+                        {"$"}{prep[currIndex].prepPrice}
                       </Text>
                     </View>
                   )}
                 </View>
               )}
             </ScrollView>
+            :
+            <View className="py-1 px-3 bg-zinc500 border-2 border-zinc600">
+              <Text className="italic text-center text-white font-medium">
+                no meal preps match the current filter
+              </Text>
+            </View>
+            }
           </View>
         </View>
       </View>

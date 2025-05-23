@@ -1,26 +1,31 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useState, useEffect } from 'react';
+
+// UI components
 import { Modal, View, Text, TextInput, TouchableOpacity } from 'react-native';
 
-import colors from '../../assets/colors';
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
+import colors from '../../assets/colors';
 
-// Fractions
+// fractions
 var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
+// validation
 import validateDecimalInput from '../Validation/validateDecimalInput';
 import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
 import validateFractionInput from '../Validation/validateFractionInput';
-
 import extractUnit from '../Validation/extractUnit';
 
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const CalcIngredientModal = ({ 
-  modalVisible, setModalVisible, submitModal, ingredientData, ingredientStore,
+  modalVisible, setModalVisible, submitModal, 
+  ingredientData, ingredientName, ingredientStore,
   initialCals, initialPrice, initialServings, initialAmount, 
   amountUsed, amountContainer, servingSize
 }) => {
@@ -68,18 +73,18 @@ const CalcIngredientModal = ({
       if (initialServings !== null) {
         
         // closes modal immediately if invalid data
-        if (ingredientData[`${ingredientStore}Brand`] === "" || ingredientData[`${ingredientStore}Unit`] === ""
-            || (ingredientData[`${ingredientStore}CalContainer`] === "" && ingredientData[`${ingredientStore}PriceContainer`] === "" && ingredientData[`${ingredientStore}TotalYield`] === "") ) {
+        if (ingredientData[ingredientStore].brand === "" || ingredientData[ingredientStore].unit === ""
+            || (ingredientData[ingredientStore].calContainer === "" && ingredientData[ingredientStore].priceContainer === "" && ingredientData[ingredientStore].totalYield === "") ) {
           setModalVisible(false);
         
         } else {
-          setCalContainer(ingredientData[`${ingredientStore}CalContainer`] === "" ? 0 : new Fraction(ingredientData[`${ingredientStore}CalContainer`]) * 1);
-          setPriceContainer(ingredientData[`${ingredientStore}PriceContainer`] === "" ? 0 : new Fraction (ingredientData[`${ingredientStore}PriceContainer`]) * 1); 
+          setCalContainer(ingredientData[ingredientStore].calContainer === "" ? 0 : new Fraction(ingredientData[ingredientStore].calContainer) * 1);
+          setPriceContainer(ingredientData[ingredientStore].priceContainer === "" ? 0 : new Fraction (ingredientData[ingredientStore].priceContainer) * 1); 
         }
 
       // stores the calculation data (meal prep)
       } else {
-        setCalContainer(new Fraction (ingredientData.ingredientData[`${ingredientStore}CalServing`]) * amountContainer / servingSize);
+        setCalContainer(new Fraction (ingredientData.ingredientData[ingredientStore].calServing) * amountContainer / servingSize);
         setPriceContainer(new Fraction (ingredientData.unitPrice) * amountContainer / servingSize);
       }
     }
@@ -235,7 +240,7 @@ const CalcIngredientModal = ({
 
           {/* Current Name */}
           <Text className="text-[16px] font-bold text-center py-1">
-            {initialServings !== null ? ingredientData?.ingredientName : ingredientData?.ingredientData?.ingredientName}
+            {initialServings !== null ? ingredientName : ingredientData?.ingredientName}
           </Text>
 
           {/* Divider */}
@@ -256,7 +261,7 @@ const CalcIngredientModal = ({
               <View className="flex flex-row w-2/5 justify-center items-center bg-theme100">
                 {/* calculated amount and unit */}
                 <TextInput
-                  className="text-center text-[14px] leading-[16px]"
+                  className="text-center text-[14px] leading-[17px]"
                   placeholder="0 0/0"
                   placeholderTextColor={colors.zinc500}
                   value={totalYield}
@@ -280,7 +285,7 @@ const CalcIngredientModal = ({
             <View className="flex flex-row w-11/12 justify-center items-center bg-zinc350 border-b-[1px] border-x-[1px] border-zinc400">
               {/* calculated amount and unit*/}
               <Text className="px-2 py-1 text-center">
-                {calcAmount} {initialServings !== null ? extractUnit(ingredientData[`${ingredientStore}Unit`], calcAmount) : extractUnit(ingredientData.ingredientData[`${ingredientStore}Unit`], calcAmount)}
+                {calcAmount} {initialServings !== null ? extractUnit(ingredientData[ingredientStore].unit, calcAmount) : extractUnit(ingredientData.ingredientData[ingredientStore].unit, calcAmount)}
               </Text>
               {/* button to submit */}
               <View className="absolute flex right-0.5">
@@ -321,7 +326,7 @@ const CalcIngredientModal = ({
                   {/* user input */}
                   <View className="flex w-full py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
                     <TextInput
-                      className="text-center text-[14px] leading-[16px]"
+                      className="text-center text-[14px] leading-[17px]"
                       placeholder="0"
                       placeholderTextColor={colors.zinc500}
                       value={goalCals}
@@ -340,11 +345,11 @@ const CalcIngredientModal = ({
                   </Text>
                   {/* user input */}
                   <View className="flex flex-row w-full py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
-                    <Text className={`${goalPrice === 0 || goalPrice === "" ? "text-zinc500" : "text-black"}`}>
+                    <Text className={`${goalPrice === 0 || goalPrice === "" ? "text-zinc500" : "text-black"} text-[14px] leading-[17px]`}>
                       $
                     </Text>
                     <TextInput
-                      className="text-center text-[14px] leading-[16px]"
+                      className="text-center text-[14px] leading-[17px]"
                       placeholder="0.00"
                       placeholderTextColor={colors.zinc500}
                       value={goalPrice}
@@ -363,7 +368,7 @@ const CalcIngredientModal = ({
                 {/* user input */}
                 <View className="flex w-full py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
                   <TextInput
-                    className="text-center text-[14px] leading-[16px]"
+                    className="text-center text-[14px] leading-[17px]"
                     placeholder="0.00"
                     placeholderTextColor={colors.zinc500}
                     value={goalServings}

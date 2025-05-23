@@ -1,13 +1,17 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useEffect, useState } from 'react';
+
+// UI components
 import { Modal, View, Text, TextInput } from 'react-native';
 
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
 // initialize Firebase App
-import { getFirestore, doc, updateDoc, collection, getDocs, getDoc, writeBatch } from 'firebase/firestore';
+import { getFirestore, doc, collection, getDocs, getDoc, writeBatch } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
 
@@ -15,7 +19,9 @@ const db = getFirestore(app);
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 // closeModal takes in the name of the new tag
-const ModTagModal = ({ modalVisible, closeModal, currTag }) => {
+const ModTagModal = ({ 
+  modalVisible, closeModal, currTag 
+}) => {
 
 
   ///////////////////////////////// VARIABLES /////////////////////////////////
@@ -51,10 +57,10 @@ const ModTagModal = ({ modalVisible, closeModal, currTag }) => {
         const recipeBatch = writeBatch(db);
         
         // gets all of the recipes
-        const recipesSnapshot = await getDocs(collection(db, 'recipes'));
+        const recipesSnapshot = await getDocs(collection(db, 'RECIPES'));
 
         // stores the id of the global recipe
-        const globalId = await getDoc(doc(db, 'globals', 'recipe'));
+        const globalId = await getDoc(doc(db, 'GLOBALS', 'recipe'));
 
         // loops through the recipes and adds all found tags
         recipesSnapshot.forEach((recipe) => {
@@ -78,7 +84,7 @@ const ModTagModal = ({ modalVisible, closeModal, currTag }) => {
 
           // only updates db if the tag list has changed
           if (JSON.stringify(tags) !== JSON.stringify(tagList)) {
-            recipeBatch.update(doc(db, 'recipes', recipe.id), data);
+            recipeBatch.update(doc(db, 'RECIPES', recipe.id), data);
           }
         
           // finds the global recipe and stores the data globally
@@ -114,10 +120,10 @@ const ModTagModal = ({ modalVisible, closeModal, currTag }) => {
       const recipeBatch = writeBatch(db);
       
       // gets all of the recipes
-      const recipesSnapshot = await getDocs(collection(db, 'recipes'));
+      const recipesSnapshot = await getDocs(collection(db, 'RECIPES'));
 
       // stores the id of the global recipe
-      const globalId = await getDoc(doc(db, 'globals', 'recipe'));
+      const globalId = await getDoc(doc(db, 'GLOBALS', 'recipe'));
       
       // loops through the recipes and adds all found tags
       recipesSnapshot.forEach((recipe) => {
@@ -135,7 +141,7 @@ const ModTagModal = ({ modalVisible, closeModal, currTag }) => {
 
         // only updates db if the tag list has changed
         if (JSON.stringify(tags) !== JSON.stringify(tagList)) {
-          recipeBatch.update(doc(db, 'recipes', recipe.id), data);
+          recipeBatch.update(doc(db, 'RECIPES', recipe.id), data);
         }
       
         // finds the global recipe and stores the data globally
@@ -190,7 +196,7 @@ const ModTagModal = ({ modalVisible, closeModal, currTag }) => {
               {/* Check */}
               <Icon
                 size={24}
-                color={'black'}
+                color="black"
                 name="checkmark"
                 onPress={editTag}
               />
@@ -198,7 +204,7 @@ const ModTagModal = ({ modalVisible, closeModal, currTag }) => {
               {/* X */}
               <Icon
                 size={24}
-                color={'black'}
+                color="black"
                 name="close-outline"
                 onPress={() => closeModal("")}
               />
@@ -213,7 +219,7 @@ const ModTagModal = ({ modalVisible, closeModal, currTag }) => {
           {/* USER INPUT - new tag name*/}
           <View className="flex flex-row w-full justify-evenly items-center mb-2">
             <TextInput
-              className="border-0.5 border-zinc500 bg-white rounded-md px-2 h-[30px] w-3/4 text-[14px] leading-[16px]"
+              className="border-0.5 border-zinc500 bg-white rounded-md px-2 h-[30px] w-3/4 text-[14px] leading-[17px]"
               placeholder={currTag}
               placeholderTextColor={colors.zinc400}
               blurOnSubmit={true}
@@ -245,7 +251,7 @@ const ModTagModal = ({ modalVisible, closeModal, currTag }) => {
               <View className="h-[1px] bg-zinc400 mt-2 mb-4 w-full"/>
             
               {/* warning */}
-              <Text className="text-pink-600 italic">
+              <Text className="text-mauve600 italic">
                 tag name is required
               </Text>
             </View>

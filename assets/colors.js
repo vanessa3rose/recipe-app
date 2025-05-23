@@ -9,6 +9,9 @@ module.exports = {
     theme800: '#2D566A',
     theme900: '#1E475A',
 
+    mauve600: '#C43B74',
+    mauve700: '#B1245F',
+
     slate50: '#f8fafc',
     slate100: '#f1f5f9',
     slate200: '#e2e8f0',

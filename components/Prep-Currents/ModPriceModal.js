@@ -1,16 +1,21 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useState, useEffect } from 'react';
+
+// UI components
 import { Modal, View, Text, TextInput } from 'react-native';
 
+// visual effects
 import colors from '../../assets/colors';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-// Fractions
+// fractions
 var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
-import validateFractionInput from '../Validation/validateFractionInput';
 
+// validation
+import validateFractionInput from '../Validation/validateFractionInput';
 import extractUnit from '../Validation/extractUnit';
 
 
@@ -37,18 +42,18 @@ const ModPriceModal = ({
       
       // using given data
       setContainerCost(currentData.containerPrice);
-      setName(currentData.ingredientData.ingredientName);
-      setUnit(currentData.ingredientData[`${currentStore}Unit`]);
+      setName(currentData.ingredientName);
+      setUnit(currentData.ingredientData[currentStore].unit);
 
       // if completely custom
-      if (currentData.ingredientData[`${currentStore}TotalYield`] === undefined) {
+      if (currentData.ingredientData[currentStore].totalYield === undefined) {
         setUnitPrice(currentPrice);
-        setAmount(currentPrice === "0.00" ? "0" : (new Fractional(currentData.containerPrice)).divide(new Fractional(currentPrice)).toString() || "0");
+        setAmount((currentPrice === "0.00" || currentPrice === "0.0000") ? "0" : (new Fractional(currentData.containerPrice)).divide(new Fractional(currentPrice)).toString() || "0");
 
       // if ingredient
       } else {
-        setAmount(currentData.ingredientData[`${currentStore}TotalYield`] || "0");
-        setUnitPrice(((new Fractional(currentData.containerPrice)).divide(new Fractional(currentData.ingredientData[`${currentStore}TotalYield`]))).toString());
+        setAmount(currentData.ingredientData[currentStore].totalYield || "0");
+        setUnitPrice(((new Fractional(currentData.containerPrice)).divide(new Fractional(currentData.ingredientData[currentStore].totalYield))).toString());
       }
     }
   }, [modalVisible]);
@@ -82,7 +87,7 @@ const ModPriceModal = ({
 
     // if valid
     if (containerCost !== "" && amount !== "") {
-      closeModal(unitPrice, containerCost);
+      closeModal(unitPrice, isNaN(new Fractional(containerCost).numerator / new Fractional(containerCost).denominator) ? "0.00" : (new Fractional(containerCost).numerator / new Fractional(containerCost).denominator).toFixed(2));
       exitModal();
     }
   };
@@ -150,10 +155,12 @@ const ModPriceModal = ({
 
             <View className="flex-1 flex-row py-1 justify-center items-center border-[1px] border-zinc350 bg-theme100">
               {/* Dollar Sign */}
-              <Text className={`${containerCost === "" ? "text-zinc500" : "text-black"}`}>$</Text>
+              <Text className={`${containerCost === "" ? "text-zinc500" : "text-black"} text-[14px] leading-[17px]`}>
+                $
+              </Text>
               {/* Text Input */}
               <TextInput
-                className="text-center text-[14px] leading-[16px]"
+                className="text-center text-[14px] leading-[17px]"
                 placeholder="0.00"
                 placeholderTextColor={colors.zinc500}
                 value={containerCost}
@@ -169,18 +176,18 @@ const ModPriceModal = ({
             <Text className="text-theme700 font-medium mr-4">
               AMOUNT
             </Text>
-
+            
             <View className="flex-1 flex-row py-1 space-x-2 justify-center items-center border-[1px] border-zinc350 bg-theme100">
               {/* Text Input */}
               <TextInput
-                className="bg-theme100 text-[14px] leading-[16px]"
+                className="bg-theme100 text-[14px] leading-[17px]"
                 placeholder="0 0/0"
                 placeholderTextColor={colors.zinc500}
                 value={amount}
                 onChangeText={(value) => setAmount(validateFractionInput(value))}
               />
               {/* Unit */}
-              <Text className={`${amount === "" ? "text-zinc500" : "text-black"}`}>
+              <Text className={`${amount === "" ? "text-zinc500" : "text-black"} text-[14px] leading-[17px]`}>
                 {extractUnit(unit, amount)}
               </Text>
             </View>
@@ -196,12 +203,12 @@ const ModPriceModal = ({
             {/* Warnings */}
             <View className="flex flex-col">
               {!containerCostValid && 
-                <Text className="text-pink-600 italic">
-                  container containerCost is required
+                <Text className="text-mauve600 italic">
+                  container cost is required
                 </Text>
               }
               {!amountValid && 
-                <Text className="text-pink-600 italic">
+                <Text className="text-mauve600 italic">
                   container amount is required
                 </Text>
               }
@@ -213,7 +220,7 @@ const ModPriceModal = ({
               {/* Check */}
               <Icon 
                 size={24}
-                color={'black'}
+                color="black"
                 name="checkmark"
                 onPress={submitModal}
               />
@@ -221,7 +228,7 @@ const ModPriceModal = ({
               {/* X */}
               <Icon 
                 size={24}
-                color={'black'}
+                color="black"
                 name="close-outline"
                 onPress={exitModal}
               />

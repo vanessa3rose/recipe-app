@@ -1,10 +1,13 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity } from 'react-native';
+// react hooks
+import React from 'react';
 
+// UI components
+import { Modal, View, Text, TouchableOpacity } from 'react-native';
+
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
-import colors from '../../assets/colors';
 
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
@@ -43,7 +46,7 @@ const StoreRecipeModal = ({
           {/* X Button */}
           <Icon 
             size={24}
-            color={'black'}
+            color="black"
             name="close-outline"
             onPress={() => setModalVisible(false)}
           />

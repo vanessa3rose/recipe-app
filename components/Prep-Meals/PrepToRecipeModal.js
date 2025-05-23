@@ -1,40 +1,39 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, Keyboard, ScrollView, Linking } from 'react-native';
-import DropDownPicker from 'react-native-dropdown-picker';
+
+// UI components
+import { Modal, View, Text, TextInput, TouchableOpacity, Keyboard, ScrollView, Image } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
-import recipeAdd from '../../firebase/Recipes/recipeAdd';
+// store lists
+import storeKeys from '../../assets/storeKeys';
+import storeImages from '../../assets/storeImages';
 
-// Fractions
+// fractions
 var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
-
 import extractUnit from '../Validation/extractUnit';
 
-// Logos
-import { Image } from 'react-native';
-import aldi from '../../assets/Logos/aldi.png'
-import marketbasket from '../../assets/Logos/market-basket.png'
-import starmarket from '../../assets/Logos/star-market.png'
-import stopandshop from '../../assets/Logos/stop-and-shop.png'
-import target from '../../assets/Logos/target.png'
-import walmart from '../../assets/Logos/walmart.png'
+// firebase
+import recipeAdd from '../../firebase/Recipes/recipeAdd';
 
-// initialize Firebase App
+// initialize firebase app
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
 
+
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const PrepToRecipeModal = ({
-  prepData, ingredientsData, ingredientsSnapshot, recipesSnapshot, modalVisible, closeModal
+  prepData, ingredientsSnapshot, recipesSnapshot, modalVisible, closeModal
 }) => {
 
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
@@ -68,23 +67,28 @@ const PrepToRecipeModal = ({
 
   // to compile & calculate recipe data upon submission
   const compileRecipeData = () => {
-
+    
     // overall data
     const recipeName = overrideRecipeData === null ? prepData.prepName : overrideName;
-    const recipeCheck = selectedIngredientData.filter(data => data !== null).length === ingredientChecks.filter(check => check === true).length;
+    const recipeCheck = selectedIngredient.filter(data => data?.ingredientData).length === ingredientChecks.filter(check => check === true).length;
     const recipeTags = overrideRecipeData === null ? [] : overrideRecipeData.recipeTags;
-    const ingredientData = selectedIngredientData;
+    const ingredientData = selectedIngredient.map(ingredient => ingredient ? ingredient.ingredientData : null);
+    const ingredientNames = selectedIngredient.map(ingredient => ingredient ? ingredient.ingredientName : "");
+    const ingredientTypes = selectedIngredient.reduce((acc, ingredient, index) => {
+      acc[index] = ingredient?.ingredientTypes ?? [];
+      return acc;
+    }, {});
     const ingredientIds = selectedIngredientIds; 
-
+    
     // populating totals
     let recipeCal = 0;
     let recipePrice = 0;
     let recipeServing = 0;
-
+    
     ingredientCals.forEach((cal) => { if (cal !== "") { recipeCal = cal + recipeCal; } });
     ingredientPrices.forEach((price) => { if (price !== "") { recipePrice = price + recipePrice; } });
     ingredientServings.forEach((serving) => { if (serving !== "") { recipeServing = serving + recipeServing; } });
-
+    
     recipeCal = recipeCal.toFixed(0);
     recipePrice = recipePrice.toFixed(2);
     recipeServing = recipeServing.toFixed(2);
@@ -92,10 +96,10 @@ const PrepToRecipeModal = ({
     // compiled data
     const recipe = {
       recipeName, recipeCheck, recipeTags, recipeCal, recipePrice, recipeServing,
-      ingredientChecks, ingredientData, ingredientIds, ingredientAmounts, ingredientStores,
+      ingredientChecks, ingredientData, ingredientNames, ingredientTypes, ingredientIds, ingredientAmounts, ingredientStores,
       ingredientCals, ingredientPrices, ingredientServings,
     };
-
+    
     return recipe;
   }
 
@@ -106,15 +110,15 @@ const PrepToRecipeModal = ({
 
     // retrieves and stores data
     const recipeData = compileRecipeData();
-
+    
     // if not overriding, add the recipe
     if (overrideRecipeData === null) {
       recipeAdd({ recipeName: prepData.prepName, setRecipeId: setRecipeId, recipeData: recipeData });
-
+ 
     // if overriding, update
     } else {
-      updateDoc(doc(db, 'recipes', overrideRecipeId), recipeData);
-      updateDoc(doc(db, 'globals', 'recipe'), { id: overrideRecipeId });
+      updateDoc(doc(db, 'RECIPES', overrideRecipeId), recipeData);
+      updateDoc(doc(db, 'GLOBALS', 'recipe'), { id: overrideRecipeId });
     }
 
     // closes modal
@@ -136,7 +140,7 @@ const PrepToRecipeModal = ({
 
   // to store that this index has been edited
   const changeEdited = (index) => {
-    if (selectedIngredientIds[index] !== null) {
+    if (selectedIngredientIds[index] !== "") {
 
       // stores the selected index
       setEditIngredientIndex(index);
@@ -151,19 +155,16 @@ const PrepToRecipeModal = ({
 
   // to change the edited ingredient's store
   const changeStore = () => {
-      
-    // the list of stores
-    const stores = ["a", "mb", "sm", "ss", "t", "w"];
 
     // the current and next store
     const currStore = ingredientStores[editIngredientIndex];
     let nextStore = currStore;
 
     // calculates the next store based on the brands that are and are not empty
-    for (let i = 1; i <= 6; i++) {
-      if (selectedIngredientData[editIngredientIndex][`${stores[(stores.indexOf(currStore) + i) % 6]}${'Brand'}`] !== "") {
-        nextStore = stores[(stores.indexOf(currStore) + i) % 6];
-        i = 7;
+    for (let i = 1; i <= storeKeys.length; i++) {
+      if (selectedIngredient[editIngredientIndex].ingredientData[storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length]].brand !== "") {
+        nextStore = storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length];
+        break;
       }
     }
   
@@ -175,7 +176,7 @@ const PrepToRecipeModal = ({
     });
 
     // retrigger changing the data
-    changeAmount(ingredientAmounts[editIngredientIndex], editIngredientIndex, selectedIngredientData[editIngredientIndex], ingredientStores[editIngredientIndex]);
+    changeAmount(ingredientAmounts[editIngredientIndex], editIngredientIndex, selectedIngredient[editIngredientIndex].ingredientData, ingredientStores[editIngredientIndex]);
   }
 
   // to change the edited ingredient's checkbox
@@ -194,17 +195,14 @@ const PrepToRecipeModal = ({
     let prices = 0.00;
     let servings = 0.00;
     
-    // general variables
-    const brandKey = ingredient[`${storeKey}Brand`];
-
     // fractional calculations
     const amount = new Fractional(value);
-    const totalYield = new Fractional(ingredient[`${storeKey}TotalYield`]);
-    const calContainer = new Fractional(ingredient[`${storeKey}CalContainer`]);
-    const priceContainer = new Fractional(ingredient[`${storeKey}PriceContainer`]);
+    const totalYield = new Fractional(ingredient[storeKey].totalYield);
+    const calContainer = new Fractional(ingredient[storeKey].calContainer);
+    const priceContainer = new Fractional(ingredient[storeKey].priceContainer);
 
     // validates the fractional value
-    if (value !== "0" && value !== "" && brandKey !== "" && amount !== 0 && !isNaN(amount.numerator) && !isNaN(amount.denominator) && amount.denominator !== 0) {
+    if (value !== "0" && value !== "" && ingredient[storeKey].brand !== "" && amount !== 0 && !isNaN(amount.numerator) && !isNaN(amount.denominator) && amount.denominator !== 0) {
 
       // calculate calories if the arguments are valid
       if (Object.entries(totalYield).length !== 0 && Object.entries(calContainer).length !== 0
@@ -256,38 +254,45 @@ const PrepToRecipeModal = ({
   
   // updates the current list of ingredients and ingredient types
   useEffect(() => {
-    if (ingredientsData !== null) { setFilteredIngredientData(ingredientsData) }
-  }, [ingredientsData])
+    if (ingredientsSnapshot) { 
+      filterIngredientData("");
+    }
+  }, [ingredientsSnapshot])
   
   // filters the ingredients based on the selected type
   const filterIngredientData = (ingredientQuery) => {
 
-    if (ingredientsData !== null) {
+    let filtered = [];
     
-      // filters for ingredient search
-      let filtered = ingredientsData.filter(ingredient => {
-        const queryWords = ingredientQuery
-          .toLowerCase()
-          .split(' ')
-          .filter(word => word.trim() !== ''); // splits into words and remove empty strings
+    // filters for ingredient search
+    if (ingredientsSnapshot?.docs?.length > 0) {
+      filtered = ingredientsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(ingredient => {
+          const queryWords = ingredientQuery
+            .toLowerCase()
+            .split(' ')
+            .filter(word => word.trim() !== ''); // splits into words and remove empty strings
       
         // checks if every word in the query matches part of the ingredientName
         return queryWords.every(word => ingredient.ingredientName.toLowerCase().includes(word));
-      });
-
-      // sets the data and shows the dropdown list of ingredients if there are ingredients to show
-      if (filtered.length !== 0) {
-        setSearchIngredientQuery(ingredientQuery);
-        setFilteredIngredientData(filtered);
-        setIngredientDropdownOpen(true);
-      } 
-    
-      // clears selected ingredient if it doesn't match filtering
-      if (filtered.filter((ingredient) => ingredient.ingredientName.toLowerCase() === ingredientQuery.toLowerCase()).length === 0) {
-        setSearchIngredientName("");
-        setSearchIngredientId("");
-      }
+      }).sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
     }
+    
+    // sets the data and shows the dropdown list of ingredients if there are ingredients to show
+    if (filtered.length !== 0) {
+      setSearchIngredientQuery(ingredientQuery);
+      setFilteredIngredientData(filtered);
+      setIngredientDropdownOpen(true);
+    } 
+  
+    // clears selected ingredient if it doesn't match filtering
+    if (filtered.filter((ingredient) => ingredient.ingredientName.toLowerCase() === ingredientQuery.toLowerCase()).length === 0) {
+      setSearchIngredientName("");
+      setSearchIngredientId("");
+    }
+
+    setIngredientDropdownOpen(false);
   };
 
 
@@ -327,8 +332,8 @@ const PrepToRecipeModal = ({
 
   ///////////////////////////////// INGREDIENT PICKERS /////////////////////////////////
 
-  const [selectedIngredientIds, setSelectedIngredientIds] = useState([null, null, null, null, null, null, null, null, null, null, null, null]);
-  const [selectedIngredientData, setSelectedIngredientData] = useState([null, null, null, null, null, null, null, null, null, null, null, null]);
+  const [selectedIngredientIds, setSelectedIngredientIds] = useState(["", "", "", "", "", "", "", "", "", "", "", ""]);
+  const [selectedIngredient, setSelectedIngredient] = useState([null, null, null, null, null, null, null, null, null, null, null, null]);
   
   // to update the id of the current index
   const setIngredient = async (index, store) => {
@@ -345,7 +350,7 @@ const PrepToRecipeModal = ({
       if (store) {
 
         // modifies the amount to match the meal prep data if new
-        if (selectedIngredientData[index] === null) {
+        if (selectedIngredient[index] === null || selectedIngredient[index].ingredientData === null) {
           nextAmount = prepData.currentAmounts[index];
 
           setIngredientAmounts((prev) => {
@@ -354,18 +359,15 @@ const PrepToRecipeModal = ({
             return updated;
           });
         }
-      
-        // the list of stores
-        const stores = ["a", "mb", "sm", "ss", "t", "w"];
     
         // the current and next store
-        const currStore = "";
+        const currStore = "-";
     
         // calculates the next store based on the brands that are and are not empty
-        for (let i = 1; i <= 6; i++) {
-          if (foundData[`${stores[(stores.indexOf(currStore) + i) % 6]}${'Brand'}`] !== "") {
-            nextStore = stores[(stores.indexOf(currStore) + i) % 6];
-            i = 7;
+        for (let i = 1; i <= storeKeys.length; i++) {
+          if (foundData.ingredientData[storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length]].brand !== "") {
+            nextStore = storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length];
+            break;
           }
         }
       }
@@ -378,7 +380,7 @@ const PrepToRecipeModal = ({
       });
       
       // stores the ingredient name
-      setSelectedIngredientData((prev) => {
+      setSelectedIngredient((prev) => {
         const updated = [...prev]; 
         updated[index] = store ? foundData : null;
         return updated;
@@ -395,7 +397,7 @@ const PrepToRecipeModal = ({
       clearIngredientSearch();
 
       // retrigger changing the data
-      changeAmount(nextAmount, index, foundData, nextStore);
+      changeAmount(nextAmount, index, foundData.ingredientData, nextStore);
     }
   }
 
@@ -450,10 +452,8 @@ const PrepToRecipeModal = ({
         ? ingredientKeywordQuery
             .split(' ') // Split the string into an array of keywords
             .every(keyword => 
-              recipe.ingredientData.some(ingredient =>
-                ingredient &&
-                ingredient.ingredientName &&
-                ingredient.ingredientName.toLowerCase().includes(keyword.toLowerCase())
+              recipe.ingredientNames.some(name =>
+                name.toLowerCase().includes(keyword.toLowerCase())
               )
             )
         : true)
@@ -491,7 +491,6 @@ const PrepToRecipeModal = ({
   const [overrideName, setOverrideName] = useState("");
   const [showOverrideSubmit, setShowOverrideSubmit] = useState(false);
 
-  const [recipeTagList, setRecipeTagList] = useState([]);
   const [showTagList, setShowTagList] = useState(false);
 
   // when the selected recipe changes, store the data
@@ -526,7 +525,7 @@ const PrepToRecipeModal = ({
       <View className="flex-1 justify-center items-center">
     
         {/* Background Overlay */}
-        <TouchableOpacity onPress={() => closeModal(false)} className="absolute bg-black opacity-50 w-full h-full"/>
+        <View className="absolute bg-black opacity-50 w-full h-full"/>
             
         {/* Modal Content */}
         <View className={`bg-zinc200 px-7 py-5 rounded-2xl w-4/5 ${editIngredientIndex !== -1 ? "mb-[125px]" : ""}`}>
@@ -574,6 +573,7 @@ const PrepToRecipeModal = ({
                 </View>
 
                 {/* Recipe Name */}
+                {(prepData?.prepName !== overrideRecipeData?.recipeName) &&
                 <View className="flex flex-row w-full justify-start items-center space-x-2">
                   <Icon
                     name={overrideName === overrideRecipeData?.recipeName ? "radio-button-on" : "radio-button-off"}
@@ -585,6 +585,7 @@ const PrepToRecipeModal = ({
                     {overrideRecipeData?.recipeName}
                   </Text>
                 </View>
+                }
               </View>
             </View>
 
@@ -594,37 +595,25 @@ const PrepToRecipeModal = ({
             {/* HEADER */}
             <View className="flex-row items-center justify-evenly">
 
-            {/* back button if editing */}
-            {(editIngredientIndex !== -1 || showFindRecipe) &&
-              <View className="flex w-1/12">
-                <Icon
-                  name="arrow-back"
-                  size={24}
-                  color={colors.zinc700}
-                  onPress={() => {
-                    setEditIngredientIndex(-1);
-                    setShowFindRecipe(false);
-                  }}
-                />
-              </View>
-            }
+              {/* back button if editing */}
+              {(editIngredientIndex !== -1 || showFindRecipe) &&
+                <View className="flex w-1/12">
+                  <Icon
+                    name="arrow-back"
+                    size={24}
+                    color={colors.zinc700}
+                    onPress={() => {
+                      setEditIngredientIndex(-1);
+                      setShowFindRecipe(false);
+                    }}
+                  />
+                </View>
+              }
 
-            {/* Title */}
-            <Text className={`${editIngredientIndex === -1 && !showFindRecipe ? "pl-2 text-center" : "pr-2 text-center"} w-11/12 text-black font-bold py-1 text-[18px]`}>
-              {prepData?.prepName || ""}
-            </Text>
-
-            {/* check button if not editing */}
-            {editIngredientIndex === -1 && !showFindRecipe &&
-              <View className="flex w-1/12">
-                <Icon 
-                  size={24}
-                  color={colors.zinc900}
-                  name="checkmark-sharp"
-                  onPress={() => {overrideRecipeData === null ? submitModal() : setShowOverrideSubmit(true)}}
-                />
-              </View>
-            }
+              {/* Title */}
+              <Text className={`${editIngredientIndex === -1 && !showFindRecipe ? "text-center" : "pr-2 text-center"} w-full text-black font-bold py-1 text-[18px]`}>
+                {prepData?.prepName || ""}
+              </Text>
             </View>
 
 
@@ -660,8 +649,8 @@ const PrepToRecipeModal = ({
                         {/* original ingredient */}
                         <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b-0.5 ${index % 2 === 0 ? "bg-zinc400" : "bg-theme300"}`}>
                           {/* name */}
-                          <Text className="text-black text-[12px] font-semibold text-center px-1 w-[88%]">
-                              {prepData?.currentData[index]?.ingredientData?.ingredientName}
+                          <Text className={`text-black text-[12px] font-semibold text-center px-1 ${(searchIngredientName !== "" || selectedIngredient[index]?.ingredientData) ? "w-[88%]" : "w-full"}`}>
+                              {prepData?.currentData[index]?.ingredientName}
                           </Text>
 
                           {/* BUTTONS */}
@@ -678,7 +667,7 @@ const PrepToRecipeModal = ({
                             }
 
                             {/* X */}
-                            {selectedIngredientData[index] !== null &&
+                            {selectedIngredient[index]?.ingredientData &&
                             <Icon 
                               size={20}
                               color={colors.theme900}
@@ -694,12 +683,12 @@ const PrepToRecipeModal = ({
                           {/* name */}
                           <View className="flex ml-1 pl-1 pr-2">
                             <Text className="text-black text-[12px] italic text-left">
-                              {selectedIngredientData[index]?.ingredientName || ""}  
+                              {selectedIngredient[index]?.ingredientName || ""}  
                             </Text>
                           </View>
 
                           {/* BUTTONS */}
-                          {selectedIngredientIds[index] !== null && 
+                          {selectedIngredientIds[index] !== "" && 
                             <View className="flex flex-row items-center justify-center space-x-[-3px]">
                               {/* Edit */}
                               <Icon 
@@ -798,7 +787,7 @@ const PrepToRecipeModal = ({
                   {/* Name */}
                   <View className="flex flex-row w-full justify-center py-1 px-2 items-center bg-theme600 border-2 border-theme700 rounded-t-md">
                     <Text className="text-white font-bold text-[14px] text-center">
-                      {selectedIngredientData[editIngredientIndex].ingredientName.toUpperCase()}
+                      {selectedIngredient[editIngredientIndex]?.ingredientName.toUpperCase() || ""}
                     </Text>
                   </View>
                   
@@ -811,30 +800,19 @@ const PrepToRecipeModal = ({
                         onPress={() => changeStore()} 
                         className="flex items-center justify-center w-[30px]"
                       >
-                        {ingredientStores[editIngredientIndex] === "" || ingredientStores[editIngredientIndex] === null ? 
-                        <Text>-</Text>
-                        :
-                        <Image
-                          source={
-                            ingredientStores[editIngredientIndex] === "a" ? aldi :
-                            ingredientStores[editIngredientIndex] === "mb" ? marketbasket :
-                            ingredientStores[editIngredientIndex] === "sm" ? starmarket :
-                            ingredientStores[editIngredientIndex] === "ss" ? stopandshop :
-                            ingredientStores[editIngredientIndex] === "t" ? target :
-                            ingredientStores[editIngredientIndex] === "w" ? walmart :
-                            null
-                          }
-                          alt="store"
-                          className={`${
-                            ingredientStores[editIngredientIndex] === "a" ? "w-[18px] h-[12px]" : 
-                            ingredientStores[editIngredientIndex] === "mb" ? "w-[19px] h-[18px]" : 
-                            ingredientStores[editIngredientIndex] === "sm" ? "w-[18px] h-[18px]" :
-                            ingredientStores[editIngredientIndex] === "ss" ? "w-[16px] h-[18px]" :
-                            ingredientStores[editIngredientIndex] === "t" ? "w-[18px] h-[18px]" : 
-                            ingredientStores[editIngredientIndex] === "w" ? "w-[18px] h-[18px]" : ""
-                          }`}
-                        />
-                        }
+                        {ingredientStores[editIngredientIndex] === "" || ingredientStores[editIngredientIndex] === null 
+                        ? (
+                          <Text>-</Text>
+                        ) : (
+                          <Image
+                            source={storeImages[ingredientStores[editIngredientIndex]]?.src}
+                            alt="store"
+                            style={{
+                              width: storeImages[ingredientStores[editIngredientIndex]]?.width,
+                              height: storeImages[ingredientStores[editIngredientIndex]]?.height,
+                            }}
+                          />
+                        )}
                       </TouchableOpacity>
                     </View>
 
@@ -851,12 +829,12 @@ const PrepToRecipeModal = ({
                           placeholder={ingredientAmounts[editIngredientIndex] !== "" ? ingredientAmounts[editIngredientIndex] : "_"}
                           placeholderTextColor="black"
                           value={ingredientAmounts[editIngredientIndex]}
-                          onChangeText={(value) => changeAmount(validateFractionInput(value), editIngredientIndex, selectedIngredientData[editIngredientIndex], ingredientStores[editIngredientIndex])}
+                          onChangeText={(value) => changeAmount(validateFractionInput(value), editIngredientIndex, selectedIngredient[editIngredientIndex].ingredientData, ingredientStores[editIngredientIndex])}
                         />
 
                         {/* Unit */}
                         <Text className="text-[12px] text-zinc800 font-medium">
-                          {` ${selectedIngredientData[editIngredientIndex][`${ingredientStores[editIngredientIndex]}Unit`]}` === " undefined" ? " unit(s)" : ` ${extractUnit(selectedIngredientData[editIngredientIndex][`${ingredientStores[editIngredientIndex]}Unit`], ingredientAmounts[editIngredientIndex])}`}
+                          {` ${selectedIngredient[editIngredientIndex].ingredientData[ingredientStores[editIngredientIndex]].unit}` === " undefined" ? " unit(s)" : ` ${extractUnit(selectedIngredient[editIngredientIndex].ingredientData[ingredientStores[editIngredientIndex]].unit, ingredientAmounts[editIngredientIndex])}`}
                         </Text>
 
                         {/* checkbox */}
@@ -906,7 +884,7 @@ const PrepToRecipeModal = ({
                       {/* amount / unit */}
                       <View className="w-7/12 bg-white py-1 justify-center items-center border-r-2 border-r-zinc300">
                         <Text className="text-[12px] text-zinc700 font-medium">
-                          {prepData.currentAmounts[editIngredientIndex]} {extractUnit(prepData.currentData[editIngredientIndex].ingredientData[`${prepData.currentData[editIngredientIndex].ingredientStore}Unit`], prepData.currentAmounts[editIngredientIndex])}
+                          {prepData.currentAmounts[editIngredientIndex]} {extractUnit(prepData.currentData[editIngredientIndex].ingredientData[prepData.currentData[editIngredientIndex].ingredientStore].unit, prepData.currentAmounts[editIngredientIndex])}
                         </Text>
                       </View>
                       {/* calories, $ */}
@@ -1016,7 +994,7 @@ const PrepToRecipeModal = ({
                             {/* name */}
                             <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b-0.5 ${index % 2 === 0 ? "bg-theme100" : "bg-theme200"}`}>
                               <Text className="text-black text-[12px] text-left px-1">
-                                  {prepData?.currentData[index]?.ingredientData?.ingredientName}
+                                  {prepData?.currentData[index]?.ingredientName || ""}
                               </Text>
                             </View>
                           </View>
@@ -1038,7 +1016,7 @@ const PrepToRecipeModal = ({
                         onChangeText={setIngredientKeywordQuery}
                         placeholder="ingredient keyword(s)"
                         placeholderTextColor={colors.zinc400}
-                        className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 text-[13px] leading-[15px]"
+                        className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 text-[13px] leading-[16px]"
                         onFocus={() => setKeyboardType("ingredient keyword")}
                         onBlur={() => setKeyboardType("")}
                       />
@@ -1064,7 +1042,7 @@ const PrepToRecipeModal = ({
                           onChangeText={setRecipeKeywordQuery}
                           placeholder="recipe keyword(s)"
                           placeholderTextColor={colors.zinc400}
-                          className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 text-[13px] leading-[15px]"
+                          className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 text-[13px] leading-[16px]"
                           onFocus={() => setKeyboardType("recipe keyword")}
                           onBlur={() => setKeyboardType("")}
                         />
@@ -1135,7 +1113,7 @@ const PrepToRecipeModal = ({
                           {/* name */}
                           <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b-0.5 border-b-zinc500 ${index % 2 === 0 ? "bg-zinc300" : "bg-zinc350"}`}>
                             <Text className="text-black text-[12px] text-left px-1">
-                                {selectedRecipeData?.ingredientData[index]?.ingredientName}
+                                {selectedRecipeData?.ingredientNames[index] || ""}
                             </Text>
                           </View>
                         </View>
@@ -1205,6 +1183,32 @@ const PrepToRecipeModal = ({
             }
             </>
           }
+
+
+          {/* DIVIDER */}
+          <View className="h-[1px] bg-zinc400 mt-4 mb-2"/>
+
+          {/* Buttons */}
+          <View className="justify-end w-full flex flex-row space-x-[-2px]">
+
+            {/* submit if editing */}
+            {(editIngredientIndex === -1 && !showFindRecipe) &&
+            <Icon 
+              size={24}
+              color={colors.zinc900}
+              name="checkmark-sharp"
+              onPress={() => {overrideRecipeData === null ? submitModal() : setShowOverrideSubmit(true)}}
+            />
+            }
+
+            {/* close */}
+            <Icon 
+              size={24}
+              color={colors.zinc900}
+              name="close-sharp"
+              onPress={() => closeModal(false)}
+            />
+          </View>
         </View>
               
               
@@ -1236,7 +1240,7 @@ const PrepToRecipeModal = ({
                   }}
                   placeholder="search for ingredient"
                   placeholderTextColor={colors.zinc400}
-                  className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[16px] z-20`}
+                  className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[17px] z-20`}
                   multiline={true}
                   blurOnSubmit={true}
                   onFocus={() => {

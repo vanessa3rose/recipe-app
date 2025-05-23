@@ -1,10 +1,13 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-// Fractions
+// store lists
+import storeKeys from '../../assets/storeKeys';
+
+// fractions
 var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
-// Initialize Firebase App
+// initialize firebase app
 import { getFirestore, collection, updateDoc, doc, getDocs, writeBatch } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -13,79 +16,67 @@ const db = getFirestore(app);
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const ingredientEdit = async ({
-  editingId,
-  ingredientName, ingredientType,
-  aLink, mbLink, smLink, ssLink, tLink, wLink, 
-  aBrand, mbBrand, smBrand, ssBrand, tBrand, wBrand,
-  aServingSize, mbServingSize, smServingSize, ssServingSize, tServingSize, wServingSize,
-  aUnit, mbUnit, smUnit, ssUnit, tUnit, wUnit,
-  aServingContainer, mbServingContainer, smServingContainer, ssServingContainer, tServingContainer, wServingContainer,
-  aCalServing, mbCalServing, smCalServing, ssCalServing, tCalServing, wCalServing,
-  aPriceContainer, mbPriceContainer, smPriceContainer, ssPriceContainer, tPriceContainer, wPriceContainer,
+  editingId, updatedIngredient
 }) => {
+  
 
   ///////////////////////////////// FUNCTION /////////////////////////////////
 
   try {
-
+    
 
     ///////////////////////////////// DATA CALCULATIONS /////////////////////////////////
+
+    // function to calculate totalYield, calContainer, and priceServing for each store
+    const storeCalculations = (store) => {
+      
+      // values
+      const servingSize = updatedIngredient.ingredientData[store].servingSize; 
+      const servingContainer = updatedIngredient.ingredientData[store].servingContainer; 
+      const calServing = updatedIngredient.ingredientData[store].calServing; 
+      const priceContainer = updatedIngredient.ingredientData[store].priceContainer; 
+
+      // calculations
+      const totalYield = (servingSize === "" || servingContainer === "") ? "" : `${(new Fractional(servingSize)).multiply(new Fractional(servingContainer)).toString()}`;
+      const calContainer = (calServing === "" || servingContainer === "") ? "" : `${((new Fraction((new Fractional(calServing)).multiply(new Fractional(servingContainer)).toString())) * 1).toFixed(0)}`;
+      const priceServing = (priceContainer === "" || servingContainer === "") ? "" : `${((new Fraction((new Fractional(priceContainer)).divide(new Fractional(servingContainer)).toString())) * 1).toFixed(2)}`;
     
-    // Calculate TotalYield for each field
-    const aTotalYield = (aServingSize === "" || aServingContainer === "") ? "" : `${(new Fractional(aServingSize)).multiply(new Fractional(aServingContainer)).toString()}`;
-    const mbTotalYield = (mbServingSize === "" || mbServingContainer === "") ? "" : `${(new Fractional(mbServingSize)).multiply(new Fractional(mbServingContainer)).toString()}`;
-    const smTotalYield = (smServingSize === "" || smServingContainer === "") ? "" : `${(new Fractional(smServingSize)).multiply(new Fractional(smServingContainer)).toString()}`;
-    const ssTotalYield = (ssServingSize === "" || ssServingContainer === "") ? "" : `${(new Fractional(ssServingSize)).multiply(new Fractional(ssServingContainer)).toString()}`;
-    const tTotalYield = (tServingSize === "" || tServingContainer === "") ? "" : `${(new Fractional(tServingSize)).multiply(new Fractional(tServingContainer)).toString()}`;
-    const wTotalYield = (wServingSize === "" || wServingContainer === "") ? "" : `${(new Fractional(wServingSize)).multiply(new Fractional(wServingContainer)).toString()}`;
-
-    // Calculate CalContainer for each field
-    const aCalContainer = (aCalServing === "" || aServingContainer === "") ? "" : `${((new Fraction((new Fractional(aCalServing)).multiply(new Fractional(aServingContainer)).toString())) * 1).toFixed(0)}`;
-    const mbCalContainer = (mbCalServing === "" || mbServingContainer === "") ? "" : `${((new Fraction((new Fractional(mbCalServing)).multiply(new Fractional(mbServingContainer)).toString())) * 1).toFixed(0)}`;
-    const smCalContainer = (smCalServing === "" || smServingContainer === "") ? "" : `${((new Fraction((new Fractional(smCalServing)).multiply(new Fractional(smServingContainer)).toString())) * 1).toFixed(0)}`;
-    const ssCalContainer = (ssCalServing === "" || ssServingContainer === "") ? "" : `${((new Fraction((new Fractional(ssCalServing)).multiply(new Fractional(ssServingContainer)).toString())) * 1).toFixed(0)}`;
-    const tCalContainer = (tCalServing === "" || tServingContainer === "") ? "" : `${((new Fraction((new Fractional(tCalServing)).multiply(new Fractional(tServingContainer)).toString())) * 1).toFixed(0)}`;
-    const wCalContainer = (wCalServing === "" || wServingContainer === "") ? "" : `${((new Fraction((new Fractional(wCalServing)).multiply(new Fractional(wServingContainer)).toString())) * 1).toFixed(0)}`;
-
-    // Calculate PriceServing for each field
-    const aPriceServing = (aPriceContainer === "" || aServingContainer === "") ? "" : `${((new Fraction((new Fractional(aPriceContainer)).divide(new Fractional(aServingContainer)).toString())) * 1).toFixed(2)}`;
-    const mbPriceServing = (mbPriceContainer === "" || mbServingContainer === "") ? "" : `${((new Fraction((new Fractional(mbPriceContainer)).divide(new Fractional(mbServingContainer)).toString())) * 1).toFixed(2)}`;
-    const smPriceServing = (smPriceContainer === "" || smServingContainer === "") ? "" : `${((new Fraction((new Fractional(smPriceContainer)).divide(new Fractional(smServingContainer)).toString())) * 1).toFixed(2)}`;
-    const ssPriceServing = (ssPriceContainer === "" || ssServingContainer === "") ? "" : `${((new Fraction((new Fractional(ssPriceContainer)).divide(new Fractional(ssServingContainer)).toString())) * 1).toFixed(2)}`;
-    const tPriceServing = (tPriceContainer === "" || tServingContainer === "") ? "" : `${((new Fraction((new Fractional(tPriceContainer)).divide(new Fractional(tServingContainer)).toString())) * 1).toFixed(2)}`;
-    const wPriceServing = (wPriceContainer === "" || wServingContainer === "") ? "" : `${((new Fraction((new Fractional(wPriceContainer)).divide(new Fractional(wServingContainer)).toString())) * 1).toFixed(2)}`;
+      return { totalYield, calContainer, priceServing };
+    };
 
 
     ///////////////////////////////// DATA /////////////////////////////////
 
+    // ingredient data portion
+    const ingredientData = {};
+    storeKeys.forEach((store) => {
+      ingredientData[store] = {
+        ...updatedIngredient.ingredientData[store],
+        ...storeCalculations(store),
+      };
+    });
+
+    // overall ingredient
     const ingredient = {
-      ingredientName, ingredientType,
-      aLink, mbLink, smLink, ssLink, tLink, wLink,
-      aBrand, mbBrand, smBrand, ssBrand, tBrand, wBrand,
-      aServingSize, mbServingSize, smServingSize, ssServingSize, tServingSize, wServingSize,
-      aUnit, mbUnit, smUnit, ssUnit, tUnit, wUnit,
-      aServingContainer, mbServingContainer, smServingContainer, ssServingContainer, tServingContainer, wServingContainer,
-      aTotalYield, mbTotalYield, smTotalYield, ssTotalYield, tTotalYield, wTotalYield,
-      aCalServing, mbCalServing, smCalServing, ssCalServing, tCalServing, wCalServing,
-      aCalContainer, mbCalContainer, smCalContainer, ssCalContainer, tCalContainer, wCalContainer,
-      aPriceServing, mbPriceServing, smPriceServing, ssPriceServing, tPriceServing, wPriceServing,
-      aPriceContainer, mbPriceContainer, smPriceContainer, ssPriceContainer, tPriceContainer, wPriceContainer,
+      ingredientName: updatedIngredient.ingredientName, 
+      ingredientTypes: updatedIngredient.ingredientTypes,
+      ingredientData: ingredientData,
     };
 
 
     ///////////////////////////////// PROCESSING /////////////////////////////////
     
-    // updates the Firestore 'ingredients' collection data
-    await updateDoc(doc(db, 'ingredients', editingId), ingredient);
+    // updates the Firestore 'INGREDIENTS' collection data
+    await updateDoc(doc(db, 'INGREDIENTS', editingId), ingredient);
 
 
     ///////////////////////////////// RECIPES /////////////////////////////////
-
+    
     // creates a batch for updating recipes
     const recipeBatch = writeBatch(db);
 
     // gets all recipe data
-    const recipesSnapshot = await getDocs(collection(db, 'recipes'));
+    const recipesSnapshot = await getDocs(collection(db, 'RECIPES'));
 
     // loops over all recipes
     recipesSnapshot.docs.forEach((recipeDoc) => {
@@ -102,7 +93,9 @@ const ingredientEdit = async ({
             recipeModified = true;
 
             // stores the given ingredient's data
-            recipeData.ingredientData[index] = ingredient;
+            recipeData.ingredientData[index] = ingredient.ingredientData;
+            recipeData.ingredientNames[index] = ingredient.ingredientName;
+            recipeData.ingredientTypes[index] = ingredient.ingredientTypes;
 
 
             // if the current ingredient data is valid
@@ -110,9 +103,9 @@ const ingredientEdit = async ({
 
               // simple calculations
               const amount = new Fractional(recipeData.ingredientAmounts[index]);
-              const totalYield = new Fractional(`${ingredient[`${recipeData.ingredientStores[index]}TotalYield`]}`);
-              const calContainer = new Fractional(`${ingredient[`${recipeData.ingredientStores[index]}CalContainer`]}`);
-              const priceContainer = new Fractional(`${ingredient[`${recipeData.ingredientStores[index]}PriceContainer`]}`);
+              const totalYield = new Fractional(ingredient.ingredientData[recipeData.ingredientStores[index]].totalYield);
+              const calContainer = new Fractional(ingredient.ingredientData[recipeData.ingredientStores[index]].calContainer);
+              const priceContainer = new Fractional(ingredient.ingredientData[recipeData.ingredientStores[index]].priceContainer);
 
               // calculations for the recipeData based on the amount of the current recipe
               if (isNaN(amount.toString()) || isNaN(totalYield.toString()) || isNaN(calContainer.toString()) || isNaN(priceContainer.toString())) {
@@ -133,6 +126,8 @@ const ingredientEdit = async ({
             } else {
               recipeData.ingredientChecks[index] = false;
               recipeData.ingredientIds[index] = "";
+              recipeData.ingredientNames[index] = "";
+              recipeData.ingredientTypes[index] = [];
               recipeData.ingredientAmounts[index] = "";
               recipeData.ingredientStores[index] = "";
               recipeData.ingredientCals[index] = "";
@@ -172,7 +167,7 @@ const ingredientEdit = async ({
 
 
           // add the update operation to the batch
-          recipeBatch.update(doc(db, 'recipes', recipeDoc.id), recipeData);
+          recipeBatch.update(doc(db, 'RECIPES', recipeDoc.id), recipeData);
         }
       }
     });
@@ -187,7 +182,7 @@ const ingredientEdit = async ({
     const spotlightBatch = writeBatch(db);
 
     // gets all spotlight data
-    const spotlightsSnapshot = await getDocs(collection(db, 'spotlights'));
+    const spotlightsSnapshot = await getDocs(collection(db, 'SPOTLIGHTS'));
 
     // loops over all spotlights
     spotlightsSnapshot.docs.forEach((spotlightDoc) => {
@@ -204,7 +199,9 @@ const ingredientEdit = async ({
             spotlightModified = true;
 
             // stores the given ingredient's data
-            spotlightData.ingredientData[index] = ingredient;
+            spotlightData.ingredientData[index] = ingredient.ingredientData;
+            spotlightData.ingredientNames[index] = ingredient.ingredientName;
+            spotlightData.ingredientTypes[index] = ingredient.ingredientTypes;
 
 
             // if the current ingredient data is valid
@@ -212,9 +209,9 @@ const ingredientEdit = async ({
 
               // simple calculations
               const amount = new Fractional(spotlightData.ingredientAmounts[index]);
-              const totalYield = new Fractional(`${ingredient[`${spotlightData.ingredientStores[index]}TotalYield`]}`);
-              const calContainer = new Fractional(`${ingredient[`${spotlightData.ingredientStores[index]}CalContainer`]}`);
-              const priceContainer = new Fractional(`${ingredient[`${spotlightData.ingredientStores[index]}PriceContainer`]}`);
+              const totalYield = new Fractional(ingredient.ingredientData[spotlightData.ingredientStores[index]].totalYield);
+              const calContainer = new Fractional(ingredient.ingredientData[spotlightData.ingredientStores[index]].calContainer);
+              const priceContainer = new Fractional(ingredient.ingredientData[spotlightData.ingredientStores[index]].priceContainer);
 
               // calculations for the spotlightData based on the amount of the current spotlight
               if (isNaN(amount.toString()) || isNaN(totalYield.toString()) || isNaN(calContainer.toString()) || isNaN(priceContainer.toString())) {
@@ -235,6 +232,7 @@ const ingredientEdit = async ({
             } else {
               spotlightData.ingredientAmounts[index] = "";
               spotlightData.ingredientCals[index] = "";
+              spotlightData.ingredientNames[index] = "";
               spotlightData.ingredientNameEdited[index] = true;
               spotlightData.ingredientAmountEdited[index] = true;
               spotlightData.ingredientStoreEdited[index] = true;
@@ -242,6 +240,7 @@ const ingredientEdit = async ({
               spotlightData.ingredientPrices[index] = "";
               spotlightData.ingredientServings[index] = "";
               spotlightData.ingredientStores[index] = "";
+              spotlightData.ingredientTypes[index] = [];
             }
           }
         });
@@ -249,7 +248,7 @@ const ingredientEdit = async ({
         
         // only updates if the spotlight has been modified
         if (spotlightModified) {
-
+          
           // running totals
           let totalCal = 0;
           let totalPrice = 0;
@@ -269,16 +268,15 @@ const ingredientEdit = async ({
           spotlightData.spotlightCal = ((new Fraction(totalCal.toString())) * 1).toFixed(0);
           spotlightData.spotlightPrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
           spotlightData.spotlightServing = ((new Fraction(totalServing.toString())) * 1).toFixed(2);
-
+          
           // add the update operation to the batch
-          spotlightBatch.update(doc(db, 'spotlights', spotlightDoc.id), spotlightData);
+          spotlightBatch.update(doc(db, 'SPOTLIGHTS', spotlightDoc.id), spotlightData);
         }
       }
     });
-
+    
     // commit the spotlight batch
     await spotlightBatch.commit();
-    
     
   } catch (e) {
     console.error("Error adding document: ", e);

@@ -1,13 +1,16 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigationState } from '@react-navigation/native';
 
+// UI components
 import { View, Text, ScrollView, TouchableOpacity} from 'react-native';
 
+// modals
 import MealOverviewModal from '../../components/Planning/MealOverviewModal';
 
-// Initialize Firebase App
+// initialize firebase app
 import { getFirestore, collection, getDocs } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -22,6 +25,7 @@ export default function Details ({ isSelectedTab }) {
 
   // if the tab has changed, refresh the data from the globals
   useEffect(() => {
+    
     if (isSelectedTab) {
       updatePreps();
     }
@@ -90,7 +94,7 @@ export default function Details ({ isSelectedTab }) {
   const updatePreps = async () => {
 
     // gets the collection of meal preps
-    const querySnapshot = await getDocs(collection(db, 'preps'));
+    const querySnapshot = await getDocs(collection(db, 'PREPS'));
 
     // reformats each one
     const prepsArray = querySnapshot.docs.map((doc) => {
@@ -127,7 +131,7 @@ export default function Details ({ isSelectedTab }) {
       const dates = available.map(() => []);
       
       // gets all current ingredient data
-      const plansCollectionRef = collection(db, 'plans');
+      const plansCollectionRef = collection(db, 'PLANS');
       const plansSnapshot = await getDocs(plansCollectionRef);
 
       // loops over the meal preps
@@ -269,7 +273,7 @@ export default function Details ({ isSelectedTab }) {
 
                   {/* remaining */}
                   <View>
-                    <Text className={`text-[12px] font-semibold ${currRemaining[index] !== undefined && currRemaining[index] < 0 ? "text-pink-700" : currRemaining[index] !== undefined && currRemaining[index] === 0 ? "text-yellow-700" : currRemaining[index] !== undefined && currRemaining[index] > 0 ? "text-green-700" : "text-black"}`}>
+                    <Text className={`text-[12px] font-semibold ${currRemaining[index] !== undefined && currRemaining[index] < 0 ? "text-mauve700" : currRemaining[index] !== undefined && currRemaining[index] === 0 ? "text-yellow-700" : currRemaining[index] !== undefined && currRemaining[index] > 0 ? "text-green-700" : "text-black"}`}>
                       {currRemaining[index] !== undefined && currRemaining[index].length !== 0 ? currRemaining[index] : "0"} {"remaining"}
                     </Text>
                   </View>

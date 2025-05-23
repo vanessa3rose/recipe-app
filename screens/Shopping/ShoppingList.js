@@ -1,24 +1,33 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigationState } from '@react-navigation/native';
 
+// UI components
 import { View, Text, ScrollView, TextInput, Linking, Keyboard, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
-import RecipeListModal from '../../components/Shopping-List/RecipeListModal';
-import SpotlightSelectorModal from '../../components/Shopping-List/SpotlightSelectorModal';
+// store lists
+import storeKeys from '../../assets/storeKeys';
+import storeLabels from '../../assets/storeLabels';
 
-// Fractions
+// fractions
 var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
+// validation
 import extractUnit from '../../components/Validation/extractUnit';
 
-// initialize Firebase App
+// modals
+import RecipeListModal from '../../components/Shopping-List/RecipeListModal';
+import SpotlightSelectorModal from '../../components/Shopping-List/SpotlightSelectorModal';
+
+// initialize firebase app
 import { getFirestore, doc, updateDoc, getDocs, getDoc, collection, writeBatch } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -34,6 +43,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
   // keyboard listener
   useEffect(() => {
+    
     // listens for keyboard show event
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
       setIsKeyboardOpen(true);
@@ -59,6 +69,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
   // if the tab has changed
   useEffect(() => {
+    
     if (isSelectedTab) {
       fetchGlobalNote();
       loadDB();
@@ -86,39 +97,38 @@ export default function ShoppingList ({ isSelectedTab }) {
   ///////////////////////////////// STORES /////////////////////////////////
 
   const [spotlightsSnapshot, setSpotlightsSnapshot] = useState(null);
-
-  // list of stores
-  const stores = [
-    { id: 'a', name: 'ALDI' },
-    { id: 'mb', name: 'MARKET BASKET' },
-    { id: 'sm', name: 'STAR MARKET' },
-    { id: 'ss', name: 'STOP AND SHOP' },
-    { id: 't', name: 'TARGET' },
-    { id: 'w', name: 'WALMART' },
-  ];
     
   // for store picker
-  const [selectedStore, setSelectedStore] = useState('a'); 
+  const [selectedStore, setSelectedStore] = useState(storeKeys[0]); 
   
   // store details
-  const [allStoreLists, setAllStoreLists] = useState({
-    a: { check: [], included: [], name: [], id: [], link: [], amountNeeded: [], brand: [], unit: [], totalYield: [], yieldNeeded: [], costUnit: [], costTotal: [], notes: [], },
-    mb: { check: [], included: [], name: [], id: [], link: [], amountNeeded: [], brand: [], unit: [], totalYield: [], yieldNeeded: [], costUnit: [], costTotal: [], notes: [], },
-    sm: { check: [], included: [], name: [], id: [], link: [], amountNeeded: [], brand: [], unit: [], totalYield: [], yieldNeeded: [], costUnit: [], costTotal: [], notes: [], },
-    ss: { check: [], included: [], name: [], id: [], link: [], amountNeeded: [], brand: [], unit: [], totalYield: [], yieldNeeded: [], costUnit: [], costTotal: [], notes: [], },
-    t: { check: [], included: [], name: [], id: [], link: [], amountNeeded: [], brand: [], unit: [], totalYield: [], yieldNeeded: [], costUnit: [], costTotal: [], notes: [], },
-    w: { check: [], included: [], name: [], id: [], link: [], amountNeeded: [], brand: [], unit: [], totalYield: [], yieldNeeded: [], costUnit: [], costTotal: [], notes: [], },
-  })
+  const [allStoreLists, setAllStoreLists] = useState(Object.fromEntries(
+    storeKeys.map(storeKey => [storeKey, {
+      check: [],
+      included: [],
+      name: [],
+      id: [],
+      link: [],
+      amountNeeded: [],
+      brand: [],
+      unit: [],
+      totalYield: [],
+      yieldNeeded: [],
+      costUnit: [],
+      costTotal: [],
+      notes: [],
+    }])
+  ));
 
   // to load in database data on startup
   const loadDB = async () => {
     
     // gets all of the spotlight data
-    const querySnapshot = await getDocs(collection(db, 'spotlights'));
+    const querySnapshot = await getDocs(collection(db, 'SPOTLIGHTS'));
     setSpotlightsSnapshot(querySnapshot);
     
     // gets current global spotlight info
-    const shopping = await getDoc(doc(db, 'globals', 'shopping'));
+    const shopping = await getDoc(doc(db, 'GLOBALS', 'shopping'));
     const shoppingData = shopping.data();
     const shoppingIds = shoppingData.spotlights.map((doc) => doc.id);
     const shoppingSelected = shoppingData.spotlights.map((doc) => doc.selected);
@@ -133,41 +143,27 @@ export default function ShoppingList ({ isSelectedTab }) {
 
   // to get all shopping lists
   const getAllShoppingLists = async (querySnapshot, shoppingIds, shoppingSelected, ingredientIdList, ingredientIncludedList) => {
-   
+
     try {
       const batch = writeBatch(db); // initializes a Firestore batch
-      const storeIds = stores.map(store => store.id); // gets the ids for the stores
 
       // gets all lists
-      const aSnap = await getDoc(doc(db, 'shopping', 'aList'));
-      const mbSnap = await getDoc(doc(db, 'shopping', 'mbList'));
-      const smSnap = await getDoc(doc(db, 'shopping', 'smList'));
-      const ssSnap = await getDoc(doc(db, 'shopping', 'ssList'));
-      const tSnap = await getDoc(doc(db, 'shopping', 'tList'));
-      const wSnap = await getDoc(doc(db, 'shopping', 'wList'));
-
-      const snapshots = {
-        a: aSnap,
-        mb: mbSnap,
-        sm: smSnap,
-        ss: ssSnap,
-        t: tSnap,
-        w: wSnap,
-      };
+      const snapshots = {};
+      for (const storeKey of storeKeys) {
+        const snap = await getDoc(doc(db, 'SHOPPING', `list${storeKey}`));
+        snapshots[storeKey] = snap;
+      }
 
       let initialStoreFound = false;
       
       // loops over all 6 stores
-      await Promise.all(storeIds.map(async (store) => {
-        
-        // gets the current data
-        const docSnap = snapshots[store];
+      await Promise.all(storeKeys.map(async (storeKey) => {
         
         // stores the current data
-        const idList = docSnap.data().id;
-        const checkList = docSnap.data().check;
-        const includedList = docSnap.data().included;
-        const notesList = docSnap.data().notes;
+        const idList = snapshots[storeKey].data().id;
+        const checkList = snapshots[storeKey].data().check;
+        const includedList = snapshots[storeKey].data().included;
+        const notesList = snapshots[storeKey].data().notes;
 
         // quits early if the snapshot is empty
         if (!querySnapshot || querySnapshot.length === 0) {
@@ -195,19 +191,19 @@ export default function ShoppingList ({ isSelectedTab }) {
             // loops over all ingredients of the current spotlight
             data.ingredientData.forEach((ingredient, index) => {
               const ingredientStore = data.ingredientStores[index];
-              
+
               // adds its data to the empty arrays
-              if (data.ingredientData[index] !== null && ingredientStore === store) {
+              if (data.ingredientData[index] !== null && ingredientStore === storeKey) {
                 newIdList.push(data.ingredientIds[index]);
-                nameList.push(ingredient.ingredientName);
-                linkList.push(ingredient[`${store}Link`]);
-                brandList.push(ingredient[`${store}Brand`]);
-                unitList.push(ingredient[`${store}Unit`]);
-                yieldUnitList.push(ingredient[`${store}ServingContainer`]);
+                nameList.push(data.ingredientNames[index]);
+                linkList.push(ingredient[storeKey].link);
+                brandList.push(ingredient[storeKey].brand);
+                unitList.push(ingredient[storeKey].unit);
+                yieldUnitList.push(ingredient[storeKey].servingContainer);
                 const amt = new Fractional(data.ingredientAmounts[index]).multiply(new Fractional(data.spotlightMult));
                 yieldNeededList.push(amt === 0 || isNaN(amt.numerator / amt.denominator) ? "0" : amt.toString())
-                costUnitList.push(ingredient[`${store}PriceContainer`]);
-                totalYieldList.push(ingredient[`${store}TotalYield`]);
+                costUnitList.push(ingredient[storeKey].priceContainer);
+                totalYieldList.push(ingredient[storeKey].totalYield);
               }
             });
           }
@@ -228,7 +224,7 @@ export default function ShoppingList ({ isSelectedTab }) {
           const unit = unitList[matchingIndices[0]];
           const totalYield = totalYieldList[matchingIndices[0]];
           const costUnit = costUnitList[matchingIndices[0]];
-
+          
           // add together all yields needed to get the total needed
           let yieldNeeded = 0;
           matchingIndices.forEach((index) => {
@@ -299,8 +295,8 @@ export default function ShoppingList ({ isSelectedTab }) {
           } else if (id) {
             let found = false;
 
-            storeIds.map((currStore) => {
-              if (currStore !== store) {
+            storeKeys.map((currStore) => {
+              if (currStore !== storeKey) {
 
                 // current list data
                 const currSnap = snapshots[currStore];
@@ -341,9 +337,9 @@ export default function ShoppingList ({ isSelectedTab }) {
         if (ingredientIdList !== null && ingredientIncludedList !== null) {
           // loops over the list of ids
           combinedIdList.forEach((id, index) => {
-            const idIndex = ingredientIdList[store].indexOf(id)
+            const idIndex = ingredientIdList[storeKey].indexOf(id)
             // if the id is found, update the inclusion to match the modal results
-            if (idIndex !== -1) { combinedIncludedList[index] = ingredientIncludedList[store][idIndex]; }
+            if (idIndex !== -1) { combinedIncludedList[index] = ingredientIncludedList[storeKey][idIndex]; }
           })
         } 
 
@@ -386,20 +382,20 @@ export default function ShoppingList ({ isSelectedTab }) {
         }
         
         // adds the update operation to the batch
-        batch.update(doc(db, 'shopping', `${store}List`), groupedData);
+        batch.update(doc(db, 'SHOPPING', `list${storeKey}`), groupedData);
 
         // stores the store selection if the list length is > 0
         if (!initialStoreFound && combinedList.length > 0) {
-          setSelectedStore(store);
+          setSelectedStore(storeKey);
           initialStoreFound = true;
         }
 
         // updates the states with the new lists
-        setAllStoreChecks((prev) => ({ ...prev, [store]: combinedCheckList }));
-        setAllStoreIncluded((prev) => ({ ...prev, [store]: combinedIncludedList }));
-        setAllStoreNotes((prev) => ({ ...prev, [store]: combinedNotesList }));
-        setAllStoreLists((prev) => ({ ...prev, [store]: combinedList }));
-        setAllStoreCosts((prev) => ({ ...prev, [store]: 
+        setAllStoreChecks((prev) => ({ ...prev, [storeKey]: combinedCheckList }));
+        setAllStoreIncluded((prev) => ({ ...prev, [storeKey]: combinedIncludedList }));
+        setAllStoreNotes((prev) => ({ ...prev, [storeKey]: combinedNotesList }));
+        setAllStoreLists((prev) => ({ ...prev, [storeKey]: combinedList }));
+        setAllStoreCosts((prev) => ({ ...prev, [storeKey]: 
           combinedList.reduce(
           (acc, item, index) =>
             combinedIncludedList[index] ? acc + item.costTotal : acc,
@@ -409,7 +405,7 @@ export default function ShoppingList ({ isSelectedTab }) {
       
       // commits the batch
       await batch.commit();
-
+      
       // gets the lists that pertain to the current list
       await fetchListData(querySnapshot, shoppingIds, shoppingSelected);
       
@@ -421,13 +417,13 @@ export default function ShoppingList ({ isSelectedTab }) {
 
   ///////////////////////////////// STORE LIST DATA /////////////////////////////////
 
-  const [storeListCosts, setStoreListCosts] = useState({
-    aList: 0, mbList: 0, smList: 0, ssList: 0, tList: 0, wList: 0, 
-  });
-
-  const [allStoreCosts, setAllStoreCosts] = useState({ 
-    a: 0, mb: 0, sm: 0, ss: 0, t: 0, w: 0, 
-  });
+  const [storeListCosts, setStoreListCosts] = useState(
+    Object.fromEntries(storeKeys.map(storeKey => [storeKey, 0]))
+  );
+  
+  const [allStoreCosts, setAllStoreCosts] = useState(
+    Object.fromEntries(storeKeys.map(storeKey => [storeKey, 0]))
+  );
 
   // to fetch the global shopping list of a given store
   const getStoreListCost = async (docSnap) => {
@@ -445,17 +441,13 @@ export default function ShoppingList ({ isSelectedTab }) {
     }
   }
 
-  const [storeListLengths, setStoreListLengths] = useState({
-    aList: 0,
-    mbList: 0,
-    smList: 0,
-    ssList: 0,
-    tList: 0,
-    wList: 0,
-  });
+  const [storeListLengths, setStoreListLengths] = useState(
+    Object.fromEntries(storeKeys.map(storeKey => [storeKey, 0]))
+  );
 
   // to fetch the global shopping list length of a given store
   const getStoreListLength = async (docSnap) => {
+    
     if (docSnap.exists()) { 
       // doesn't count ingredients that are not needed
       return docSnap.data()['amountNeeded'].filter((amt) => amt !== 0).length; 
@@ -463,14 +455,9 @@ export default function ShoppingList ({ isSelectedTab }) {
     else { return 0; }
   }
 
-  const [storeListDone, setStoreListDone] = useState({
-    aList: false,
-    mbList: false,
-    smList: false,
-    ssList: false,
-    tList: false,
-    wList: false,
-  });
+  const [storeListDone, setStoreListDone] = useState(
+    Object.fromEntries(storeKeys.map(storeKey => [storeKey, false]))
+  );
 
   // to fetch the global shopping list length of a given store
   const getStoreListDone = async (docSnap) => {
@@ -499,16 +486,6 @@ export default function ShoppingList ({ isSelectedTab }) {
     if (!querySnapshot || querySnapshot.length === 0) {
       return;
     }
-    
-    // the shopping lists
-    const shoppingLists = [
-      "aList",
-      "mbList",
-      "smList",
-      "ssList",
-      "tList",
-      "wList",
-    ];
 
     // to store the cost and length of each list
     const costs = {};
@@ -516,11 +493,11 @@ export default function ShoppingList ({ isSelectedTab }) {
     const done = {};
 
     // loops over each list
-    for (const list of shoppingLists) {
-      const docSnap = await getDoc(doc(db, 'shopping', list));
-      costs[list] = await getStoreListCost(docSnap);
-      lengths[list] = await getStoreListLength(docSnap);
-      done[list] = await getStoreListDone(docSnap);
+    for (const storeKey of storeKeys) {
+      const docSnap = await getDoc(doc(db, 'SHOPPING', `list${storeKey}`));
+      costs[storeKey] = await getStoreListCost(docSnap);
+      lengths[storeKey] = await getStoreListLength(docSnap);
+      done[storeKey] = await getStoreListDone(docSnap);
     }
     
     // store the data in states
@@ -549,9 +526,9 @@ export default function ShoppingList ({ isSelectedTab }) {
   ///////////////////////////////// CHECKBOXES /////////////////////////////////
 
   // whether the lists of checkboxes is selected
-  const [allStoreChecks, setAllStoreChecks] = useState({ 
-    a: null, mb: null, sm: null, ss: null, t: null, w: null, 
-  });
+  const [allStoreChecks, setAllStoreChecks] = useState(
+    Object.fromEntries(storeKeys.map(storeKey => [storeKey, null]))
+  );  
 
   // to update the list of checkboxes
   const updateCheck = async (index) => {
@@ -563,12 +540,12 @@ export default function ShoppingList ({ isSelectedTab }) {
     });
 
     // to store whether a current list is done
-    const docSnap = await getDoc(doc(db, 'shopping', `${selectedStore}List`));
+    const docSnap = await getDoc(doc(db, 'SHOPPING', `list${selectedStore}`));
     const newDone = await getStoreListDone(docSnap);
     
     setStoreListDone((prev) => {
       const updated = { ...prev }; 
-      updated[selectedStore + "List"] = newDone;
+      updated[selectedStore] = newDone;
       return updated;
     });
   };
@@ -576,7 +553,7 @@ export default function ShoppingList ({ isSelectedTab }) {
   // when a checkbox is changed, update the corresponding global document
   useEffect(() => {
     if (allStoreChecks[selectedStore] !== null) {
-      updateDoc(doc(db, 'shopping', `${selectedStore}List`), { check: allStoreChecks[selectedStore] });
+      updateDoc(doc(db, 'SHOPPING', `list${selectedStore}`), { check: allStoreChecks[selectedStore] });
     }
   }, [allStoreChecks]);
 
@@ -584,12 +561,13 @@ export default function ShoppingList ({ isSelectedTab }) {
   ///////////////////////////////// INCLUSION /////////////////////////////////
 
   // whether the lists of included buttons are selected
-  const [allStoreIncluded, setAllStoreIncluded] = useState({ 
-    a: null,  mb: null, sm: null, ss: null, t: null, w: null, 
-  })
+  const [allStoreIncluded, setAllStoreIncluded] = useState(
+    Object.fromEntries(storeKeys.map(storeKey => [storeKey, null]))
+  );  
 
   // to calculate the number of included ingredients that are not checked
   const calcNumLeft = () => {
+    
     if (allStoreIncluded[selectedStore]) {
       const num = allStoreIncluded[selectedStore].reduce((acc, included, index) => {
         if (included && !allStoreChecks[selectedStore][index]) {
@@ -619,19 +597,19 @@ export default function ShoppingList ({ isSelectedTab }) {
     });
 
     // to store the cost of the current list
-    const docSnap = await getDoc(doc(db, 'shopping', `${selectedStore}List`));
+    const docSnap = await getDoc(doc(db, 'SHOPPING', `list${selectedStore}`));
     const newCost = await getStoreListCost(docSnap);
     const newDone = await getStoreListDone(docSnap);
     
     setStoreListCosts((prev) => {
       const updated = { ...prev }; 
-      updated[selectedStore + "List"] = newCost;
+      updated[selectedStore] = newCost;
       return updated;
     });
     
     setStoreListDone((prev) => {
       const updated = { ...prev }; 
-      updated[selectedStore + "List"] = newDone;
+      updated[selectedStore] = newDone;
       return updated;
     });
   };
@@ -639,7 +617,7 @@ export default function ShoppingList ({ isSelectedTab }) {
   // when a included button is changed, update the corresponding global document
   useEffect(() => {
     if (allStoreIncluded[selectedStore] !== null) {
-      updateDoc(doc(db, 'shopping', `${selectedStore}List`), { included: allStoreIncluded[selectedStore] });
+      updateDoc(doc(db, 'SHOPPING', `list${selectedStore}`), { included: allStoreIncluded[selectedStore] });
     }
   }, [allStoreIncluded]);
   
@@ -647,9 +625,9 @@ export default function ShoppingList ({ isSelectedTab }) {
   ///////////////////////////////// NOTES /////////////////////////////////
 
   // whether the lists of notes are selected
-  const [allStoreNotes, setAllStoreNotes] = useState({ 
-    a: null,  mb: null, sm: null, ss: null, t: null, w: null, 
-  });
+  const [allStoreNotes, setAllStoreNotes] = useState(
+    Object.fromEntries(storeKeys.map(storeKey => [storeKey, null]))
+  );  
 
   // to update the list of notes
   const updateIndivNotes = (index, newValue) => {
@@ -663,7 +641,7 @@ export default function ShoppingList ({ isSelectedTab }) {
   // when a note is changed, update the corresponding global document
   const dbIndivNotes = (storeNotes) => {
     if (storeNotes !== null) {
-      updateDoc(doc(db, 'shopping', `${selectedStore}List`), { notes: storeNotes });
+      updateDoc(doc(db, 'SHOPPING', `list${selectedStore}`), { notes: storeNotes });
     }
   }
 
@@ -672,7 +650,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
   // when a note is changed, update the corresponding global document
   const dbNote = (note) => {
-    updateDoc(doc(db, 'globals', 'shopping'), { note: note });
+    updateDoc(doc(db, 'GLOBALS', 'shopping'), { note: note });
   }
 
   // to get the global note
@@ -680,7 +658,7 @@ export default function ShoppingList ({ isSelectedTab }) {
       
     try {
       // gets the global meal prep document
-      const shoppingDoc = ((await getDoc(doc(db, 'globals', 'shopping'))));
+      const shoppingDoc = ((await getDoc(doc(db, 'GLOBALS', 'shopping'))));
       if (shoppingDoc.exists()) {
         const note = shoppingDoc.data().note;
         setCurrNote(note);
@@ -706,6 +684,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
   // before opening the modal that displays the recipe lists of the current ingredient
   const displayRecipes = async (index) => {
+    
     let recipeList = [];
     let amountList = [];
     let unitList = [];
@@ -725,18 +704,13 @@ export default function ShoppingList ({ isSelectedTab }) {
           if (allStoreLists[selectedStore][index].id === doc.data().ingredientIds[i] && doc.data().ingredientStores[i] === selectedStore) {
             recipeList.push(doc.data().spotlightName);
             amountList.push(doc.data().ingredientAmounts[i]);
-            unitList.push(doc.data().ingredientData[i][`${doc.data().ingredientStores[i]}Unit`]);
+            unitList.push(doc.data().ingredientData[i][doc.data().ingredientStores[i]].unit);
             multList.push(doc.data().spotlightMult);
           
           // if it doesn't
           } else if (allStoreLists[selectedStore][index].id === doc.data().ingredientIds[i] && doc.data().ingredientStores[i] !== selectedStore) {
             otherStores.push({ 
-              ingredientStore: doc.data().ingredientStores[i] === "a" ? "Aldi" 
-                             : doc.data().ingredientStores[i] === "mb" ? "Market Basket" 
-                             : doc.data().ingredientStores[i] === "sm" ? "Star Market" 
-                             : doc.data().ingredientStores[i] === "ss" ? "Stop & Shop" 
-                             : doc.data().ingredientStores[i] === "t" ? "Target" 
-                             : doc.data().ingredientStores[i] === "w" ? "Walmart" : "", 
+              ingredientStore: storeLabels[storeKeys.indexOf(doc.data().ingredientStores[i])] || "",
               spotlightName: doc.data().spotlightName,
             })
           }
@@ -785,10 +759,11 @@ export default function ShoppingList ({ isSelectedTab }) {
     }));
     
     // updates info and closes modal
-    await updateDoc(doc(db, 'globals', 'shopping'), { spotlights: spotlightsData });
+    await updateDoc(doc(db, 'GLOBALS', 'shopping'), { spotlights: spotlightsData });
     await getAllShoppingLists(spotlightsSnapshot, ids, selected, ingredientIdList, ingredientIncludedList);
     setSpotlightModalVisible(false);
   }
+
 
   ///////////////////////////////// HTML /////////////////////////////////
 
@@ -811,41 +786,29 @@ export default function ShoppingList ({ isSelectedTab }) {
               style={{ height: 30, justifyContent: 'center', overflow: 'hidden', backgroundColor: calcNumLeft() !== 0 ? colors.theme600 : colors.zinc500, borderWidth: 1, }}
               itemStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 13, }}
             >
-              {storeListLengths.aList > 0 && (
-                <Picker.Item label="ALDI" value="a" />
-              )}
-              {storeListLengths.mbList > 0 && (
-                <Picker.Item label="MARKET BASKET" value="mb" />
-              )}
-              {storeListLengths.smList > 0 && (
-                <Picker.Item label="STAR MARKET" value="sm" />
-              )}
-              {storeListLengths.ssList > 0 && (
-                <Picker.Item label="STOP & SHOP" value="ss" />
-              )}
-              {storeListLengths.tList > 0 && (
-                <Picker.Item label="TARGET" value="t" />
-              )}
-              {storeListLengths.wList > 0 && (
-                <Picker.Item label="WALMART" value="w" />
-              )}
+              {storeLabels.map((storeLabel, index) => {
+                if (storeListLengths[storeKeys[index]] > 0) {
+                  return <Picker.Item key={storeKeys[index]} label={storeLabel.toUpperCase()} value={storeKeys[index]} />;
+                }
+                return null;
+              })}
             </Picker>
           </View>
 
           {/* Calculates the cost of the current store */}
           <Text className="text-white font-bold text-center">
-            {"LIST COST: $"}{allStoreCosts[selectedStore].toFixed(2)}
+            {"LIST COST: $"}{allStoreCosts[selectedStore]?.toFixed(2)}
           </Text>
         </View>
 
         {/* selects the store from the dropdown */}
-        {stores
-          .filter((store) => store.id === selectedStore)
+        {storeKeys
+          .filter((store) => store === selectedStore)
           .map((store) => {
 
           return (
             <View
-              key={store.id}
+              key={store}
               className="flex flex-col w-11/12 h-4/5 bg-zinc700"
             >
               {/* DATA */}
@@ -1044,7 +1007,7 @@ export default function ShoppingList ({ isSelectedTab }) {
           <TouchableOpacity className="flex w-full py-2 bg-zinc500 justify-center items-center border-b-0.5 rounded-t-lg" onPress={() => setSpotlightModalVisible(true)}>
             <Text className="font-bold text-[14px] text-white text-center">
               {"$"}
-              {(storeListCosts['aList'] + storeListCosts['mbList'] + storeListCosts['smList'] + storeListCosts['ssList'] + storeListCosts['tList'] + storeListCosts['wList']).toFixed(2)}
+              {storeKeys.reduce((sum, key) => sum + (storeListCosts[key] || 0), 0).toFixed(2)}
               {"   |   "}
               {numSpotlights}
               {numSpotlights === "1" ? " Recipe" : " Recipes"}
@@ -1064,92 +1027,35 @@ export default function ShoppingList ({ isSelectedTab }) {
           }
 
           {/* individual store prices */}
-          <ScrollView className="flex flex-col pt-1.5 mb-2">
-            {selectedStore !== "a" && storeListLengths['aList'] > 0 &&
-              <View className="flex flex-row justify-end space-x-1 mb-0.5">
-                {/* whether the shopping list is done */}
-                <Icon
-                  name={storeListDone['aList'] ? "checkmark" : "close-outline"}
-                  color={colors.theme900}
-                  size={16}
-                />
-                {/* text */}
-                <Text className="text-[13px]">
-                  {"ALDI: $"}{storeListCosts['aList'].toFixed(2)}
-                </Text>
-              </View>
-            }
-            {selectedStore !== "mb" && storeListLengths['mbList'] > 0 &&
-              <View className="flex flex-row justify-end space-x-1 mb-0.5">
-                {/* whether the shopping list is done */}
-                <Icon
-                  name={storeListDone['mbList'] ? "checkmark" : "close-outline"}
-                  color={colors.theme900}
-                  size={16}
-                />
-                {/* text */}
-                <Text className="text-[13px]">
-                  {"MARKET BASKET: $"}{storeListCosts['mbList'].toFixed(2)}
-                </Text>
-              </View>
-            }
-            {selectedStore !== "sm" && storeListLengths['smList'] > 0 &&
-              <View className="flex flex-row justify-end space-x-1 mb-0.5">
-                {/* whether the shopping list is done */}
-                <Icon
-                  name={storeListDone['smList'] ? "checkmark" : "close-outline"}
-                  color={colors.theme900}
-                  size={16}
-                />
-                {/* text */}
-                <Text className="text-[13px]">
-                  {"STAR MARKET: $"}{storeListCosts['smList'].toFixed(2)}
-                </Text>
-              </View>
-            }
-            {selectedStore !== "ss" && storeListLengths['ssList'] > 0 &&
-              <View className="flex flex-row justify-end space-x-1 mb-0.5">
-                {/* whether the shopping list is done */}
-                <Icon
-                  name={storeListDone['ssList'] ? "checkmark" : "close-outline"}
-                  color={colors.theme900}
-                  size={16}
-                />
-                {/* text */}
-                <Text className="text-[13px]">
-                  {"STOP & SHOP: $"}{storeListCosts['ssList'].toFixed(2)}
-                </Text>
-              </View>
-            }
-            {selectedStore !== "t" && storeListLengths['tList'] > 0 &&
-              <View className="flex flex-row justify-end space-x-1 mb-0.5">
-                {/* whether the shopping list is done */}
-                <Icon
-                  name={storeListDone['tList'] ? "checkmark" : "close-outline"}
-                  color={colors.theme900}
-                  size={16}
-                />
-                {/* text */}
-                <Text className="text-[13px]">
-                  {"TARGET: $"}{storeListCosts['tList'].toFixed(2)}
-                </Text>
-              </View>
-            }
-            {selectedStore !== "w" && storeListLengths['wList'] > 0 &&
-              <View className="flex flex-row justify-end space-x-1 mb-0.5">
-                {/* whether the shopping list is done */}
-                <Icon
-                  name={storeListDone['wList'] ? "checkmark" : "close-outline"}
-                  color={colors.theme900}
-                  size={16}
-                />
-                {/* text */}
-                <Text className="text-[13px]">
-                  {"WALMART: $"}{storeListCosts['wList'].toFixed(2)}
-                </Text>
-              </View>
-            }
-          </ScrollView>
+          {Object.entries(storeListLengths).filter(([key, value]) => key !== selectedStore && value !== 0).length
+          ?
+            <ScrollView className="flex flex-col pt-1.5 mb-2">
+              {storeKeys.map((storeKey, index) => (
+                <View key={index}>
+                {(selectedStore !== storeKey && storeListLengths[storeKey] > 0) && 
+                  <View className="flex flex-row justify-end space-x-1 mb-0.5">
+                    {/* whether the shopping list is done */}
+                    <Icon
+                      name={storeListDone[storeKey] ? "checkmark" : "close-outline"}
+                      color={colors.theme900}
+                      size={16}
+                    />
+                    {/* Store label and cost */}
+                    <Text className="text-[13px]">
+                      {storeLabels[index].toUpperCase() + ": $"}{storeListCosts[storeKey].toFixed(2)}
+                    </Text>
+                  </View>
+                }
+                </View>
+              ))}
+            </ScrollView>
+          : // if there are no other stores present
+            <View className="flex-1 pt-1.5 mb-2 justify-center items-center">
+              <Text className="text-center italic text-zinc800">
+                no other stores have shopping lists
+              </Text>
+            </View>
+          }
         </View>
 
         {/* Global Notes */}
@@ -1166,7 +1072,7 @@ export default function ShoppingList ({ isSelectedTab }) {
             >
               <Text
                 multiline={true}
-                className={`${currNote !== "" ? "text-black" : "text-zinc400"} flex-1 bg-white border-[1px] border-zinc400 px-[10px] rounded-[5px] py-[5px] text-[13px] leading-[15px]`}
+                className={`${currNote !== "" ? "text-black" : "text-zinc400"} flex-1 bg-white border-[1px] border-zinc400 px-[10px] rounded-[5px] py-[5px] text-[13px] leading-[16px]`}
               >
                 {currNote !== "" ? currNote : "notes"}
               </Text>

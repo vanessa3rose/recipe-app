@@ -1,50 +1,59 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, ScrollView, Linking, TouchableOpacity } from 'react-native';
-import DropDownPicker from 'react-native-dropdown-picker';
+// react hooks
+import React, { useState } from 'react';
 
+// UI components
+import { Modal, View, Text, Linking, TouchableOpacity } from 'react-native';
+
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
+// store lists
+import storeKeys from '../../assets/storeKeys';
+import storeLabels from '../../assets/storeLabels';
+
+// validation
 import extractUnit from '../Validation/extractUnit';
 
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const ViewIngredientModal = ({ 
-  modalVisible, setModalVisible, ingredientData,
+  modalVisible, setModalVisible, ingredient
 }) => {
 
+  
   ///////////////////////////////// STORE SELECTION /////////////////////////////////
 
   const [selectedStore, setSelectedStore] = useState(null);
-  const [storeList, setStoreList] = useState(['a', 'mb', 'sm', 'ss', 't', 'w']);
-  const [nameList, setNameList] = useState(['ALDI', 'MARKET BASKET', 'STAR MARKET', 'STOP & SHOP', 'TARGET', 'WALMART']);
+  const [storeList, setStoreList] = useState(storeKeys);
+  const [nameList, setNameList] = useState(storeLabels.map(label => label.toUpperCase()));
 
   // toggle store section visibility
   const toggleStoreSection = (store) => {
 
     setSelectedStore(selectedStore === store ? null : store);
-    
+        
     // reorders the store list to put the selected one first
-    let abrv = ['a', 'mb', 'sm', 'ss', 't', 'w'];
-    let name = ['ALDI', 'MARKET BASKET', 'STAR MARKET', 'STOP & SHOP', 'TARGET', 'WALMART']
+    let keys = [...storeKeys];
+    let labels = [...storeLabels.map(label => label.toUpperCase())];
     
     // only does so if there is a dropdown open; if not, will reset instead
     if (selectedStore !== store) {
 
       // creates and reorderspairs of abbreviation and name
-      let storePairs = abrv.map((abbr, index) => ({ abbr, name: name[index] }));
-      storePairs = [storePairs.find(pair => pair.abbr === store), ...storePairs.filter(pair => pair.abbr !== store)];
+      let storePairs = keys.map((key, index) => ({ key, label: labels[index] }));
+      storePairs = [storePairs.find(pair => pair.key === store), ...storePairs.filter(pair => pair.key !== store)];
     
       // extracts reordered arrays
-      abrv = storePairs.map(pair => pair.abbr);
-      name = storePairs.map(pair => pair.name);
+      keys = storePairs.map(pair => pair.key);
+      labels = storePairs.map(pair => pair.label);
     }
 
-    setStoreList(abrv);
-    setNameList(name);
+    setStoreList(keys);
+    setNameList(labels);
   };
 
   ///////////////////////////////// HTML /////////////////////////////////
@@ -67,9 +76,9 @@ const ViewIngredientModal = ({
 
         {/* Modal Content */}
         <View className="flex w-4/5 bg-zinc200 px-7 py-5 rounded-2xl">
-
+        
           {/* Title - Ingredient Name*/}
-          <Text className="text-[20px] font-bold">{ingredientData.ingredientName}</Text>
+          <Text className="text-[20px] font-bold mb-0.5">{ingredient.ingredientName}</Text>
 
           {/* Divider */}
           <View className="h-[1px] bg-zinc400 mb-4"/>
@@ -77,7 +86,7 @@ const ViewIngredientModal = ({
           {/* STORE SECTIONS */}
           {storeList.map((store, index) => (
             <View key={store}>
-            {ingredientData[`${store}Brand`] !== "" &&
+            {ingredient.ingredientData[store]?.brand !== "" &&
             <>
 
               {/* HEADER */}
@@ -91,12 +100,12 @@ const ViewIngredientModal = ({
                 </Text>
 
                 {/* Link if Valid */}
-                {ingredientData?.[`${store}Link`] && 
+                {ingredient.ingredientData[store]?.link && 
                 <Icon
                   name="link"
                   color={colors.theme600}
                   size={20}
-                  onPress={ingredientData?.[`${store}Link`] ? () => Linking.openURL(ingredientData[`${store}Link`]) : undefined}
+                  onPress={ingredient.ingredientData[store]?.link ? () => Linking.openURL(ingredient.ingredientData[store].link) : undefined}
                 />
                 }
               </View>
@@ -107,7 +116,7 @@ const ViewIngredientModal = ({
                   <>
                     {/* Brand */}
                     <Text className="w-4/5 bg-zinc300 border-[1px] border-zinc350 py-1 text-theme700 text-center">
-                        {ingredientData[`${store}Brand`]}
+                        {ingredient.ingredientData[store].brand}
                     </Text>
 
                     <View className="pt-4 flex w-full space-y-2">
@@ -119,8 +128,8 @@ const ViewIngredientModal = ({
                           Serving Size
                         </Text>
                         {/* size and units */}
-                        <Text className="flex-1 flex-row border-0.5 border-zinc500 bg-theme100 p-1 text-center text-[14px] leading-[16px]">
-                          {ingredientData[`${store}ServingSize`]} {extractUnit(ingredientData[`${store}Unit`], ingredientData[`${store}ServingSize`])}
+                        <Text className="flex-1 flex-row border-0.5 border-zinc500 bg-theme100 p-1 text-center text-[14px] leading-[17px]">
+                          {ingredient.ingredientData[store].servingSize} {extractUnit(ingredient.ingredientData[store].unit, ingredient.ingredientData[store].servingSize)}
                         </Text>
                       </View>
 
@@ -131,8 +140,8 @@ const ViewIngredientModal = ({
                           Servings Per Container
                         </Text>
                         {/* amount */}
-                        <Text className="flex-1 bg-theme100 border-0.5 border-zinc500 p-1 text-center text-[14px] leading-[16px]">
-                          {ingredientData[`${store}ServingContainer`]}
+                        <Text className="flex-1 bg-theme100 border-0.5 border-zinc500 p-1 text-center text-[14px] leading-[17px]">
+                          {ingredient.ingredientData[store].servingContainer}
                         </Text>
                       </View>
 
@@ -143,8 +152,8 @@ const ViewIngredientModal = ({
                           Calories Per Container
                         </Text>
                         {/* calories */}
-                        <Text className="flex-1 bg-theme100 border-0.5 border-zinc500 p-1 text-center text-[14px] leading-[16px]">
-                          {ingredientData[`${store}CalContainer`]} {"cal"}
+                        <Text className="flex-1 bg-theme100 border-0.5 border-zinc500 p-1 text-center text-[14px] leading-[17px]">
+                          {ingredient.ingredientData[store].calContainer} {"cal"}
                         </Text>
                       </View>
 
@@ -156,7 +165,7 @@ const ViewIngredientModal = ({
                         </Text>
                         {/* price */}
                         <Text className="flex-1 flex-row border-0.5 border-zinc500 p-1 bg-theme100 text-center">
-                          {"$"}{ingredientData[`${store}PriceContainer`]}
+                          {"$"}{ingredient.ingredientData[store].priceContainer}
                         </Text>
                       </View>
                     </View>

@@ -1,16 +1,22 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useState, useEffect } from 'react';
+
+// UI components
 import { Modal, View, Text, TextInput } from 'react-native';
 
-import colors from '../../assets/colors';
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
+import colors from '../../assets/colors';
 
+// validation
 import validateFractionInput from '../Validation/validateFractionInput';
 
+// firebase
 import currentEdit from '../../firebase/Currents/currentEdit';
 
-// initialize Firebase App
+// initialize firebase app
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -19,7 +25,7 @@ const db = getFirestore(app);
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const ModCurrentModal = ({ 
-  modalVisible, closeModal, editingId, editingData,
+  modalVisible, closeModal, initialData, editingId,
 }) => {
 
 
@@ -27,12 +33,9 @@ const ModCurrentModal = ({
 
   // Ingredient Data
   const [ingredientName, setIngredientName] = useState('');
-  const [CalServing, setCalServing] = useState('');
-  const [ServingSize, setServingSize] = useState('');
-  const [Unit, setUnit] = useState('');
-
-  // current data
-  const [currentData, setCurrentData] = useState(null);
+  const [calServing, setCalServing] = useState('');
+  const [servingSize, setServingSize] = useState('');
+  const [unit, setUnit] = useState('');
 
 
   ///////////////////////////////// MODAL FUNCTIONS /////////////////////////////////
@@ -51,21 +54,25 @@ const ModCurrentModal = ({
       setNameValid(true);
       
         // collects the ingredient's data
-        let ingredientData = { ingredientName, CalServing, ServingSize, Unit };
+        let current = { ...initialData }
+        current.ingredientData["-"] = { calServing, servingSize, unit };
 
         try {  
           
           // updates the ingredient
           currentEdit({
-            editingId: editingId ? editingId : editingData.id,
+            editingId: editingId,
+            amountLeft: current.amountLeft, 
+            amountTotal: current.amountTotal, 
+            archive: current.archive,
+            check: current.check, 
+            containerPrice: current.containerPrice, 
+            ingredientData: current.ingredientData, 
             ingredientId: "", 
-            ingredientData: ingredientData, 
-            check: currentData.check, 
-            containerPrice: currentData.containerPrice, 
-            amountTotal: currentData.amountTotal, 
-            amountLeft: currentData.amountLeft, 
-            unitPrice: currentData.unitPrice, 
-            ingredientStore: "",
+            ingredientName: ingredientName,
+            ingredientStore: "-",
+            ingredientTypes: current.ingredientTypes,
+            unitPrice: current.unitPrice, 
           });
             
           // closes the modal
@@ -78,38 +85,19 @@ const ModCurrentModal = ({
   };
 
   // to set up the modal on open
-  const setupModal = async (id, data) => {
-    if (data) {
-
-      setCurrentData(data);
-      
-      // sets the ingredient data
-      setIngredientName(data.name || '');
-      setCalServing(data.calServing || '');
-      setServingSize(data.servingSize || '');
-      setUnit(data.unit);
-
-    
-    } else if (id) {
-      // stores the current data
-      const docSnap = await getDoc(doc(db, 'currents', id));
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setCurrentData(data);
-        
-        // sets the ingredient data
-        setIngredientName(data.ingredientData.ingredientName || '');
-        setCalServing(data.ingredientData.CalServing || '');
-        setServingSize(data.ingredientData.ServingSize || '');
-        setUnit(data.ingredientData.Unit);
-      }
-    }
+  const setupModal = async () => {
+    setIngredientName(initialData.ingredientName || '');
+    setCalServing(initialData.ingredientData[initialData.ingredientStore].calServing || '');
+    setServingSize(initialData.ingredientData[initialData.ingredientStore].servingSize || '');
+    setUnit(initialData.ingredientData[initialData.ingredientStore].unit);
   }
 
   // on open (ie, when the id or data changes)
   useEffect(() => {
-    setupModal(editingId, editingData);
-  }, [editingId, editingData]);
+    if (modalVisible) {
+      setupModal();
+    }
+  }, [modalVisible]);
 
 
   // to close the modal
@@ -151,7 +139,7 @@ const ModCurrentModal = ({
           {/* CURRENT NAME */}
           <View className="flex flex-row justify-center items-center content-center mb-4 h-[60px] border-0.5 border-zinc500 bg-white rounded-md p-2 mx-2.5">
             <TextInput
-              className="text-center pb-1 text-[14px] leading-[16px]"
+              className="text-center pb-1 text-[14px] leading-[17px]"
               placeholder="Custom Ingredient Name"
               placeholderTextColor={colors.zinc400}
               multiline={true}
@@ -172,23 +160,23 @@ const ModCurrentModal = ({
               Serving Size
             </Text>
 
-            <View className="flex-1 flex-row border-t-0.5 border-b-0.5 border-zinc500">
+            <View className="flex-1 flex-row items-center justify-center bg-theme100 border-0.5 border-zinc500 px-2">
 
               {/* Size */}
               <TextInput
-                className="bg-theme100 p-1 flex-1 text-center border-l-0.5 border-zinc500 text-[14px] leading-[16px]"
+                className="p-1 text-center text-[14px] leading-[17px]"
                 placeholder="0 0/0"
                 placeholderTextColor={colors.zinc400}
-                value={ServingSize}
+                value={servingSize}
                 onChangeText={(value) => setServingSize(validateFractionInput(value))}
               />
 
               {/* Units */}
               <TextInput
-                className="bg-theme100 p-1 flex-1 border-r-0.5 border-zinc500 text-[14px] leading-[16px]"
+                className="p-1 text-center text-[14px] leading-[17px]"
                 placeholder="unit(s)"
                 placeholderTextColor={colors.zinc400}
-                value={Unit}
+                value={unit}
                 onChangeText={setUnit}
               />
             </View>
@@ -204,10 +192,10 @@ const ModCurrentModal = ({
     
             {/* Input */}
             <TextInput
-              className="border-0.5 border-zinc500 bg-theme100 p-1 flex-1 text-center text-[14px] leading-[16px]"
+              className="border-0.5 border-zinc500 bg-theme100 p-1 flex-1 text-center text-[14px] leading-[17px]"
               placeholder="0"
               placeholderTextColor={colors.zinc400}
-              value={CalServing}
+              value={calServing}
               onChangeText={setCalServing}
             />
           </View>
@@ -221,7 +209,7 @@ const ModCurrentModal = ({
             
             {/* Warning if no name is given */}
             {isNameValid ? "" : 
-              <Text className="text-pink-600 italic">
+              <Text className="text-mauve600 italic">
                 ingredient name is required
               </Text>
             }
@@ -232,7 +220,7 @@ const ModCurrentModal = ({
               {/* Check */}
               <Icon 
                 size={24}
-                color={'black'}
+                color="black"
                 name="checkmark"
                 onPress={submitModal}
               />
@@ -240,7 +228,7 @@ const ModCurrentModal = ({
               {/* X */}
               <Icon 
                 size={24}
-                color={'black'}
+                color="black"
                 name="close-outline"
                 onPress={exitModal}
               />

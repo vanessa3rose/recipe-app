@@ -1,12 +1,15 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity } from 'react-native';
+// react hooks
+import React from 'react';
 
-// Fractions
+// UI components
+import { Modal, View, Text, TouchableOpacity } from 'react-native';
+
+// fractions
 var Fractional = require('fractional').Fraction;
-import Fraction from 'fraction.js';
 
+// validation
 import extractUnit from '../Validation/extractUnit';
 
 

@@ -1,16 +1,21 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useState, useEffect } from 'react';
+
+// UI components
 import { Modal, View, Text, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
-import colors from '../../assets/colors';
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
+import colors from '../../assets/colors';
 
+// validation
 import capitalizeInput from '../Validation/capitalizeInput';
 
-// Initialize Firebase App
-import { getFirestore, collection, updateDoc, doc, getDocs, writeBatch } from 'firebase/firestore';
+// initialize firebase app
+import { getFirestore, doc, writeBatch } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
 
@@ -82,7 +87,7 @@ const ModTypeModal = ({
       dataToUse = dataToUse.filter((oldIngredient) => {
         return oldIngredients.some((newIngredient) => 
           newIngredient.id === oldIngredient.id &&
-          oldIngredient.ingredientType.sort().join(",") !== newIngredient.ingredientType.sort().join(",")
+          oldIngredient.ingredientTypes.sort().join(",") !== newIngredient.ingredientTypes.sort().join(",")
         );
       });
     }
@@ -108,7 +113,7 @@ const ModTypeModal = ({
     // if type filtering
     if (filterOn) {
       dataToUse = dataToUse.filter((ingredient) =>
-        ingredient.ingredientType.includes(typeToUse)
+        ingredient.ingredientTypes.includes(typeToUse)
       )
     }
     
@@ -216,10 +221,10 @@ const ModTypeModal = ({
     let newIngredients = ingredients;
   
     newIngredients = newIngredients.map((ingredient) => {
-      if (ingredient.ingredientType.includes(filterType)) {
+      if (ingredient.ingredientTypes.includes(filterType)) {
         return {
           ...ingredient,
-          ingredientType: ingredient.ingredientType.map((type) =>
+          ingredientTypes: ingredient.ingredientTypes.map((type) =>
             type === filterType ? editType : type
           ),
         };
@@ -250,12 +255,12 @@ const ModTypeModal = ({
   
     newIngredients = newIngredients.map((ingredient) => {
       if (ingredient.id === id) {
-        if (!ingredient.ingredientType.includes(selectedType)) {
-          const newTypes = [...ingredient.ingredientType.filter((type) => type !== ""), selectedType];
+        if (!ingredient.ingredientTypes.includes(selectedType)) {
+          const newTypes = [...ingredient.ingredientTypes.filter((type) => type !== ""), selectedType];
 
           return {
             ...ingredient,
-            ingredientType: newTypes,
+            ingredientTypes: newTypes,
           };
         }
       }
@@ -274,13 +279,13 @@ const ModTypeModal = ({
   
     newIngredients = newIngredients.map((ingredient) => {
       if (ingredient.id === id) {
-        const newTypes = ingredient.ingredientType.length === 1 && ingredient.ingredientType.includes(selectedType)
+        const newTypes = ingredient.ingredientTypes.length === 1 && ingredient.ingredientTypes.includes(selectedType)
           ? [""]
-          : ingredient.ingredientType.filter((type) => type !== selectedType);
+          : ingredient.ingredientTypes.filter((type) => type !== selectedType);
 
         return {
           ...ingredient,
-          ingredientType: newTypes,
+          ingredientTypes: newTypes,
         };
       }
       return ingredient;
@@ -324,15 +329,15 @@ const ModTypeModal = ({
       if (oldIngredient) {
 
         // compares their type lists
-        const oldTypes = oldIngredient.ingredientType.sort((a, b) => a.localeCompare(b)).join(",");
-        const newTypes = newIngredient.ingredientType.sort((a, b) => a.localeCompare(b)).join(",");
+        const oldTypes = oldIngredient.ingredientTypes.sort((a, b) => a.localeCompare(b)).join(",");
+        const newTypes = newIngredient.ingredientTypes.sort((a, b) => a.localeCompare(b)).join(",");
         
         if (oldTypes !== newTypes) {
 
           // if they don't match, update the ingredient in the db and store the changes in the arrays
-          batch.update(doc(db, 'ingredients', newIngredient.id), { ingredientType: newIngredient.ingredientType });
+          batch.update(doc(db, 'INGREDIENTS', newIngredient.id), { ingredientTypes: newIngredient.ingredientTypes });
           changedIds.push(newIngredient.id);
-          changedTypes.push(newIngredient.ingredientType);
+          changedTypes.push(newIngredient.ingredientTypes);
         }
       }
     });
@@ -346,12 +351,12 @@ const ModTypeModal = ({
       // if the current recipe's current ingredient has been changed, update it
       for (let i = 0; i < 12; i++) {
         if (changedIds.includes(recipe.data().ingredientIds[i])) {
-          recipeData.ingredientData[i].ingredientType = changedTypes[changedIds.indexOf(recipe.data().ingredientIds[i])];
+          recipeData.ingredientTypes[i] = changedTypes[changedIds.indexOf(recipe.data().ingredientIds[i])];
         }
       } 
           
       // change it in the db
-      batch.update(doc(db, 'recipes', recipe.id), recipeData);
+      batch.update(doc(db, 'RECIPES', recipe.id), recipeData);
     })
 
     // updates spotlights with the new ingredient types
@@ -363,12 +368,12 @@ const ModTypeModal = ({
       // if the current spotlight's current ingredient has been changed, update it
       for (let i = 0; i < 12; i++) {
         if (changedIds.includes(spotlight.data().ingredientIds[i])) {
-          spotlightData.ingredientData[i].ingredientType = changedTypes[changedIds.indexOf(spotlight.data().ingredientIds[i])];
+          spotlightData.ingredientTypes[i] = changedTypes[changedIds.indexOf(spotlight.data().ingredientIds[i])];
         }
       }
           
       // change it in the db
-      batch.update(doc(db, 'spotlights', spotlight.id), spotlightData);
+      batch.update(doc(db, 'SPOTLIGHTS', spotlight.id), spotlightData);
     })
 
     // batches the changes and closes the modal
@@ -410,7 +415,7 @@ const ModTypeModal = ({
               {/* check (submit) */}
               <Icon 
                 size={24}
-                color={'black'}
+                color="black"
                 name="checkmark"
                 onPress={submitModal}
               />
@@ -418,7 +423,7 @@ const ModTypeModal = ({
               {/* X (close) */}
               <Icon 
                 size={24}
-                color={'black'}
+                color="black"
                 name="close-outline"
                 onPress={() => setModalVisible(false)}
               />
@@ -439,7 +444,7 @@ const ModTypeModal = ({
               {/* filter input */}
               <View className="flex bg-white w-full border-0.5 h-full border-zinc500 rounded-md p-2 justify-center items-center">
                 <TextInput
-                  className="mb-1 text-center text-[14px] leading-[16px]"
+                  className="mb-1 text-center text-[14px] leading-[17px]"
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   placeholder="search for ingredient"
@@ -453,7 +458,7 @@ const ModTypeModal = ({
               <View className="absolute right-0.5 bottom-0.5 flex flex-row">
                 <Icon 
                   size={20}
-                  color={'black'}
+                  color="black"
                   name="close-outline"
                   onPress={() => setSearchQuery("")}
                 />
@@ -698,7 +703,7 @@ const ModTypeModal = ({
                 {/* ingredient types */}
                 <View className={`flex flex-row py-1 px-2 ${index % 2 === 0 ? "bg-zinc450" : "bg-zinc500"}`}>
                   <Text className="text-[9px] text-white italic font-semibold">
-                    {ingredient.ingredientType.sort((a, b) => a.localeCompare(b)).join(", ").toUpperCase()}
+                    {ingredient.ingredientTypes.sort((a, b) => a.localeCompare(b)).join(", ").toUpperCase()}
                   </Text>
 
                   {/* BUTTONS */}
@@ -706,7 +711,7 @@ const ModTypeModal = ({
                     <View className="flex flex-row absolute right-0.5 py-0.5">
 
                       {/* add (if not already included) */}
-                      {!ingredient.ingredientType.includes(selectedType) &&
+                      {!ingredient.ingredientTypes.includes(selectedType) &&
                         <Icon
                           name="add"
                           color="white"
@@ -716,7 +721,7 @@ const ModTypeModal = ({
                       }
 
                       {/* remove (if already included) */}
-                      {ingredient.ingredientType.includes(selectedType) &&
+                      {ingredient.ingredientTypes.includes(selectedType) &&
                         <Icon
                           name="close-outline"
                           color="white"

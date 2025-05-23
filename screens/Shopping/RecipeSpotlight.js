@@ -1,40 +1,38 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigation, useNavigationState } from '@react-navigation/native';
 
-import Icon from 'react-native-vector-icons/Ionicons';
-import colors from '../../assets/colors';
-
-import { View, Text, ScrollView, TextInput, Keyboard, TouchableOpacity, Linking, } from 'react-native';
+// UI components
+import { View, Text, ScrollView, TextInput, Keyboard, TouchableOpacity, Linking, Image } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { Picker } from '@react-native-picker/picker';
 
+// visual effects
+import Icon from 'react-native-vector-icons/Ionicons';
+import colors from '../../assets/colors';
+
+// store lists
+import storeKeys from '../../assets/storeKeys';
+import storeImages from '../../assets/storeImages';
+
+// modal
 import CalcIngredientModal from '../../components/MultiUse/CalcIngredientModal';
 import ModMealModal from '../../components/MultiUse/ModMealModal';
 import ViewIngredientModal from '../../components/MultiUse/ViewIngredientModal';
 import StoreRecipeModal from '../../components/Shopping-Spotlight/StoreRecipeModal';
 
-import spotlightAdd from '../../firebase/Spotlights/spotlightAdd';
-import { allIngredientFetch } from '../../firebase/Ingredients/allIngredientFetch'; 
-
 // Fractions
 var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
-
 import extractUnit from '../../components/Validation/extractUnit';
 
-// Logos
-import { Image } from 'react-native';
-import aldi from '../../assets/Logos/aldi.png'
-import marketbasket from '../../assets/Logos/market-basket.png'
-import starmarket from '../../assets/Logos/star-market.png'
-import stopandshop from '../../assets/Logos/stop-and-shop.png'
-import target from '../../assets/Logos/target.png'
-import walmart from '../../assets/Logos/walmart.png'
+// firebase
+import spotlightAdd from '../../firebase/Spotlights/spotlightAdd';
 
-// initialize Firebase App
+// initialize firebase app
 import { getFirestore, doc, updateDoc, collection, getDocs, getDoc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -80,11 +78,11 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   
   // when the tab is switched to recipes
   useEffect(() => {
+    
     if (isSelectedTab) {
-      updateIngredients();
-      refreshRecipes();
       refreshSpotlights();
       fetchGlobalSpotlight();
+      updateIngredients();
       setRecipeDropdownOpen(false);
     }
   }, [isSelectedTab])
@@ -98,10 +96,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     // if the page has changed to the current one, refetch the current data from the globals
     if (isSelectedTab && previousIndexRef !== null && previousIndexRef.current !== currentIndex && currentIndex === 0) {
       setTimeout(() => {
-        updateIngredients();
-        refreshRecipes();
         refreshSpotlights();
         fetchGlobalSpotlight();
+        updateIngredients();
         setRecipeDropdownOpen(false);}
       , 1000);
     }
@@ -114,14 +111,14 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   ///////////////////////////////// GETTING INGREDIENT DATA /////////////////////////////////
 
   // for the full ingredient data
-  const [ingredientData, setIngredientData] = useState([]);
+  const [ingredientsSnapshot, setIngredientsSnapshot] = useState([]);
 
   // for type picker
   const [selectedIngredientType, setSelectedIngredientType] = useState("ALL TYPES"); 
   const [ingredientTypeList, setIngredientTypeList] = useState([]);
 
   // for store picker
-  const [selectedIngredientStore, setSelectedIngredientStore] = useState("");
+  const [selectedIngredientStore, setSelectedIngredientStore] = useState("-");
   
   // for filtering
   const [filteredIngredientData, setFilteredIngredientData] = useState([]);
@@ -144,15 +141,15 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   const updateIngredients = async () => {
 
     // fetches and stores the full data
-    const data = await allIngredientFetch();
-    setIngredientData(data);
+    const querySnapshot = await getDocs(collection(db, 'INGREDIENTS'));
+    setIngredientsSnapshot(querySnapshot);
     
     // sorts the list of types from that data alphabetically
     const ingredientTypeList = [
       { label: "ALL TYPES", value: "ALL TYPES" },
       ...[...new Set(
-        data
-          .flatMap(item => item.ingredientType)
+        querySnapshot.docs
+          .flatMap(item => item.data().ingredientTypes)
           .filter(type => type !== undefined && type !== null)
       )]
         .sort((a, b) => a.localeCompare(b))
@@ -165,35 +162,51 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     // sets the list of types
     setIngredientTypeList(ingredientTypeList);
 
+    // extracts the ingredients
+    const ingredients = querySnapshot.docs.map((doc) => {
+      const formattedIngredient = {
+        id: doc.id,
+        ... doc.data()
+      }
+      return formattedIngredient;
+    })
+    .sort((a, b) => a.ingredientName.localeCompare(b.ingredientName)); // sort by ingredientName alphabetically
+
     // filters the ingredient data based on the selected type
-    setFilteredIngredientData(data);
+    setFilteredIngredientData(ingredients);
   }
   
 
   // filters the ingredients based on the "search for ingredient" text input
   const filterIngredientData = (ingredientQuery) => {
 
-    // filters for ingredient search
-    let filtered = ingredientData.filter(ingredient => {
-      const queryWords = ingredientQuery
-        .toLowerCase()
-        .split(' ')
-        .filter(word => word.trim() !== ''); // splits into words and remove empty strings
+    let filtered = [];
     
-      return queryWords.every(word => ingredient.ingredientName.toLowerCase().includes(word));
-    });
-
+    // filters for ingredient search
+    if (ingredientsSnapshot?.docs?.length > 0) {
+      filtered = ingredientsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(ingredient => {
+          const queryWords = ingredientQuery
+            .toLowerCase()
+            .split(' ')
+            .filter(word => word.trim() !== ''); // splits into words and remove empty strings
+      
+        return queryWords.every(word => ingredient.ingredientName.toLowerCase().includes(word));
+      }).sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
+    }
+    
     // filters for type
     if (selectedIngredientType !== "ALL TYPES") {
       filtered = filtered.filter(ingredient => 
-        Array.isArray(ingredient.ingredientType) && ingredient.ingredientType.includes(selectedIngredientType)
+        Array.isArray(ingredient.ingredientTypes) && ingredient.ingredientTypes.includes(selectedIngredientType)
       );
     }
 
-    // filers for store
-    if (selectedIngredientStore !== "") {
+    // filters for store
+    if (selectedIngredientStore !== "-") {
       filtered = filtered.filter(ingredient => 
-        ingredient[`${selectedIngredientStore}Brand`] !== ""
+        ingredient.ingredientData[selectedIngredientStore].brand !== ""
       );
     }
 
@@ -211,19 +224,19 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       setSelectedIngredientName("");
       setSelectedIngredientId("");
     }
-  };
+  }
     
   // refilters when the type or store changes
   useEffect(() => {
     setSearchIngredientQuery("");
     setIngredientDropdownOpen(false);
     filterIngredientData(searchIngredientQuery);
-  }, [selectedIngredientType, selectedIngredientStore]);
+  }, [selectedIngredientType, selectedIngredientStore, ingredientsSnapshot]); 
 
   // decides the next store
   const changeSelectedStore = () => {
-    const stores = ["", "a", "mb", "sm", "ss", "t", "w"];
-    setSelectedIngredientStore(stores[(stores.indexOf(selectedIngredientStore) + 1) % 7]); 
+    const ingredientStores = ["-", ...storeKeys];
+    setSelectedIngredientStore(ingredientStores[(ingredientStores.indexOf(selectedIngredientStore) + 1) % (storeKeys.length + 1)]); 
   }
 
 
@@ -272,24 +285,25 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     if (selectedIngredientName !== "" && selectedSpotlightId) {
 
       // gets the data of the searched ingredient
-      const docSnap = await getDoc(doc(db, 'ingredients', selectedIngredientId)); 
+      const docSnap = await getDoc(doc(db, 'INGREDIENTS', selectedIngredientId)); 
       const data = docSnap.exists() ? docSnap.data() : null;
       
       // sets the ingredient's data to be default
       selectedSpotlightData.ingredientIds[selectedIngredientIndex - 1] = selectedIngredientId;
-      selectedSpotlightData.ingredientData[selectedIngredientIndex - 1] = data;
+      selectedSpotlightData.ingredientData[selectedIngredientIndex - 1] = data.ingredientData;
+      selectedSpotlightData.ingredientNames[selectedIngredientIndex - 1] = data.ingredientName;
+      selectedSpotlightData.ingredientTypes[selectedIngredientIndex - 1] = data.ingredientTypes;
 
       // if a store is not being filtered, calculates the initial store based on the brands that are and are not empty
-      if (selectedIngredientStore === "") {
+      if (selectedIngredientStore === "-") {
 
         // calculates the initial store based on the brands that are and are not empty
-        const stores = ["a", "mb", "sm", "ss", "t", "w"];
-        const currStore = "a";
+        const currStore = storeKeys[0];
 
-        for (let i = 0; i < 6; i++) {
-          if (selectedSpotlightData.ingredientData[selectedIngredientIndex - 1][`${stores[(stores.indexOf(currStore) + i) % 6]}${'Brand'}`] !== "") {
-            selectedSpotlightData.ingredientStores[selectedIngredientIndex - 1] = stores[(stores.indexOf(currStore) + i) % 6];
-            i = 6;
+        for (let i = 0; i < storeKeys.length; i++) {
+          if (selectedSpotlightData.ingredientData[selectedIngredientIndex - 1][storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length]].brand !== "") {
+            selectedSpotlightData.ingredientStores[selectedIngredientIndex - 1] = storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length];
+            break;
           }
         }
       // otherwise, just use the selected store
@@ -317,9 +331,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
           setSelectedIngredientIndex(i + 1);
         }
       }
-
+ 
       // stores the spotlight data in the firebase
-      await updateDoc(doc(db, 'spotlights', selectedSpotlightId), calcData);
+      await updateDoc(doc(db, 'SPOTLIGHTS', selectedSpotlightId), calcData);
 
       // updates the selected spotlight's data
       setSelectedSpotlightData({ ...calcData });
@@ -337,6 +351,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
       // the current ingredient data 
       let dataArr = selectedSpotlightData.ingredientData;
+      let namesArr = selectedSpotlightData.ingredientNames;
+      let typesArr = selectedSpotlightData.ingredientTypes;
       let idsArr = selectedSpotlightData.ingredientIds;
       let amountsArr = selectedSpotlightData.ingredientAmounts;
       let storesArr = selectedSpotlightData.ingredientStores;
@@ -346,6 +362,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
       // to store the new ingredient data - default values at first
       let newDataArr = [ null, null, null, null, null, null, null, null, null, null, null, null ];
+      let newNamesArr = [ "", "", "", "", "", "", "", "", "", "", "", "" ];
+      let newTypesArr = {0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [], 8: [], 9: [], 10: [], 11: []}; 
       let newIdsArr = [ "", "", "", "", "", "", "", "", "", "", "", "" ];
       let newAmountsArr = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
       let newStoresArr = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
@@ -362,6 +380,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
         for (var i = 0; i < 12; i++) {
           if(dataArr[i] !== null) {
             newDataArr[index] = dataArr[i];
+            newNamesArr[index] = namesArr[i];
+            newTypesArr[index] = typesArr[i];
             newIdsArr[index] = idsArr[i];
             newAmountsArr[index] = amountsArr[i];
             newStoresArr[index] = storesArr[i];
@@ -386,6 +406,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
           
           if (dataArr[i] !== null) {
             newDataArr[index] = dataArr[i];
+            newNamesArr[index] = namesArr[i];
+            newTypesArr[index] = typesArr[i];
             newIdsArr[index] = idsArr[i];
             newAmountsArr[index] = amountsArr[i];
             newStoresArr[index] = storesArr[i];
@@ -398,6 +420,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
       // stores the newly shifted data
       selectedSpotlightData.ingredientData = newDataArr;
+      selectedSpotlightData.ingredientNames = newNamesArr;
+      selectedSpotlightData.ingredientTypes = newTypesArr;
       selectedSpotlightData.ingredientIds = newIdsArr;
       selectedSpotlightData.ingredientAmounts = newAmountsArr;
       selectedSpotlightData.ingredientStores = newStoresArr;
@@ -419,7 +443,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       }
       
       // stores the spotlight data in the firebase
-      updateDoc(doc(db, 'spotlights', selectedSpotlightId), calcData);
+      updateDoc(doc(db, 'SPOTLIGHTS', selectedSpotlightId), calcData);
 
       // updates the selected spotlight's data
       setSelectedSpotlightData(calcData);
@@ -441,6 +465,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
     // resets the ingredient data at the selected index to be null
     selectedSpotlightData.ingredientData[selectedIngredientIndex - 1] = null;
+    selectedSpotlightData.ingredientNames[selectedIngredientIndex - 1] = "";
+    selectedSpotlightData.ingredientTypes[selectedIngredientIndex - 1] = [];
     selectedSpotlightData.ingredientIds[selectedIngredientIndex - 1] = "";
     selectedSpotlightData.ingredientAmounts[selectedIngredientIndex - 1] = "";
     selectedSpotlightData.ingredientStores[selectedIngredientIndex - 1] = "";
@@ -470,7 +496,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     }
     
     // stores the spotlight data in the firebase
-    updateDoc(doc(db, 'spotlights', selectedSpotlightId), calcData);
+    updateDoc(doc(db, 'SPOTLIGHTS', selectedSpotlightId), calcData);
 
     // updates the selected spotlight's data
     setSelectedSpotlightData(calcData);
@@ -493,11 +519,11 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   
       // general variables
       const ingredient = selectedSpotlightData.ingredientData[index];
-      const brandKey = `${selectedSpotlightData.ingredientStores[index]}Brand`;
-      const unitKey = `${selectedSpotlightData.ingredientStores[index]}Unit`;
+      const brandKey = ingredient[selectedSpotlightData.ingredientStores[index]].brand;
+      const unitKey = ingredient[selectedSpotlightData.ingredientStores[index]].unit;
 
       // checks if the brand is valid, meaning the ingredient has data
-      if (ingredient && ingredient[brandKey] && ingredient[brandKey] !== "" && ingredient[unitKey] && ingredient[unitKey] !== "") {
+      if (ingredient && brandKey && brandKey !== "" && unitKey && unitKey !== "") {
     
         // updates the current ingredient amounts
         setCurrIngredientAmounts((prev) => {
@@ -514,7 +540,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
         determineEdited(calcData, recipeList);
         
         // stores the spotlight data in the firebase
-        updateDoc(doc(db, 'spotlights', selectedSpotlightId), calcData);
+        updateDoc(doc(db, 'SPOTLIGHTS', selectedSpotlightId), calcData);
     
         // updates the selected spotlight's data
         setSelectedSpotlightData(calcData);
@@ -539,13 +565,13 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
         // general variables
         const ingredient = data.ingredientData[index];
         const storeKey = data.ingredientStores[index];
-        const brandKey = ingredient[`${storeKey}Brand`];
+        const brandKey = ingredient[storeKey].brand;
 
         // fractional calculations
         const amount = new Fractional(value);
-        const totalYield = new Fractional(ingredient[`${storeKey}TotalYield`]);
-        const calContainer = new Fractional(ingredient[`${storeKey}CalContainer`]);
-        const priceContainer = new Fractional(ingredient[`${storeKey}PriceContainer`]);
+        const totalYield = new Fractional(ingredient[storeKey].totalYield);
+        const calContainer = new Fractional(ingredient[storeKey].calContainer);
+        const priceContainer = new Fractional(ingredient[storeKey].priceContainer);
 
         // invalid (1)
         if (value === "" || brandKey === "") {
@@ -601,7 +627,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             data.ingredientServings[index] = amount.toString() === "0" ? 0 : new Fraction(totalYield.divide(amount).toString()) * 1;
 
             // overall
-            totalServing = (index === 0 || totalServing > new Fraction(totalYield.divide(amount).toString()) * 1) ? new Fraction(totalYield.divide(amount).toString()) * 1 : totalServing;
+            totalServing = (totalServing === 0 || totalServing > new Fraction(totalYield.divide(amount).toString()) * 1) ? new Fraction(totalYield.divide(amount).toString()) * 1 : totalServing;
 
           // set individual servings to 0 if arguments are not valid
           } else {
@@ -634,21 +660,15 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
   // to transition to the next store
   const changeStore = (index) => {
-    
-    // the list of stores
-    const stores = ["a", "mb", "sm", "ss", "t", "w"];
 
-    // the current store
     const currStore = selectedSpotlightData?.ingredientStores[index];
-
-    // the next store
     let nextStore = currStore;
 
     // calculates the next store based on the brands that are and are not empty
-    for (let i = 1; i <= 6; i++) {
-      if (selectedSpotlightData.ingredientData[index][`${stores[(stores.indexOf(currStore) + i) % 6]}${'Brand'}`] !== "") {
-        nextStore = stores[(stores.indexOf(currStore) + i) % 6];
-        i = 7;
+    for (let i = 1; i <= storeKeys.length; i++) {
+      if (selectedSpotlightData.ingredientData[index][storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length]].brand !== "") {
+        nextStore = storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length];
+        break;
       }
     }
 
@@ -662,7 +682,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     determineEdited(calcData, recipeList);
     
     // stores the spotlight data in the firebase
-    updateDoc(doc(db, 'spotlights', selectedSpotlightId), calcData);
+    updateDoc(doc(db, 'SPOTLIGHTS', selectedSpotlightId), calcData);
 
     // updates the selected spotlight's data
     setSelectedSpotlightData(calcData);
@@ -692,7 +712,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   // helper function to reload the selected recipe's data
   const reloadRecipe = async () => {
     if (selectedRecipeId) {
-      const docSnap = await getDoc(doc(db, 'recipes', selectedRecipeId));
+      const docSnap = await getDoc(doc(db, 'RECIPES', selectedRecipeId));
       const data = docSnap.exists() ? docSnap.data() : null;
       setSelectedRecipeData(data);
     }
@@ -704,10 +724,10 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   }, [selectedRecipeId]);
 
   // helper function to refresh the list of recipes
-  const refreshRecipes = async () => {
+  const refreshRecipes = async (spotlightData) => {
 
     // gets the collection of recipes
-    const querySnapshot = await getDocs(collection(db, 'recipes'));
+    const querySnapshot = await getDocs(collection(db, 'RECIPES'));
 
     // reformats each one
     const recipesArray = querySnapshot.docs.map((doc) => {
@@ -736,14 +756,6 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       if (Array.isArray(data.recipeTags)) { allRecipeTags.push(...data.recipeTags); }
     });
 
-    // determines changed details
-    let calcData = calcAmounts(selectedSpotlightData);
-    determineEdited(calcData, recipesArray);
-
-    // updates the data
-    await updateDoc(doc(db, 'spotlights', selectedSpotlightId), calcData);
-    setSelectedSpotlightData({ ...calcData });
-  
     // removes duplicates and sort alphabetically, excluding "NEW TAG"
     const uniqueTags = [...new Set(allRecipeTags)];
     const sortedTags = uniqueTags
@@ -758,9 +770,20 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       label: tag,
       value: tag,
     }));
-
+    
     // sets the list of recipe tags
     setRecipeTagList(tagsWithLabelsAndValues);
+    
+
+    if (spotlightData) {    
+      // determines changed details
+      let calcData = calcAmounts(spotlightData);
+      determineEdited(calcData, recipesArray);
+      
+      // updates the data
+      await updateDoc(doc(db, 'SPOTLIGHTS', selectedSpotlightId), calcData);
+      setSelectedSpotlightData({ ...calcData });
+    }
   };
 
 
@@ -789,7 +812,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   }, [recipeDropdownOpen]);
 
   // to filter the recipe list of the top section
-  const filterRecipeList = (recipeQuery, ingredientQuery) => {
+  const filterRecipeList = (recipeQuery, ingredientQuery, recipeTag) => {
     
     // filters for recipe search
     let filtered = recipeList.filter(recipe => {
@@ -811,19 +834,19 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
         // checks if every keyword is in at least one of the 12 ingredient names
         return queryWords.every(word =>
-          recipe.ingredientData.some((ingredient, index) => 
-            index < 12 && ingredient && ingredient.ingredientName.toLowerCase().includes(word)
+          recipe.ingredientNames.some((name, index) => 
+            index < 12 && name.toLowerCase().includes(word)
           )
         );
       });
     }
 
     // filters for tags
-    if (selectedRecipeTag !== "ALL TAGS") {
-      if (selectedRecipeTag === "NO TAGS") {
+    if (recipeTag !== "ALL TAGS") {
+      if (recipeTag === "NO TAGS") {
         filtered = filtered.filter(recipe => recipe.recipeTags.length === 0); // checks if array is empty
       } else {
-        filtered = filtered.filter(recipe => recipe.recipeTags.includes(selectedRecipeTag));
+        filtered = filtered.filter(recipe => recipe.recipeTags.includes(recipeTag));
       }
     }
 
@@ -831,6 +854,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     if (filtered.length !== 0) {
       setRecipeKeywordQuery(recipeQuery);
       setIngredientKeywordQuery(ingredientQuery);
+      setSelectedRecipeTag(recipeTag);
       setRecipeDropdownOpen(true);
       setFilteredRecipeList(filtered);
     } else {
@@ -843,12 +867,6 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       setSelectedRecipeId(null);
     }
   };
-
-  // for when a keyword is changed
-  useEffect(() => {
-    filterRecipeList(recipeKeywordQuery, ingredientKeywordQuery);
-    setRecipeDropdownOpen(true);
-  }, [selectedRecipeTag]);
 
   // for when an recipe is selected from the dropdown that appears above the textinput
   const pickRecipe = (item) => {
@@ -886,7 +904,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     
     // as long as a recipe was collected
     if (selectedRecipeId) {
-      updateDoc(doc(db, 'globals', 'recipe'), { id: selectedRecipeId });
+      updateDoc(doc(db, 'GLOBALS', 'recipe'), { id: selectedRecipeId });
     }
   }
   
@@ -902,6 +920,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       selectedSpotlightData.ingredientAmounts = selectedRecipeData.ingredientAmounts;
       selectedSpotlightData.ingredientCals = selectedRecipeData.ingredientCals;
       selectedSpotlightData.ingredientData = selectedRecipeData.ingredientData;
+      selectedSpotlightData.ingredientNames = selectedRecipeData.ingredientNames;
+      selectedSpotlightData.ingredientTypes = selectedRecipeData.ingredientTypes;
       selectedSpotlightData.ingredientIds = selectedRecipeData.ingredientIds;
       selectedSpotlightData.ingredientPrices = selectedRecipeData.ingredientPrices;
       selectedSpotlightData.ingredientServings = selectedRecipeData.ingredientServings;
@@ -919,7 +939,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       selectedSpotlightData.ingredientStoreEdited = [ false, false, false, false, false, false, false, false, false, false, false, false ];
 
       // updates the collection data
-      updateDoc(doc(db, 'spotlights', selectedSpotlightId), selectedSpotlightData);
+      updateDoc(doc(db, 'SPOTLIGHTS', selectedSpotlightId), selectedSpotlightData);
   
       // updates the selected spotlight's data
       setSelectedSpotlightData(selectedSpotlightData);
@@ -948,6 +968,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
         ingredientAmounts: selectedRecipeData.ingredientAmounts,
         ingredientCals: selectedRecipeData.ingredientCals,
         ingredientData: selectedRecipeData.ingredientData,
+        ingredientNames: selectedRecipeData.ingredientNames,
+        ingredientTypes: selectedRecipeData.ingredientTypes,
         ingredientIds: selectedRecipeData.ingredientIds,
         ingredientPrices: selectedRecipeData.ingredientPrices,
         ingredientServings: selectedRecipeData.ingredientServings,
@@ -965,19 +987,17 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   
       // adds a new spotlight and then immediately updates its data
       const [docId, spotlightData] = await spotlightAdd({ numSpotlights: spotlightList.length });
-      updateDoc(doc(db, 'spotlights', docId), selectedData);
+      updateDoc(doc(db, 'SPOTLIGHTS', docId), selectedData);
       
       // stores data
       setSelectedSpotlightId(docId);
       setSelectedSpotlightData(selectedData);
   
       // updates the list of selected spotlights and ids
-      let newSelected = spotlightsSelected;
-      spotlightsSelected.push(false);
+      let newSelected = [...spotlightsSelected, false];
       setSpotlightsSelected(newSelected);
   
-      let newIds = spotlightsIds;
-      spotlightsIds.push(docId);
+      let newIds = [...spotlightsIds, docId];
       setSpotlightsIds(newIds);
   
       // stores the new data
@@ -985,7 +1005,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
         id,
         selected: newSelected[newIds.indexOf(id)],
       }));
-      updateDoc(doc(db, 'globals', 'shopping'), { spotlights: spotlightsData });
+      updateDoc(doc(db, 'GLOBALS', 'shopping'), { spotlights: spotlightsData });
       
       // reload settings
       refreshSpotlights();
@@ -1005,17 +1025,17 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   const changeSelected = async () => {
 
     // changes only the current spotlight's selection
-    const newSelected = spotlightsSelected;
+    let newSelected = [...spotlightsSelected];
     newSelected[spotlightsIds.indexOf(selectedSpotlightId)] = !spotlightsSelected[spotlightsIds.indexOf(selectedSpotlightId)];
 
     // stores the data for the db
-    const spotlightsData = spotlightsIds.map((id, index) => ({
+    const spotlightsData = spotlightsIds.map((id) => ({
       id,
       selected: newSelected[spotlightsIds.indexOf(id)],
     }));
       
     // stores the change
-    updateDoc(doc(db, 'globals', 'shopping'), { spotlights: spotlightsData });
+    updateDoc(doc(db, 'GLOBALS', 'shopping'), { spotlights: spotlightsData });
     setSpotlightsSelected(newSelected);
 
     // reloads
@@ -1051,14 +1071,14 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     try {
     
       // gets the global spotlight id
-      const globalDoc = await getDoc(doc(db, 'globals', 'spotlight'));
+      const globalDoc = await getDoc(doc(db, 'GLOBALS', 'spotlight'));
       if (globalDoc.exists()) {
         
         let spotlightId = globalDoc.data().id;
         if (spotlightId) {
 
           // gets the spotlight data
-          const spotlightDoc = await getDoc(doc(db, 'spotlights', spotlightId));
+          const spotlightDoc = await getDoc(doc(db, 'SPOTLIGHTS', spotlightId));
           if (spotlightDoc.exists()) {
             const spotlightData = spotlightDoc.data();
 
@@ -1071,6 +1091,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             
             setSelectedSpotlightId(spotlightId);
             setSelectedSpotlightData(spotlightData);
+
+            // updates spotlight recipe data
+            refreshRecipes(spotlightData);
 
             // if the data is not null
             if (spotlightData) {
@@ -1110,10 +1133,10 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     if (selectedSpotlightId) {
 
       // stores the recipe data in the firebase
-      updateDoc(doc(db, 'globals', 'spotlight'), { id: selectedSpotlightId });
+      updateDoc(doc(db, 'GLOBALS', 'spotlight'), { id: selectedSpotlightId });
 
       // gets the data
-      const docSnap = await getDoc(doc(db, 'spotlights', selectedSpotlightId));
+      const docSnap = await getDoc(doc(db, 'SPOTLIGHTS', selectedSpotlightId));
 
       // sets the spotlight based on the given id and data
       if (docSnap.exists()) {
@@ -1137,7 +1160,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
           determineEdited(calcData, recipeList);
 
           // updates the collection data
-          await updateDoc(doc(db, 'spotlights', selectedSpotlightId), calcData);
+          await updateDoc(doc(db, 'SPOTLIGHTS', selectedSpotlightId), calcData);
       
           // updates the selected data
           setSelectedSpotlightData({ ...calcData });
@@ -1167,7 +1190,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   const refreshSpotlights = async () => {
 
     // gets the collection of spotlights
-    const querySnapshot = await getDocs(collection(db, 'spotlights'));
+    const querySnapshot = await getDocs(collection(db, 'SPOTLIGHTS'));
     
     // reformats each one
     const spotlightsArray = querySnapshot.docs.map((doc) => {
@@ -1182,14 +1205,11 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     setSpotlightList(spotlightsArray);
         
     // gets current global spotlight info
-    const shopping = await getDoc(doc(db, 'globals', 'shopping'));
-    const shoppingData = shopping.data();
-    const shoppingIds = shoppingData.spotlights.map((doc) => doc.id);
-    const shoppingSelected = shoppingData.spotlights.map((doc) => doc.selected);
+    const shopping = await getDoc(doc(db, 'GLOBALS', 'shopping'));
 
     // stores it
-    setSpotlightsIds(shoppingIds);
-    setSpotlightsSelected(shoppingSelected);
+    setSpotlightsIds(shopping.data().spotlights.map((doc) => doc.id));
+    setSpotlightsSelected(shopping.data().spotlights.map((doc) => doc.selected));
   };
 
 
@@ -1211,12 +1231,10 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     setSelectedSpotlightId(docId);
 
     // updates the list of selected spotlights and ids
-    let newSelected = spotlightsSelected;
-    spotlightsSelected.push(false);
+    const newSelected = [...spotlightsSelected, false];
     setSpotlightsSelected(newSelected);
 
-    let newIds = spotlightsIds;
-    spotlightsIds.push(docId);
+    const newIds = [...spotlightsIds, docId];
     setSpotlightsIds(newIds);
 
     // stores the new data
@@ -1224,7 +1242,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       id,
       selected: newSelected[newIds.indexOf(id)],
     }));
-    updateDoc(doc(db, 'globals', 'shopping'), { spotlights: spotlightsData });
+    updateDoc(doc(db, 'GLOBALS', 'shopping'), { spotlights: spotlightsData });
     
     // reload settings
     refreshSpotlights();
@@ -1269,7 +1287,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
         id,
         selected: newSelected[newIds.indexOf(id)],
       }));
-      updateDoc(doc(db, 'globals', 'shopping'), { spotlights: spotlightsData });
+      updateDoc(doc(db, 'GLOBALS', 'shopping'), { spotlights: spotlightsData });
 
       // restores data
       setSelectedSpotlightData(null);
@@ -1296,7 +1314,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
         selectedSpotlightData.spotlightMult = Number(text);
     
         // stores the spotlight data in the firebase
-        updateDoc(doc(db, 'spotlights', selectedSpotlightId), selectedSpotlightData);
+        updateDoc(doc(db, 'SPOTLIGHTS', selectedSpotlightId), selectedSpotlightData);
 
         // updates the selected spotlight's data
         setSelectedSpotlightData(selectedSpotlightData);
@@ -1317,6 +1335,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   
   // when an ingredient's details are clicked to view the modal
   const showCalcModal = (index) => {
+    
     if (selectedSpotlightData?.ingredientData[index] !== null) {
 
       // to calculate amount left without current spotlight
@@ -1362,16 +1381,45 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       // gets the current data of the original recipe
       const ogRecipe = recipeList.find((recipe) => recipe.id === data.recipeId);
 
-      // loops over the spotlight's 12 ingredients
-      for (let i = 0; i < 12; i++) {
+      // if the recipe is still valid
+      if (ogRecipe) {
 
-        // finds the original recipe's index of the current ingredient
-        const ogIndex = ogRecipe.ingredientIds.indexOf(data.ingredientIds[i]);
+        // determines if the name has been edited
+        data.spotlightNameEdited = data.spotlightName !== ogRecipe.recipeName;
         
-        // if the ingredient was found, update accordingly; if not, was edited
-        data.ingredientNameEdited[i] = ogIndex === -1 ? true : data.ingredientData[i]?.ingredientName !== ogRecipe.ingredientData[ogIndex]?.ingredientName;
-        data.ingredientAmountEdited[i] = ogIndex === -1 ? true : data.ingredientAmounts[i] !== ogRecipe.ingredientAmounts[ogIndex];
-        data.ingredientStoreEdited[i] = ogIndex === -1 ? true : data.ingredientStores[i] !== ogRecipe.ingredientStores[ogIndex];
+        // loops over the spotlight's 12 ingredients
+        for (let i = 0; i < 12; i++) {
+
+          // finds the original recipe's index of the current ingredient
+          const ogIndex = ogRecipe.ingredientIds.indexOf(data.ingredientIds[i]);
+          
+          // if the ingredient was found, update accordingly; if not, was edited
+          data.ingredientNameEdited[i] = ogIndex === -1 ? true : data.ingredientNames[i] !== ogRecipe.ingredientNames[ogIndex];
+          data.ingredientAmountEdited[i] = ogIndex === -1 ? true : data.ingredientAmounts[i] !== ogRecipe.ingredientAmounts[ogIndex];
+          data.ingredientStoreEdited[i] = ogIndex === -1 ? true : data.ingredientStores[i] !== ogRecipe.ingredientStores[ogIndex];
+        }
+
+      // if the recipe is no longer valid, reset
+      } else {
+        data.recipeId === null;
+        data.spotlightNameEdited = false;
+
+        for (let i = 0; i < 12; i++) {
+          data.ingredientNameEdited[i] = false;
+          data.ingredientAmountEdited[i] = false;
+          data.ingredientStoreEdited[i] = false;
+        }
+      }
+
+    // if the recipeId is null, reset
+    } else {
+      data.recipeId === null;
+      data.spotlightNameEdited = false;
+
+      for (let i = 0; i < 12; i++) {
+        data.ingredientNameEdited[i] = false;
+        data.ingredientAmountEdited[i] = false;
+        data.ingredientStoreEdited[i] = false;
       }
     }
   }
@@ -1380,7 +1428,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   ///////////////////////////////// VIEWING INGREDIENT /////////////////////////////////
 
   const [ingredientModalVisible, setIngredientModalVisible] = useState(false);
-  const [selectedIngredientData, setSelectedIngredientData] = useState("");
+  const [selectedIngredient, setSelectedIngredient] = useState("");
 
   // when the selected ingredient id chanegs get its data
   useEffect(() => {
@@ -1391,8 +1439,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
   // to get the ingredient data from the db
   const fetchIngredientData = async (id) => {
-    const docSnap = await getDoc(doc(db, 'ingredients', id));
-    if (docSnap.exists()) { setSelectedIngredientData(docSnap.data()); }
+    const docSnap = await getDoc(doc(db, 'INGREDIENTS', id));
+    if (docSnap.exists()) { setSelectedIngredient(docSnap.data()); }
   }
       
       
@@ -1428,10 +1476,10 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               {/* text input */}
               <TextInput
                 value={ingredientKeywordQuery}
-                onChangeText={(value) => filterRecipeList(recipeKeywordQuery, value)}
+                onChangeText={(value) => filterRecipeList(recipeKeywordQuery, value, selectedRecipeTag)}
                 placeholder="ingredient keyword(s)"
                 placeholderTextColor={colors.zinc400}
-                className="flex-1 text-[14px] leading-[16px] pl-2.5 pr-10 border-[1px] border-zinc300 rounded-[5px] bg-white"
+                className="flex-1 text-[14px] leading-[17px] pl-2.5 pr-10 border-[1px] border-zinc300 rounded-[5px] bg-white"
               />
 
               {/* clear button */}
@@ -1442,7 +1490,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   color="black"
                   onPress={() => {
                     setIngredientKeywordQuery("");
-                    filterRecipeList(recipeKeywordQuery, "")
+                    filterRecipeList(recipeKeywordQuery, "", selectedRecipeTag)
                   }}
                 />
               </View>
@@ -1452,7 +1500,10 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             <View className="z-0 bg-theme200 border-0.5 border-theme400 w-1/3">
               <Picker
                 selectedValue={selectedRecipeTag}
-                onValueChange={(itemValue) => setSelectedRecipeTag(itemValue)}
+                onValueChange={(itemValue) => {
+                  filterRecipeList(recipeKeywordQuery, ingredientKeywordQuery, itemValue);
+                  setRecipeDropdownOpen(true);
+                }}
                 style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -10, }}
                 itemStyle={{ color:'black', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
               >
@@ -1512,10 +1563,10 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               <View className={`flex flex-row ${selectedRecipeData !== null ? "w-[85%] px-1" : "w-[95%] pl-1"}`}>
                 <TextInput
                   value={recipeKeywordQuery}
-                  onChangeText={(value) => filterRecipeList(value, ingredientKeywordQuery)}
+                  onChangeText={(value) => filterRecipeList(value, ingredientKeywordQuery, selectedRecipeTag)}
                   placeholder="recipe keyword(s)"
                   placeholderTextColor={'white'}
-                  className={`flex-1 text-white text-[14px] leading-[16px] pl-2.5 pr-10 bg-zinc400 ${recipeDropdownOpen ? "rounded-t-[5px]" : "rounded-[5px]"}`}
+                  className={`flex-1 text-white text-[14px] leading-[17px] pl-2.5 pr-10 bg-zinc400 ${recipeDropdownOpen ? "rounded-t-[5px]" : "rounded-[5px]"}`}
                   onFocus={() => {
                     setIngredientDropdownOpen(false);
                     setRecipeDropdownOpen(filteredRecipeList.length > 0);
@@ -1524,7 +1575,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
                 {/* Recipe Dropdown */}
                 {recipeDropdownOpen && (
-                  <View className="flex w-full absolute top-[100%] bg-theme100  max-h-[200px] rounded-b-[5px] border-x-[1px] border-b-[1px] border-zinc400 z-50">
+                  <View className="flex ml-1 w-full absolute top-[100%] bg-theme100 max-h-[200px] rounded-b-[5px] border-x-[1px] border-b-[1px] border-zinc400 z-50">
                     <ScrollView>
                       {filteredRecipeList.map((item, index) => (
                         <TouchableOpacity
@@ -1544,10 +1595,13 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
                   {/* opens the recipe dropdown */}
                   <Icon
-                    name="chevron-down-outline"
+                    name={recipeDropdownOpen ? "chevron-up-outline" : "chevron-down-outline"}
                     size={20}
                     color="white"
-                    onPress={() => filterRecipeList(recipeKeywordQuery, ingredientKeywordQuery)}
+                    onPress={() => {
+                      if (recipeDropdownOpen) { setRecipeDropdownOpen(false); }
+                      else { filterRecipeList(recipeKeywordQuery, ingredientKeywordQuery, selectedRecipeTag); }
+                    }}
                   />
 
                   {/* clears the recipe input from the search bar */}
@@ -1679,22 +1733,10 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   textStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
                   listItemContainerStyle={{ borderBottomWidth: 0.5, borderBottomColor: colors.theme100, }}
                   ArrowDownIconComponent={() => {
-                    return (
-                      <Icon
-                        size={18}
-                        color={ colors.theme100 }
-                        name="chevron-down"
-                      />
-                    );
+                    return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
                   }}
                   ArrowUpIconComponent={() => {
-                    return (
-                      <Icon
-                        size={18}
-                        color={ colors.theme100 }
-                        name="chevron-up"
-                      />
-                    );
+                    return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
                   }}
                 />
               </View>
@@ -1708,7 +1750,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 onChangeText={(text) => updateMult(text)}
                 placeholder={selectedSpotlightData ? String(selectedSpotlightData.spotlightMult) : "0"}
                 placeholderTextColor={'white'}
-                className="flex-1 text-[14px] leading-[16px] font-bold text-white text-center"
+                className="flex-1 text-[14px] leading-[17px] font-bold text-white text-center"
               />
               }
             </View>
@@ -1781,10 +1823,10 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               <View className={`flex items-center justify-center w-5/12 ${selectedSpotlightData?.ingredientNameEdited[index] && selectedSpotlightData?.recipeId !== null ? "bg-zinc500" : "bg-theme600"} border-b-0.5 border-r-0.5 border-zinc700 z-10`}>
                 <View className="flex flex-wrap flex-row">
                   <Text 
-                    className={`text-white text-[10px] text-center px-2 ${selectedSpotlightData?.ingredientData?.[index]?.[selectedSpotlightData.ingredientStores[index] + "Link"] && "underline"}`}
-                    onPress={selectedSpotlightData?.ingredientData?.[index]?.[selectedSpotlightData.ingredientStores[index] + "Link"] ? () => Linking.openURL(selectedSpotlightData?.ingredientData?.[index]?.[selectedSpotlightData.ingredientStores[index] + "Link"]) : undefined }
+                    className={`text-white text-[10px] text-center px-2 ${selectedSpotlightData?.ingredientData?.[index]?.[selectedSpotlightData.ingredientStores[index]].link && "underline"}`}
+                    onPress={selectedSpotlightData?.ingredientData?.[index]?.[selectedSpotlightData.ingredientStores[index]].link ? () => Linking.openURL(selectedSpotlightData?.ingredientData?.[index]?.[selectedSpotlightData.ingredientStores[index]].link) : undefined }
                   >
-                    {selectedSpotlightData && selectedSpotlightData.ingredientData[index] ? selectedSpotlightData.ingredientData[index].ingredientName : ""}
+                    {selectedSpotlightData && selectedSpotlightData.ingredientData[index] ? selectedSpotlightData.ingredientNames[index] : ""}
                   </Text>
                 </View>
               </View>
@@ -1817,7 +1859,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                     />
                     {/* Unit */}
                     <Text className="text-[10px]">
-                      {` ${extractUnit(selectedSpotlightData.ingredientData[index][`${selectedSpotlightData.ingredientStores[index]}Unit`], currIngredientAmounts[index])}`}
+                      {` ${extractUnit(selectedSpotlightData.ingredientData[index][selectedSpotlightData.ingredientStores[index]].unit, currIngredientAmounts[index])}`}
                     </Text>
                   </View>
                 : null }
@@ -1825,7 +1867,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
               {/* details */}
               <TouchableOpacity 
-                onPress={() => showCalcModal(index)}
+                onPress={selectedSpotlightData?.ingredientData?.[index] ? () => showCalcModal(index) : undefined}
                 className="flex flex-col items-center justify-center bg-white w-1/4 border-b-0.5 border-b-zinc400 border-l-0.5 border-l-zinc400"
               >
                 <View className="flex flex-row">
@@ -1879,13 +1921,14 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             setModalVisible={setCalcModalVisible}
             submitModal={submitCalcModal}
             ingredientData={selectedSpotlightData?.ingredientData[calcIndex]}
+            ingredientName={selectedSpotlightData?.ingredientNames[calcIndex]}
             ingredientStore={selectedSpotlightData?.ingredientStores[calcIndex]}
             initialCals={selectedSpotlightData?.ingredientCals[calcIndex].toFixed(0)}
             initialPrice={selectedSpotlightData?.ingredientPrices[calcIndex].toFixed(2)}
             initialServings={selectedSpotlightData?.ingredientServings[calcIndex].toFixed(2)}
             initialAmount={selectedSpotlightData?.ingredientAmounts[calcIndex]}
             amountUsed={nonselectedAmountUsed}
-            amountContainer={new Fractional(selectedSpotlightData?.ingredientData[calcIndex][`${selectedSpotlightData?.ingredientStores[calcIndex]}TotalYield`]).toString()}
+            amountContainer={new Fractional(selectedSpotlightData?.ingredientData[calcIndex][selectedSpotlightData?.ingredientStores[calcIndex]].totalYield).toString()}
             servingSize={null}
           />
         }
@@ -1905,34 +1948,23 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   onPress={() => changeStore(index)} 
                   className="flex items-center justify-center w-[30px] p-[3px]"
                 >
-                  {selectedSpotlightData ?
-   
-                  currIngredientStores[index] === "" 
-                  ? <Text>-</Text> 
-                  :
-                  <View className={`w-full h-full justify-center items-center rounded-r-md ${selectedSpotlightData?.ingredientStoreEdited[index] && selectedSpotlightData?.recipeId !== null ? "bg-zinc350" : selectedSpotlightData?.recipeId !== null ?  "bg-theme200" : ""}`}>
-                    <Image
-                      source={
-                        currIngredientStores[index] === "a" ? aldi :
-                        currIngredientStores[index] === "mb" ? marketbasket :
-                        currIngredientStores[index] === "sm" ? starmarket :
-                        currIngredientStores[index] === "ss" ? stopandshop :
-                        currIngredientStores[index] === "t" ? target :
-                        currIngredientStores[index] === "w" ? walmart :
-                        null
-                      }
-                      alt="store"
-                      className={`${
-                        currIngredientStores[index] === "a" ? "w-[18px] h-[12px]" : 
-                        currIngredientStores[index] === "mb" ? "w-[19px] h-[18px]" : 
-                        currIngredientStores[index] === "sm" ? "w-[18px] h-[18px]" :
-                        currIngredientStores[index] === "ss" ? "w-[16px] h-[18px]" :
-                        currIngredientStores[index] === "t" ? "w-[18px] h-[18px]" : 
-                        currIngredientStores[index] === "w" ? "w-[18px] h-[18px]" : ""
-                      }`}
-                    />
-                  </View>
-                  : null
+                  {selectedSpotlightData &&
+                  <>
+                    {currIngredientStores[index] === "" ? (
+                      <Text>-</Text>
+                    ) : (
+                      <View className={`w-full h-full justify-center items-center rounded-r-md z-0 ${selectedSpotlightData?.ingredientStoreEdited[index] && selectedSpotlightData?.recipeId !== null ? "bg-zinc350" : selectedSpotlightData?.recipeId !== null ?  "bg-theme200" : ""}`}>
+                        <Image
+                          source={storeImages[currIngredientStores[index]]?.src}
+                          alt="store"
+                          style={{
+                            width: storeImages[currIngredientStores[index]]?.width,
+                            height: storeImages[currIngredientStores[index]]?.height,
+                          }}
+                        />
+                      </View>
+                    )}
+                  </>
                   }
                 </TouchableOpacity>
               </>
@@ -2019,7 +2051,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               className="z-10 w-[30px] bg-zinc100 border-2 border-zinc700 justify-center items-center"
               onPress={() => changeSelectedStore()}
             >
-              {selectedIngredientStore === "" 
+              {selectedIngredientStore === "-" 
               ? // when no store is selected
               <Icon
                 name="menu"
@@ -2028,24 +2060,12 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               />
               : // when store is selected
               <Image
-                source={
-                  selectedIngredientStore === "a" ? aldi :
-                  selectedIngredientStore === "mb" ? marketbasket :
-                  selectedIngredientStore === "sm" ? starmarket :
-                  selectedIngredientStore === "ss" ? stopandshop :
-                  selectedIngredientStore === "t" ? target :
-                  selectedIngredientStore === "w" ? walmart :
-                  null
-                }
+                source={storeImages[selectedIngredientStore]?.src}
                 alt="store"
-                className={`${
-                  selectedIngredientStore === "a" ? "w-[18px] h-[12px]" : 
-                  selectedIngredientStore === "mb" ? "w-[19px] h-[18px]" : 
-                  selectedIngredientStore === "sm" ? "w-[18px] h-[18px]" :
-                  selectedIngredientStore === "ss" ? "w-[16px] h-[18px]" :
-                  selectedIngredientStore === "t" ? "w-[18px] h-[18px]" : 
-                  selectedIngredientStore === "w" ? "w-[18px] h-[18px]" : ""
-                }`}
+                style={{
+                  width: storeImages[selectedIngredientStore]?.width,
+                  height: storeImages[selectedIngredientStore]?.height,
+                }}
               />
               }
             </TouchableOpacity>
@@ -2115,7 +2135,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
           >
             <Text
               multiline={true}
-              className={`${searchIngredientQuery !== '' && searchIngredientQuery !== "" ? "text-black" : "text-zinc400"} ${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] py-[5px] text-[14px] leading-[16px]`}
+              className={`${searchIngredientQuery !== '' && searchIngredientQuery !== "" ? "text-black" : "text-zinc400"} ${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] py-[5px] text-[14px] leading-[17px]`}
             >
               {searchIngredientQuery !== '' && searchIngredientQuery !== "" ? searchIngredientQuery : "search for ingredient"}
             </Text>
@@ -2169,7 +2189,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             <ViewIngredientModal
               modalVisible={ingredientModalVisible}
               setModalVisible={setIngredientModalVisible}
-              ingredientData={selectedIngredientData}
+              ingredient={selectedIngredient}
             />
           }
           
@@ -2262,7 +2282,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 onChangeText={filterIngredientData}
                 placeholder="search for ingredient"
                 placeholderTextColor={colors.zinc400}
-                className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[16px] z-10`}
+                className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[17px] z-10`}
                 multiline={true}
                 blurOnSubmit={true}
                 onFocus={() => {
@@ -2312,8 +2332,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   size={20}
                   color="black"
                   onPress={() =>  {
-                    setIngredientDropdownOpen(true);
                     filterIngredientData(searchIngredientQuery);
+                    setIngredientDropdownOpen(true);
                   }}
                 />
 

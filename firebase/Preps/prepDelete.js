@@ -1,6 +1,6 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-// Initialize Firebase App
+// initialize firebase app
 import { getFirestore, doc, deleteDoc, collection, getDocs, updateDoc, writeBatch } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -34,11 +34,11 @@ export async function prepDelete (prepId) {
     ///////////////////////////////// MEAL PREP /////////////////////////////////
 
     // gets the current prep and deletes it
-    const prepRef = doc(db, 'preps', prepId);
+    const prepRef = doc(db, 'PREPS', prepId);
     await deleteDoc(prepRef);
         
     // stores the prep data in the firebase
-    await updateDoc(doc(db, 'globals', 'prep'), { id: null });
+    await updateDoc(doc(db, 'GLOBALS', 'prep'), { id: null });
     
     
     ///////////////////////////////// WEEKLY PLANS /////////////////////////////////
@@ -47,7 +47,7 @@ export async function prepDelete (prepId) {
     const batch = writeBatch(db);
 
     // gets all weekly plan data
-    const plansSnapshot = await getDocs(collection(db, 'plans'));
+    const plansSnapshot = await getDocs(collection(db, 'PLANS'));
     
     // loops over all weekly plans and adds updates to the batch
     plansSnapshot.forEach((planDoc) => {
@@ -58,7 +58,7 @@ export async function prepDelete (prepId) {
         
         // if the current meal prep is the lunch of the current plan date, update the data
         if (planData.meals.lunch.prepId && prepId && planData.meals.lunch.prepId === prepId) {
-          batch.update(doc(db, 'plans', planDoc.id), {
+          batch.update(doc(db, 'PLANS', planDoc.id), {
             'meals.lunch.prepId': null,
             'meals.lunch.prepData': null,
           });
@@ -66,7 +66,7 @@ export async function prepDelete (prepId) {
 
         // if the current meal prep is the dinner of the current plan date, update the data
         if (planData.meals.dinner.prepId && prepId && planData.meals.dinner.prepId === prepId) {
-          batch.update(doc(db, 'plans', planDoc.id), {
+          batch.update(doc(db, 'PLANS', planDoc.id), {
             'meals.dinner.prepId': null,
             'meals.dinner.prepData': null,
           });

@@ -1,8 +1,12 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// react hooks
 import React from 'react';
+
+// UI components
 import { Modal, View, Text, TouchableOpacity } from 'react-native';
 
+// validation
 import extractUnit from '../Validation/extractUnit';
 
 
@@ -42,22 +46,22 @@ const ViewCurrentModal = ({
           {/* DETAILS */}
           <View className="flex flex-col space-y-2 px-5">
             {/* serving size */}
-            <View className="flex flex-row justify-between items-center">
+            <View className="flex flex-row justify-between items-center w-full">
 
               {/* Label */}
               <Text className="text-theme700 mr-4 font-medium">
                 SERVING SIZE
               </Text>
 
-              <View className="flex-1 flex-row border-t-0.5 border-b-0.5 border-zinc500">
+              <View className="flex-1 flex-row items-center justify-center bg-theme200 border-0.5 border-zinc500 px-2">
 
                 {/* Size */}
-                <Text className="bg-theme200 p-1 flex-1 text-center border-l-0.5 border-zinc500 text-[12px]">
+                <Text className="p-1 text-center text-[12px]">
                   {ingredientData.servingSize}
                 </Text>
 
                 {/* Units */}
-                <Text className="bg-theme200 p-1 flex-1 border-r-0.5 border-zinc500 text-[12px]">
+                <Text className="p-1 text-center text-[12px]">
                   {extractUnit(ingredientData.unit, ingredientData.servingSize)}
                 </Text>
               </View>

@@ -1,8 +1,12 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-import React, { useState, useEffect } from 'react';
+// react hooks
+import React, { useState } from 'react';
+
+// UI components
 import { Modal, View, Text, TouchableOpacity } from 'react-native';
 
+// visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
@@ -60,7 +64,7 @@ const DeletePrepModal = ({
           {/* PROMPT */}
           <View className="flex flex-col justify-center items-center pb-5">
             <Text className="text-[14px] italic text-zinc600">
-              This recipe has been used up.
+              This meal prep has been used up.
             </Text>
             <Text className="text-[14px] italic text-zinc600">
               How would you like to proceed?

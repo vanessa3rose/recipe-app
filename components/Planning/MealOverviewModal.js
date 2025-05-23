@@ -1,10 +1,10 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TouchableOpacity } from 'react-native';
+// react hooks
+import React from 'react';
 
-import colors from '../../assets/colors';
-import Icon from 'react-native-vector-icons/Ionicons';
+// UI components
+import { Modal, View, Text, TouchableOpacity } from 'react-native';
 
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
@@ -50,7 +50,7 @@ const MealOverviewModal = ({
                       {index + 1}{"."}
                     </Text>
                     <Text className="flex justify-center w-11/12 h-full pt-[7px] pl-1.5 text-black text-[12px] text-left">
-                      {data?.currentData[index]?.ingredientData?.ingredientName || ""}
+                      {data?.currentData[index]?.ingredientName || ""}
                     </Text>
                   </View>
                 }

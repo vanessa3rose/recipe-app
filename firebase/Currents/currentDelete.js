@@ -1,9 +1,9 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
-// Fractions
-var Fractional = require('fractional').Fraction;
+// fractions
 import Fraction from 'fraction.js';
 
+// initialize firebase app
 import { getFirestore, doc, deleteDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
@@ -36,7 +36,7 @@ export async function currentDelete (currentId) {
     ///////////////////////////////// PROCESSING /////////////////////////////////
 
     // the data of the current ingredient that is being deleted
-    const currentRef = doc(db, 'currents', currentId);
+    const currentRef = doc(db, 'CURRENTS', currentId);
     await deleteDoc(currentRef);
 
 
@@ -49,7 +49,7 @@ export async function currentDelete (currentId) {
     const prepBatch = writeBatch(db);
  
     // gets all meal prep data
-    const prepsSnapshot = await getDocs(collection(db, 'preps'));
+    const prepsSnapshot = await getDocs(collection(db, 'PREPS'));
     
     // loops over all meal preps
     prepsSnapshot.docs.forEach((prepDoc) => {
@@ -61,6 +61,9 @@ export async function currentDelete (currentId) {
         // only updates meal prep ingredients if they match the edited one's id
         prepData.currentIds.forEach((id, index) => {
           if (id !== null && id === currentId) {
+
+            // stores that the prep was modified
+            prepModified = true;
 
             // clears the attributes of deleted current
             prepData.currentAmounts[index] = "";
@@ -92,7 +95,7 @@ export async function currentDelete (currentId) {
           prepData.prepPrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
           
           // add the update operation to the batch
-          prepBatch.update(doc(db, 'preps', prepDoc.id), prepData);
+          prepBatch.update(doc(db, 'PREPS', prepDoc.id), prepData);
           updatedPreps.push({"id": prepDoc.id, "data": prepData});
         }
       }
@@ -112,7 +115,7 @@ export async function currentDelete (currentId) {
     const planBatch = writeBatch(db);
     
     // gets all weekly plan data
-    const plansSnapshot = await getDocs(collection(db, 'plans'));
+    const plansSnapshot = await getDocs(collection(db, 'PLANS'));
 
     // loops over all weekly plans
     plansSnapshot.forEach((planDoc) => {
@@ -123,14 +126,14 @@ export async function currentDelete (currentId) {
       
         // if the current meal prep is the lunch of the current plan date, update the data
         if (planData.meals.lunch.prepId && updatedIds.includes(planData.meals.lunch.prepId)) {
-          planBatch.update(doc(db, 'plans', planDoc.id), {
+          planBatch.update(doc(db, 'PLANS', planDoc.id), {
             'meals.lunch.prepData': updatedData[updatedIds.indexOf(planData.meals.lunch.prepId)],
           });
         }
 
         // if the current meal prep is the dinner of the current plan date, update the data
         if (planData.meals.dinner.prepId && updatedIds.includes(planData.meals.dinner.prepId)) {
-          planBatch.update(doc(db, 'plans', planDoc.id), {
+          planBatch.update(doc(db, 'PLANS', planDoc.id), {
             'meals.dinner.prepData': updatedData[updatedIds.indexOf(planData.meals.dinner.prepId)],
           });
         }
