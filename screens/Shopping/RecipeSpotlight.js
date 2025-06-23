@@ -42,6 +42,9 @@ const db = getFirestore(app);
 
 export default function RecipeSpotlight ({ isSelectedTab }) {
 
+
+  ///////////////////////////////// KEYBOARD /////////////////////////////////
+
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [keyboardType, setKeyboardType] = useState("");
   
@@ -1175,6 +1178,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
       setCurrIngredientStores(["", "", "", "", "", "", "", "", "", "", "", ""]);
       setCurrSpotlightMult(0);
+
+      // stores the recipe data in the firebase
+      updateDoc(doc(db, 'GLOBALS', 'spotlight'), { id: null });
     }
   }
   
@@ -1479,7 +1485,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 onChangeText={(value) => filterRecipeList(recipeKeywordQuery, value, selectedRecipeTag)}
                 placeholder="ingredient keyword(s)"
                 placeholderTextColor={colors.zinc400}
-                className="flex-1 text-[14px] leading-[17px] pl-2.5 pr-10 border-[1px] border-zinc300 rounded-[5px] bg-white"
+                className="flex-1 text-[14px] leading-[17px] pl-2.5 pr-[20px] border-[1px] border-zinc300 rounded-[5px] bg-white"
               />
 
               {/* clear button */}
@@ -1566,7 +1572,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   onChangeText={(value) => filterRecipeList(value, ingredientKeywordQuery, selectedRecipeTag)}
                   placeholder="recipe keyword(s)"
                   placeholderTextColor={'white'}
-                  className={`flex-1 text-white text-[14px] leading-[17px] pl-2.5 pr-10 bg-zinc400 ${recipeDropdownOpen ? "rounded-t-[5px]" : "rounded-[5px]"}`}
+                  className={`flex-1 text-white text-[14px] leading-[17px] pl-2.5 pr-[20px] bg-zinc400 ${recipeDropdownOpen ? "rounded-t-[5px]" : "rounded-[5px]"}`}
                   onFocus={() => {
                     setIngredientDropdownOpen(false);
                     setRecipeDropdownOpen(filteredRecipeList.length > 0);
@@ -1664,7 +1670,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
 
       {/* SPOTLIGHT CARD SECTION */}
-      <View className={`w-11/12 ${selectedSpotlightId ? "mr-[20px]" : ""} border-[1px] border-black bg-black ${isKeyboardOpen && keyboardType === "ingredient search" ? "z-0" : ""}`}>
+      <View className={`w-11/12 ${(selectedSpotlightId && currIngredientStores.filter(store => store !== "").length > 0) && "mr-[20px]"} border-[1px] border-black bg-black ${isKeyboardOpen && keyboardType === "ingredient search" ? "z-0" : ""}`}>
 
         {/* TITLE ROW */}
         <View className="flex-row border-b-[1px]">
@@ -1715,7 +1721,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   setOpen={setSpotlightDropdownOpen}
                   value={selectedSpotlightId}
                   setValue={setSelectedSpotlightId}
-                  items={spotlightList.map((spotlight, index) => ({
+                  items={[{label: "", value: null, key: "", labelStyle: { paddingVertical: 12.5, marginHorizontal: -50, backgroundColor: colors.zinc200 }},
+                  ...spotlightList.map((spotlight, index) => ({
                     label: spotlightDropdownOpen 
                       ? `(${selectedSpotlightId === spotlight.id && selectedSpotlightData ? currSpotlightMult : spotlight.spotlightMult}) ` +
                         (selectedSpotlightId === spotlight.id && selectedSpotlightData ? selectedSpotlightData.spotlightName : spotlight.spotlightName)
@@ -1726,7 +1733,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                       color: spotlightsSelected !== null && spotlightsSelected[spotlightsIds.indexOf(spotlight.id)] ? 'black' : colors.zinc500,
                       textDecorationLine: spotlightsSelected !== null && spotlightsSelected[spotlightsIds.indexOf(spotlight.id)] ? 'none' : 'line-through', 
                     }
-                  }))}
+                  }))]}
                   placeholder=""
                   style={{ height: 50, backgroundColor: selectedSpotlightData?.spotlightNameEdited && selectedSpotlightData?.recipeId !== null ? colors.zinc700 : colors.theme800, borderWidth: 0, justifyContent: 'center', }}
                   dropDownContainerStyle={{ backgroundColor: 'white', }}
@@ -1743,7 +1750,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             </View>
 
             {/* Multiplicity Input */}
-            <View className="flex flex-row bg-theme700 border-l-0.5 items-center justify-center w-1/6 h-[50px]">
+            <View className="flex flex-row bg-theme700 border-l-0.5 px-1 items-center justify-center w-1/6 h-[50px]">
               {selectedSpotlightData !== null &&
               <TextInput
                 value={String(currSpotlightMult)}
@@ -1836,7 +1843,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 
                 {/* indicator of the current ingredient */}
                 {selectedSpotlightData !== null && (selectedIngredientIndex - 1) === (index) &&
-                  <View className="absolute left-[-15px] z-0">
+                  <View className="absolute left-[-15px] mb-[1px] z-10 bg-zinc100 h-[28px]">
                     <Icon
                       name="reorder-four"
                       size={30}
@@ -1847,11 +1854,11 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
                 {/* amount and units */}
                 {selectedSpotlightData?.ingredientData?.[index] ?
-                  <View className="flex flex-row">
+                  <View className="flex flex-row space-x-[3px]">
                     {/* Input Amount */}
                     <TextInput
                       key={index}
-                      className={`text-[10px] leading-[12px] text-center px-[3px] ${selectedSpotlightData?.ingredientAmountEdited[index] && selectedSpotlightData?.recipeId !== null ? "bg-zinc300" : selectedSpotlightData?.recipeId !== null ? "bg-theme100" : ""}`}
+                      className={`text-[10px] leading-[12px] text-center ${selectedSpotlightData?.ingredientAmountEdited[index] && selectedSpotlightData?.recipeId !== null ? "bg-zinc300" : selectedSpotlightData?.recipeId !== null ? "bg-theme100" : ""}`}
                       placeholder={selectedSpotlightData.ingredientAmounts[index] !== "" ? selectedSpotlightData.ingredientAmounts[index] : "_"}
                       placeholderTextColor="black"
                       value={currIngredientAmounts[index]}

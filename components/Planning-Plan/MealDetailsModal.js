@@ -21,6 +21,7 @@ var Fractional = require('fractional').Fraction;
 
 // validation
 import extractUnit from '../Validation/extractUnit';
+import { deepPrepIndexOf } from '../Validation/deepPrepSearch';
 
 // initialize firebase app
 import { getFirestore, setDoc, updateDoc, getDoc, getDocs, doc, collection } from 'firebase/firestore';
@@ -35,6 +36,8 @@ const MealDetailsModal = ({
   modalVisible, setModalVisible, closeModal,
 }) => {
 
+
+  ///////////////////////////////// KEYBOARD /////////////////////////////////
 
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [keyboardType, setKeyboardType] = useState("");
@@ -60,48 +63,6 @@ const MealDetailsModal = ({
   }, [keyboardType]);
 
 
-  ///////////////////////////////// DEEP SEARCH /////////////////////////////////
-
-  // checks if two preps' data are equal
-  function deepPrepEqual(a, b) {
-    const ignoredKeys = [
-      "prepNote", "prepMult", 
-      "amountLeft", "amountTotal", "archive", "check", 
-      "ingredientData", "ingredientId", "ingredientStore", "ingredientTypes", 
-      "id", "containerPrice", "unitPrice"
-    ];
-
-    if (a === b) return true;
-  
-    if (typeof a !== typeof b || a === null || b === null) return false;
-  
-    if (Array.isArray(a) && Array.isArray(b)) {
-      if (a.length !== b.length) return false;
-      return a.every((item, i) => deepPrepEqual(item, b[i]));
-    }
-  
-    if (typeof a === 'object') {
-      const aKeys = Object.keys(a).filter(key => !ignoredKeys.includes(key));
-      const bKeys = Object.keys(b).filter(key => !ignoredKeys.includes(key));
-  
-      if (aKeys.length !== bKeys.length) return false;
-      return aKeys.every(key => deepPrepEqual(a[key], b[key]));
-    }
-  
-    return false;
-  }
-
-  // finds a specific prep within a list
-  function deepPrepIndexOf(array, target) {
-    for (let i = 0; i < array.length; i++) {
-      if (deepPrepEqual(array[i], target)) {
-        return i;
-      }
-    }
-    return -1;
-  }  
-
-
   ///////////////////////////////// SETUP /////////////////////////////////
 
   const [isEditing, setIsEditing] = useState(false);
@@ -118,12 +79,13 @@ const MealDetailsModal = ({
         setPrepName(data.prepName);
         setPrepPrice(data.prepPrice);
         setPrepCal(data.prepCal);
+        setPrepNote(data.prepNote);
         
         // complex editing
         setPrepCurrentAmounts(data.currentAmounts);
         setPrepCurrentCals(data.currentCals);
         setPrepCurrentData(data.currentData);
-        setNumIngredients(data.currentData.filter(current => current !== null).length);
+        setNumIngredients(data?.currentData?.length || 0);
       }
     }
   }, [modalVisible]);
@@ -134,6 +96,7 @@ const MealDetailsModal = ({
     setPrepName("");
     setPrepPrice("");
     setPrepCal("");
+    setPrepNote("");
   };
 
 
@@ -146,6 +109,7 @@ const MealDetailsModal = ({
 
   // for simple
   const [prepCal, setPrepCal] = useState("");
+  const [prepNote, setPrepNote] = useState("");
 
   // to create a new meal prep without ingredients
   const submitNewSimple = async () => {
@@ -158,15 +122,16 @@ const MealDetailsModal = ({
       // data for the new prep
       const newData = {
         prepName: prepName,
-        prepNote: "",
+        prepNote: prepNote,
         prepMult: 0,
         prepCal: prepCal === "" ? "0" : ((new Fractional(prepCal).numerator) / (new Fractional(prepCal).denominator)).toFixed(0), 
         prepPrice: prepPrice === "" ? "0.00" : ((new Fractional(prepPrice).numerator) / (new Fractional(prepPrice).denominator)).toFixed(2), 
-        currentData: prepCurrentData, 
-        currentIds: ["", "", "", "", "", "", "", "", "", "", "", ""], 
-        currentAmounts: prepCurrentAmounts, 
-        currentCals: prepCurrentCals.map(cal => !isNaN(new Fractional(cal).numerator / new Fractional(cal).denominator) ? new Fractional(cal).numerator / new Fractional(cal).denominator : ""), 
-        currentPrices: ["", "", "", "", "", "", "", "", "", "", "", ""],
+        currentData: [], 
+        currentIds: [], 
+        currentAmounts: [], 
+        currentCals: [], 
+        currentPrices: [],
+        currentIncluded: [],
       };
 
       // current meal info
@@ -213,60 +178,58 @@ const MealDetailsModal = ({
   }
 
   // for complex
-  const [prepCurrentData, setPrepCurrentData] = useState([null, null, null, null, null, null, null, null, null, null, null, null]);
-  const [prepCurrentAmounts, setPrepCurrentAmounts] = useState(["", "", "", "", "", "", "", "", "", "", "", ""]);
-  const [prepCurrentCals, setPrepCurrentCals] = useState(["", "", "", "", "", "", "", "", "", "", "", ""]);
-  const [numIngredients, setNumIngredients] = useState(1);
+  const [prepCurrentData, setPrepCurrentData] = useState([]);
+  const [prepCurrentAmounts, setPrepCurrentAmounts] = useState([]);
+  const [prepCurrentCals, setPrepCurrentCals] = useState([]);
+  
+  // for shifting
+  const [showNewIndex, setShowNewIndex] = useState(false);
+  const [numIngredients, setNumIngredients] = useState(0);
+
+  // to delete or clear the pressed ingredient
+  const addPrepIngredient = (index) => {
+
+    // null new data to set
+    let newData = Array(numIngredients + 1).fill(null);
+    let newAmounts = Array(numIngredients + 1).fill("");
+    let newCals = Array(numIngredients + 1).fill("");
+
+    // loops over and shifts the ingredients accordingly
+    for (let i = 0; i < numIngredients; i++) {
+      if (i < index) {
+        newData[i] = prepCurrentData[i];
+        newAmounts[i] = prepCurrentAmounts[i];
+        newCals[i] = prepCurrentCals[i];
+      
+      } else if (i >= index) {
+        newData[i + 1] = prepCurrentData[i];
+        newAmounts[i + 1] = prepCurrentAmounts[i];
+        newCals[i + 1] = prepCurrentCals[i];
+      }
+    }
+
+    // stores shifts
+    setPrepCurrentData(newData);        // the current's data
+    setPrepCurrentAmounts(newAmounts);  // the current's amounts
+    setPrepCurrentCals(newCals);        // the current's calories
+
+    // increments the number of ingredients
+    setNumIngredients(numIngredients + 1);
+    setShowNewIndex(false);
+  }
 
   // to delete or clear the pressed ingredient
   const deletePrepIngredient = (index) => {
 
-    // if the number of filled in ingredients is 1, simply clear
-    if (numIngredients === 1) {
+    // the current's data
+    setPrepCurrentData((prev) => prev.filter((_, i) => i !== index));
+    // the current's amounts
+    setPrepCurrentAmounts((prev) => prev.filter((_, i) => i !== index));
+    // the current's calories
+    setPrepCurrentCals((prev) => prev.filter((_, i) => i !== index));
 
-      // the current's data
-      setPrepCurrentData((prev) => {
-        const updated = [...prev];
-        updated[index] = null;
-        return updated;
-      });
-      
-      // the current's amounts
-      setPrepCurrentAmounts((prev) => {
-        const updated = [...prev];
-        updated[index] = "";
-        return updated;
-      });
-      
-      // the current's calories
-      setPrepCurrentCals((prev) => {
-        const updated = [...prev];
-        updated[index] = "";
-        return updated;
-      });
-    
-
-    // if there is more than one, delete
-    } else {
-
-      // the current's data
-      setPrepCurrentData((prev) =>
-        prev.filter((_, i) => i !== index)
-      );
-  
-      // the current's amounts
-      setPrepCurrentAmounts((prev) =>
-        prev.filter((_, i) => i !== index)
-      );
-      
-      // the current's calories
-      setPrepCurrentCals((prev) =>
-        prev.filter((_, i) => i !== index)
-      );
-  
-      // decrements the number of ingredients
-      setNumIngredients(numIngredients - 1);
-    }
+    // decrements the number of ingredients
+    setNumIngredients(numIngredients - 1);
   }
 
   // recalculates the prep's total calories for complex editing
@@ -274,11 +237,9 @@ const MealDetailsModal = ({
     if (createComplex) {
 
       // sums together all of the current's calories
-      setPrepCal(
+      setPrepCal(prepCurrentCals === null ? "0" :
         (prepCurrentCals.map(cal => new Fractional(cal).numerator / new Fractional(cal).denominator)
-                       .filter(cal => !isNaN(cal))
-                       .reduce((sum, cal) => sum + cal, 0))
-        .toFixed(0)
+          .filter(cal => !isNaN(cal)).reduce((sum, cal) => sum + cal, 0)).toFixed(0)
       );
     }
   }, [prepCurrentCals, createComplex]);
@@ -291,6 +252,27 @@ const MealDetailsModal = ({
     else {
       setIsNameValid(true);
 
+      // fixes units and amounts
+      let newCurrentData = [...prepCurrentData];
+      let newCurrentAmounts = [...prepCurrentAmounts];
+      prepCurrentData.forEach((curr, index) => {
+
+        // for empty units and amounts
+        if (curr?.ingredientData?.[curr?.ingredientStore]?.unit === "" && prepCurrentAmounts?.[index] === "") {
+          newCurrentData[index].ingredientData[newCurrentData[index].ingredientStore].unit = "serving";
+          newCurrentAmounts[index] = "1";
+
+        // for empty units
+        } else if (curr?.ingredientData?.[curr?.ingredientStore]?.unit === "") {
+          newCurrentData[index].ingredientData[newCurrentData[index].ingredientStore].unit = extractUnit("serving(s)", prepCurrentAmounts[index]);
+        }
+
+        // fixes a () unit
+        if (curr?.ingredientData?.[curr?.ingredientStore]?.unit.includes("(") && curr?.ingredientData?.[curr?.ingredientStore]?.unit.includes(")")) {
+          newCurrentData[index].ingredientData[newCurrentData[index].ingredientStore].unit = extractUnit(curr?.ingredientData?.[curr?.ingredientStore]?.unit, prepCurrentAmounts[index]);
+        }
+      });
+
       // data for the new prep
       const newData = {
         prepName: prepName,
@@ -298,11 +280,12 @@ const MealDetailsModal = ({
         prepMult: 0,
         prepCal: prepCal === "" ? "0" : ((new Fractional(prepCal).numerator) / (new Fractional(prepCal).denominator)).toFixed(0), 
         prepPrice: prepPrice === "" ? "0.00" : ((new Fractional(prepPrice).numerator) / (new Fractional(prepPrice).denominator)).toFixed(2), 
-        currentData: prepCurrentData, 
-        currentIds: ["", "", "", "", "", "", "", "", "", "", "", ""], 
-        currentAmounts: prepCurrentAmounts, 
+        currentData: newCurrentData, 
+        currentIds: Array(newCurrentData.length).fill(""), 
+        currentAmounts: newCurrentAmounts, 
         currentCals: prepCurrentCals.map(cal => !isNaN(new Fractional(cal).numerator / new Fractional(cal).denominator) ? new Fractional(cal).numerator / new Fractional(cal).denominator : ""), 
-        currentPrices: ["", "", "", "", "", "", "", "", "", "", "", ""],
+        currentPrices: Array(newCurrentData.length).fill(""),
+        currentIncluded: Array(newCurrentData.length).fill(""),
       };
       
       // current meal info
@@ -312,7 +295,7 @@ const MealDetailsModal = ({
 
       // prepares the doc data
       const mealData = {
-        prepId: doc(collection(db, 'PREPS')).id + "!",          
+        prepId: "." + doc(collection(db, 'PREPS')).id,          
         prepData: newData,
       };
 
@@ -360,7 +343,7 @@ const MealDetailsModal = ({
 
   // gets the collection of meal preps
   const loadPreps = async () => {
-
+    
     // to get the unique list of preps
     let prepNames = [];
     let prepIds = [];
@@ -500,21 +483,41 @@ const MealDetailsModal = ({
     // the selected date's data
     const prepDoc = plansSnapshot.docs.find((doc) => doc.id === date);
     
-    // stores the data according to the selected meal
-    if (meal === "LUNCH") { setCopyData(prepDoc.data().meals.lunch); } 
-    else if (meal === "DINNER") { setCopyData(prepDoc.data().meals.dinner); }
+    // gets the data according to the selected meal
+    let data = null;
+
+    // if valid data
+    if (prepDoc) {
+      if (meal === "LUNCH") { data = prepDoc.data()?.meals?.lunch || null; } 
+      else if (meal === "DINNER") { data = prepDoc.data()?.meals?.dinner || null; }
+
+      // stores it for copying
+      setCopyData(data); 
+      // stores it for creating (simple)
+      setPrepName(data.prepData.prepName);
+      setPrepCal(data.prepData.prepCal);
+      setPrepPrice(data.prepData.prepPrice);
+      setPrepNote(data.prepData.prepNote);
+      // stores it for creating (complex)
+      setPrepCurrentAmounts(data.prepData.currentAmounts);
+      setPrepCurrentData(data.prepData.currentData);
+      setPrepCurrentCals(data.prepData.currentCals.map(cal => cal === "" ? "" : Math.round(cal)));
+      setNumIngredients(data?.prepData?.currentData?.length || 0);
+    
+    // otherwise, not valid
+    } else { setCopyData(null); }
   }
 
   // to submit copying data
   const submitCopy = async () => {
-
+    
     // reformatting date
-    const [year1, month1, day1] = copyDate.split("-").map(Number);
+    const [year1, month1, day1] = copyDate.split().map(Number);
     const longDate = copyMeal + " " + new Date(year1, month1- 1, day1);
     
     // determines whether the radio will be checked
-    const isCustom = copyData.prepId.includes("LUNCH") || copyData.prepId.includes("DINNER") || ogSelected.filter(item => item.meal === longDate).length === 0;
-
+    const isCustom = copyData.prepId.includes("LUNCH") || copyData.prepId.includes("DINNER");
+    
     // current meal info
     const meal = date.split(" ")[0];
     const [month2, day2, year2] = date.split(" ")[1].split("/");
@@ -525,8 +528,19 @@ const MealDetailsModal = ({
 
     // if it exists, just set the new meal
     if (currData.exists()) {
-      if (meal === "LUNCH") { updateDoc(doc(db, 'PLANS', formattedDate), { "meals.lunch": copyData }); } 
-      else if (meal === "DINNER") { updateDoc(doc(db, 'PLANS', formattedDate), { "meals.dinner": copyData }); }
+      // lunch
+      if (meal === "LUNCH") { 
+        updateDoc(doc(db, 'PLANS', formattedDate), { 
+          "meals.lunch.prepData": copyData.prepData, 
+          "meals.lunch.prepId": isCustom ? date : copyData.prepId,
+        }); 
+      // dinner
+      } else if (meal === "DINNER") { 
+        updateDoc(doc(db, 'PLANS', formattedDate), { 
+          "meals.dinner.prepData": copyData.prepData, 
+          "meals.dinner.prepId": isCustom ? date : copyData.prepId,
+        }); 
+      }
 
     // otherwise, create a null doc first
     } else {
@@ -534,11 +548,11 @@ const MealDetailsModal = ({
         date: formattedDate,
         meals: {
           lunch: {
-            prepId: meal === "LUNCH" ? copyData.prepId : null,          
+            prepId: meal === "LUNCH" ? (isCustom ? date : copyData.prepId) : null,          
             prepData: meal === "LUNCH" ? copyData.prepData : null,
           },
           dinner: {
-            prepId: meal === "DINNER" ? copyData.prepId : null,         
+            prepId: meal === "DINNER" ? (isCustom ? date : copyData.prepId) : null,         
             prepData: meal === "DINNER" ? copyData.prepData : null,
           },
         },
@@ -547,7 +561,7 @@ const MealDetailsModal = ({
     }
     
     // closes the modal, and indicates whether a custom prep was submitted
-    closeModal(isCustom);
+    closeModal(isCustom || ogSelected.filter(item => item.meal === longDate).length === 0);
     exitModal();
   }
 
@@ -559,10 +573,12 @@ const MealDetailsModal = ({
 
   const [prepKeywordQuery, setPrepKeywordQuery] = useState("");
   const [prepTypeFilter, setPrepTypeFilter] = useState("");
+  const [keywordType, setKeywordType] = useState("meal prep");
 
   const [openPrepIndex, setOpenPrepIndex] = useState(-1);
   const [openSimpleIndex, setOpenSimpleIndex] = useState(-1);
   const [openComplexIndex, setOpenComplexIndex] = useState(-1);
+  const [showSpecifics, setShowSpecifics] = useState(false);
   
   const [filteredPrepNames, setFilteredPrepNames] = useState(null);
   const [filteredPrepIds, setFilteredPrepIds] = useState(null);
@@ -582,13 +598,14 @@ const MealDetailsModal = ({
   };
   
   // to filter the list of preps in the search section
-  const filterPreps = (searchQuery, typeFilter) => {
+  const filterPreps = (keyword, searchQuery, typeFilter) => {
     
     setPrepKeywordQuery(searchQuery);
     setPrepTypeFilter(typeFilter);
     setOpenPrepIndex(-1);
     setOpenSimpleIndex(-1);
     setOpenComplexIndex(-1);
+    setShowSpecifics(false);
     setCurrIndex(0);
 
     // to get the unique list of preps
@@ -598,19 +615,54 @@ const MealDetailsModal = ({
     let prepDates = [];
     let prepMeals = [];
 
+    // helper function for keyword filtering
+    const matchesKeywordFilter = (i, index) => {
+      // meal prep keyword - checks the meal prep name
+      if (keyword === "meal prep") {
+        return searchQuery.split(" ").every((word) => 
+          uniquePrepNames[index].toLowerCase().includes(word.toLowerCase()
+        ));
+      }
+      // ingredient keyword - checks each ingredient's name
+      if (keyword === "ingredient") {
+        return uniquePrepData[index][i]?.currentData?.some(current =>
+          searchQuery.split(" ").every(word =>
+            current?.ingredientName?.toLowerCase().includes(word.toLowerCase())
+          )
+        );
+      }
+      // otherwise
+      return false;
+    };
+
+    // helper function for type filtering
+    const matchesTypeFilter = (id) => {
+      return (
+        typeFilter === "" ||
+        (typeFilter === "prep" && !(id.includes("LUNCH") || id.includes("DINNER") || id.includes("."))) ||
+        (typeFilter === "complex" && id.includes(".")) ||
+        (typeFilter === "simple" && (id.includes("LUNCH") || id.includes("DINNER")))
+      );
+    };
+
     // adds the data to the prep lists that matches the filtering
-    uniquePrepNames.map((name, index) => {
-      if (searchQuery.split(' ').every(keyword => name.toLowerCase().includes(keyword.toLowerCase()))
-        && (typeFilter === "" 
-          || (typeFilter === "prep" && !(uniquePrepIds[index][0].includes("LUNCH") || uniquePrepIds[index][0].includes("DINNER") || uniquePrepIds[index][0].includes("!")))
-          || (typeFilter === "complex" && uniquePrepIds[index][0].includes("!"))
-          || (typeFilter === "simple" && (uniquePrepIds[index][0].includes("LUNCH") || uniquePrepIds[index][0].includes("DINNER"))))
-      ) {
-        prepNames.push(name);
-        prepIds.push(uniquePrepIds[index]);
-        prepData.push(uniquePrepData[index]);
-        prepDates.push(uniquePrepDates[index]);
-        prepMeals.push(uniquePrepMeals[index]);
+    uniquePrepNames?.map((name, index) => {
+      
+      // if the type and keywords match
+      if (uniquePrepIds[index].some((id, i) => matchesTypeFilter(id) && matchesKeywordFilter(i, index))) {
+        // adds the name to the filtered names
+        prepNames.push(name); 
+
+        // uses type and keyword filtering for specific indices
+        const keepIndices = uniquePrepIds[index]
+          .map((id, i) => (matchesTypeFilter(id) && matchesKeywordFilter(i, index)) ? i : -1)
+          .filter(i => i !== -1);
+
+        // adds the data after filtering
+        prepIds.push(keepIndices.map((i) => uniquePrepIds[index][i]));
+        prepData.push(keepIndices.map((i) => uniquePrepData[index][i]));
+        prepDates.push(keepIndices.map((i) => uniquePrepDates[index][i]));
+        prepMeals.push(keepIndices.map((i) => uniquePrepMeals[index][i]));
       }
     })
 
@@ -624,7 +676,7 @@ const MealDetailsModal = ({
 
   // when a prep from the filter search list is selected
   const storePrepCopy = (index) => {
-
+    
     // retrieves the data map
     const newData = {
       prepData: filteredPrepData[index][currIndex],
@@ -634,12 +686,25 @@ const MealDetailsModal = ({
     // stores values in state
     setCopyMeal(filteredPrepMeals[index][currIndex][filteredPrepMeals[index][currIndex]?.length - 1]);
     setCopyDate(filteredPrepDates[index][currIndex][filteredPrepMeals[index][currIndex]?.length - 1]);
+
+    // stores data for copying
     setCopyData(newData);
+    // stores data for creating (simple)
+    setPrepName(newData.prepData.prepName);
+    setPrepCal(newData.prepData.prepCal);
+    setPrepPrice(newData.prepData.prepPrice);
+    setPrepNote(newData.prepData.prepNote);
+    // stores data for creating (complex)
+    setPrepCurrentAmounts(newData.prepData.currentAmounts);
+    setPrepCurrentData(newData.prepData.currentData);
+    setPrepCurrentCals(newData.prepData.currentCals.map(cal => Math.round(cal)));
+    setNumIngredients(newData?.prepData?.currentData?.length || 0);
     
     // goes back to calendar section
     setOpenPrepIndex(-1);
     setOpenSimpleIndex(-1);
     setOpenComplexIndex(-1);
+    setShowSpecifics(false);
     setCurrIndex(0);
     setShowSearchSection(false);
   }
@@ -848,6 +913,7 @@ const MealDetailsModal = ({
                 name={isEditing ? "backspace" : "create"}
                 onPress={() => {
                   setIsEditing(!isEditing)
+                  setPrepCurrentCals(!isEditing ? prepCurrentCals?.map(cal => cal === "" ? "" : Math.round(cal)) || [] : prepCurrentCals)
                   setCreateComplex(!(id.includes("LUNCH") || id.includes("DINNER")))
                 }}
               />
@@ -883,27 +949,25 @@ const MealDetailsModal = ({
               </View>
 
               {/* GRID */}
-              <View className="flex flex-col z-10 border-[1px] border-zinc700">
+              <ScrollView className="flex flex-col max-h-1/2 z-10 border-[1px] bg-zinc700 border-zinc700">
                   
                 {/* Frozen Columns */}
-                {Array.from({ length: 12 }, (_, index) => (
-                  <View key={`frozen-${index}`} className="flex flex-row h-[30px] bg-white">
+                {Array.from({ length: numIngredients }, (_, index) => (
+                  <View key={`frozen-${index}`} className="flex flex-row min-h-[30px] bg-white">
                     <View className="bg-black w-full flex-row">
 
                       {/* ingredient names */}
-                      <View className="flex items-center justify-center w-7/12 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">
-                        <View className="flex flex-wrap flex-row">
-                          <Text className="text-white font-semibold text-[10px] text-center px-2">
-                            {data?.currentData[index]?.ingredientName || ""}
-                          </Text>
-                        </View>
+                      <View className="flex py-1 items-center justify-center w-7/12 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">
+                        <Text className="text-white font-semibold text-[10px] text-center px-2">
+                          {data?.currentData?.[index]?.ingredientName || ""}
+                        </Text>
                       </View>
                       
                       {/* amount */}
-                      <View className="flex flex-row px-1 items-center justify-center bg-zinc100 w-1/4 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc300">
-                        {data?.currentData[index]?.ingredientData[data.currentData[index].ingredientStore].unit &&
+                      <View className="flex py-1 px-1 w-1/4 items-center justify-center bg-zinc100 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc300">
+                        {data?.currentData?.[index]?.ingredientData?.[data?.currentData?.[index]?.ingredientStore]?.unit &&
                           <Text className="text-[10px] text-center">
-                            {data?.currentAmounts[index] || "?"}{` ${extractUnit(data?.currentData[index]?.ingredientData[data.currentData[index].ingredientStore].unit, data?.currentAmounts[index]) || ""}`}
+                            {data.currentAmounts[index] || "?"}{` ${extractUnit(data.currentData[index].ingredientData[data.currentData[index].ingredientStore].unit, data.currentAmounts[index]) || ""}`}
                           </Text>
                         }
                       </View>
@@ -912,14 +976,14 @@ const MealDetailsModal = ({
                       <View className="flex flex-col items-center justify-evenly bg-white w-1/6 border-b-0.5 border-b-zinc400">
                         
                         {/* calories */}
-                        {data?.currentCals[index] ? 
+                        {data?.currentCals?.[index] !== "" ? 
                           <Text className="text-[10px] text-center">
                             {data.currentCals[index].toFixed(0)} {"cal"}
                           </Text>
                         : null}
 
                         {/* price */}
-                        {data?.currentPrices[index] ? 
+                        {data?.currentPrices?.[index] !== "" ? 
                           <Text className="text-[10px] text-center">
                             {"$"}{data.currentPrices[index].toFixed(2)}
                           </Text>
@@ -928,7 +992,7 @@ const MealDetailsModal = ({
                     </View>
                   </View>
                 ))}
-              </View>
+              </ScrollView>
             </>
 
             : // if not filled in
@@ -941,12 +1005,38 @@ const MealDetailsModal = ({
                 </Text>
               </View>
 
-              {/* Meal Details */}
-              <View className="flex justify-center items-center w-full h-[20px] bg-zinc500">
-                <Text className="text-[11px] text-white italic">
-                    {data?.prepCal || "0"}{" cal, $"}{data?.prepPrice || "0.00"}
-                </Text>
-              </View>
+              
+              {/* Meal Specifics */}
+              {data?.prepNote === "" 
+              ?
+                <View className="flex flex-row justify-center items-center w-full h-[20px] bg-zinc500">
+                  <Text className="text-[11px] text-zinc100 italic">
+                      {data?.prepCal || "0"}{" cal, $"}{data?.prepPrice || "0.00"}
+                  </Text>
+                </View>
+              :
+                <View className="flex flex-row bg-black">
+
+                  {/* Meal Details */}
+                  <View className="flex flex-col justify-center items-center w-1/2 py-2 bg-zinc500">
+                    <Text className="text-[11px] text-zinc100 italic">
+                        {`${data?.prepCal || "0"} cal`}
+                    </Text>
+                    <Text className="text-[11px] text-zinc100 italic">
+                        {`$${data?.prepPrice || "0.00"}`}
+                    </Text>
+                  </View>
+
+                  {/* Meal Note */}
+                  {data?.prepNote !== "" &&
+                  <View className="flex justify-center items-center w-1/2 py-2 bg-zinc450">
+                    <Text className="text-[10px] text-center text-white font-medium">
+                        {data.prepNote}
+                    </Text>
+                  </View>
+                  }
+                </View>
+              }
             </View>
             }
           </>
@@ -985,7 +1075,7 @@ const MealDetailsModal = ({
                 </Picker>
 
                 {/* Create Type Selector */}
-                {option === "CREATE" && data?.id === undefined &&
+                {option === "CREATE" &&
                 <View className="absolute flex h-full justify-center items-center right-1">
                   <Icon
                     name={createComplex ? "information-circle" : "information-circle-outline"}
@@ -1005,13 +1095,13 @@ const MealDetailsModal = ({
             ?
               <>
                 {/* simple create without ingredients */}
-                <View className="flex flex-col justify-center items-center">
+                <View className="flex flex-col w-full justify-center items-center">
                   <View className="flex flex-row justify-evenly content-center mb-4 w-full h-[65px] px-5">
                     
                     {/* Prep Name Input */}
                     <View className="flex justify-center items-center h-full w-1/2 bg-white rounded-md py-1 px-2 border-0.5 border-zinc500">
                       <TextInput
-                        className="text-center mb-1 text-[14px] leading-[17px]"
+                        className="w-full text-center mb-1 text-[14px] leading-[17px]"
                         placeholder={prepName === "" ? "meal prep name" : prepName}
                         placeholderTextColor={colors.zinc400}
                         multiline={true}
@@ -1026,10 +1116,10 @@ const MealDetailsModal = ({
                     <View className="flex flex-col justify-center items-center w-1/2 h-full space-y-2 pl-5">
           
                       {/* Calories */}
-                      <View className="flex flex-row h-[25px] w-full space-x-1 justify-center items-center border-[1px] border-zinc450 bg-zinc400">
+                      <View className="flex flex-row h-[25px] w-full space-x-1 px-2 justify-center items-center border-[1px] border-zinc450 bg-zinc400">
                         {/* amount input */}
                         <TextInput
-                          className="bg-transparent text-center italic text-[12px] leading-[15px]"
+                          className="flex-auto text-right bg-transparent italic text-[12px] leading-[15px]"
                           placeholder={prepCal === "" ? "0" : prepCal}
                           placeholderTextColor='black'
                           value={prepCal}
@@ -1040,20 +1130,21 @@ const MealDetailsModal = ({
                           }}
                         />
                         {/* label */}
-                        <Text className="flex justify-center items-center text-center italic text-[12px]">
+                        <Text className="flex-auto text-left italic text-[12px]">
                           calories
                         </Text>
                       </View>
           
                       {/* Price */}
-                      <View className="flex flex-row h-[25px] w-full justify-center items-center border-[1px] border-zinc450 bg-zinc400">
+                      <View className="flex flex-row w-full h-[25px] justify-center items-center border-[1px] border-zinc450 bg-zinc400">
                         {/* label */}
-                        <Text className="flex justify-center items-center text-center italic text-[12px]">
+                        <Text className="flex-auto text-right justify-center pl-1 italic text-[12px]">
                           $
                         </Text>
+                        
                         {/* price input */}
                         <TextInput
-                          className="bg-transparent text-center italic text-[12px] leading-[15px]"
+                          className="flex-auto bg-transparent text-left pr-1 italic text-[12px] leading-[15px]"
                           placeholder={prepPrice === "" ? "0.00" : prepPrice}
                           placeholderTextColor='black'
                           value={prepPrice}
@@ -1071,11 +1162,42 @@ const MealDetailsModal = ({
                         />
                       </View>
                     </View>
+                  </View>
+                    
+                  {/* Prep Note Input */}
+                  <View className="flex w-11/12 mb-4 bg-theme100 rounded-md py-0 px-2 border-[1px] border-theme200">
+                    <TextInput
+                      className="w-full text-center mb-1 italic text-[12px] text-zinc900"
+                      placeholder={prepNote === "" ? "meal prep notes" : prepNote}
+                      placeholderTextColor={colors.theme600}
+                      multiline={true}
+                      onFocus={() => setKeyboardType("note")}
+                      onBlur={() => setKeyboardType("")}
+                      value={prepNote}
+                      onChangeText={setPrepNote}
+                    />
 
+                    {keyboardType === "note" &&
+                    <View className="absolute right-1.5 bottom-0.5">
+                      <Icon
+                        name="chevron-down"
+                        size={14}
+                        color={colors.zinc900}
+                        onPress={() => {
+                          Keyboard.dismiss()
+                          setIsKeyboardOpen(false)
+                          setKeyboardType("")
+                        }}
+                      />
+                    </View>
+                    }
                   </View>
 
                   {/* WARNING FOR PREP */}
-                  {!(id === null || id?.includes("LUNCH") || id?.includes("DINNER") || id?.includes("!")) &&
+                  {(copyData === null 
+                    ? !(id === null || id?.includes("LUNCH") || id?.includes("DINNER") || id?.includes("."))
+                    : !(copyData?.prepId === null || copyData?.prepId?.includes("LUNCH") || copyData?.prepId?.includes("DINNER") || copyData?.prepId?.includes(".")))
+                  &&
                   <View className="w-full px-2 mb-2">
                     {/* divider */}
                     <View className="h-[1px] bg-zinc350 mb-4"/>
@@ -1092,15 +1214,15 @@ const MealDetailsModal = ({
             ?
               <>
                 {/* create with ingredients */}
-                <View className="flex flex-col justify-center items-center w-full ml-[-20px] mb-2">
+                <View className="flex flex-col justify-center items-center w-full mb-2 ml-[-5px]">
 
                   {/* TOP ROW */}
-                  <View className="flex flex-row items-center justify-center border-0.5 ml-[20px] mb-1 bg-zinc600">
+                  <View className="flex flex-row items-center justify-center border-0.5 mb-1 ml-[15px] mr-[10px] bg-zinc600">
                     
                     {/* Meal Name Input */}
                     <View className="flex justify-center items-center px-1.5 w-7/12 border-r-0.5 bg-zinc700">
                       <TextInput
-                        className="text-[13px] font-semibold text-white text-center py-2 leading-[16px]"
+                        className="w-full text-[13px] font-semibold text-white text-center py-2 leading-[16px]"
                         placeholder={prepName === "" ? "meal prep name" : prepName}
                         placeholderTextColor={colors.zinc400}
                         multiline={true}
@@ -1111,20 +1233,22 @@ const MealDetailsModal = ({
                     </View>
     
                     {/* Meal Details */}
-                    <View className="flex flex-row space-x-2 justify-center items-center w-5/12">
+                    <View className="flex flex-row px-1 space-x-3 justify-center items-center w-5/12">
 
                       {/* calories */}
-                      <Text className="text-[11px] text-white">
-                          {prepCal === "" ? "0" : prepCal || "0"}{" cal"}
-                      </Text>
+                      <View className="flex-auto items-end pl-2">
+                        <Text className="text-center text-[11px] text-white">
+                            {prepCal === "" ? "0" : prepCal || "0"}{" cal"}
+                        </Text>
+                      </View>
 
                       {/* price */}
-                      <View className="flex flex-row justify-center items-center">
-                        <Text className={`text-[11px] ${prepPrice === "" ? "text-zinc400" : "text-white"}`}>
+                      <View className="flex flex-auto flex-row pr-2">
+                        <Text className={`flex text-right text-[11px] ${prepPrice === "" ? "text-zinc400" : "text-white"}`}>
                           $
                         </Text>
                         <TextInput
-                          className="text-[11px] text-white leading-[13px]"
+                          className="flex text-left text-[11px] text-white leading-[13px]"
                           placeholder={prepPrice === "" ? "0.00" : prepPrice}
                           placeholderTextColor={colors.zinc400}
                           value={prepPrice}
@@ -1140,33 +1264,57 @@ const MealDetailsModal = ({
                             });
                           }}
                         />
+                      </View>
                     </View>
-                    </View>
+
+                    {/* First Index Add Indicator */}
+                    <View className="absolute w-[20px] left-[-15px] top-[32.5px] pr-1 z-50 justify-end items-center">
+                      {(showNewIndex && numIngredients !== 0) &&
+                      <Icon
+                        name="send"
+                        size={10}
+                        color={colors.zinc600}
+                        onPress={() => addPrepIngredient(0)}
+                      />
+                      }
+                    </View>   
                   </View> 
     
                   {/* GRID */}
                   {numIngredients !== 0 &&
                   <ScrollView 
-                    className={`flex flex-col w-full mr-[-40px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) && "max-h-[100px]"}`}
-                    scrollEnabled={keyboardType === "grid" && isKeyboardOpen}
+                    className={`flex flex-col w-full mr-[-10px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) ? "max-h-[100px]" : "max-h-[430px]"}`}
+                    // scrollEnabled={keyboardType === "grid" && isKeyboardOpen}
                   >
                     
                     {/* Frozen Columns */}
-                    {[0,1,2,3,4,5,6,7,8,9,10,11].map((index) => index < numIngredients && 
+                    {Array.from({ length: numIngredients }, (_, index) => index < numIngredients && 
                       <View key={`frozen-${index}`} className="flex flex-row min-h-[30px]">
+
+                        {/* Add Indicator */}
+                        <View className="w-[20px] h-[10px] mt-[-5px] mx-[-5px] pr-1 z-50 justify-end items-center">
+                          {(index !== 0 && showNewIndex) && 
+                          <Icon
+                            name="send"
+                            size={10}
+                            color={colors.zinc600}
+                            onPress={() => addPrepIngredient(index)}
+                          />
+                          }
+                        </View>      
 
                         {/* current */}
                         <View className={`flex-1 flex-row bg-zinc500 border-x-[1px] ${index === 0 && "border-t-[1px]"} ${index === numIngredients - 1 && "border-b-[1px]"} border-zinc700`}>
     
                           {/* ingredient names */}
-                          <View className="flex items-center justify-center w-7/12 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">
+                          <View className="flex items-center justify-center w-7/12 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">     
                             <View className="flex flex-wrap flex-row">
                               {/* Input */}
                               <TextInput
-                                className="text-white font-semibold text-[10px] text-center px-2 py-2"
+                                className="w-full text-white font-semibold text-[10px] text-center px-2 py-2"
                                 placeholder="ingredient name"
                                 placeholderTextColor={colors.zinc350}
-                                value={prepCurrentData[index]?.ingredientName || ""}
+                                value={prepCurrentData?.[index]?.ingredientName || ""}
                                 onChangeText={(value) => changeName(index, value)}
                                 multiline={true}
                                 blurOnSubmit={true}
@@ -1177,13 +1325,13 @@ const MealDetailsModal = ({
                           </View>
                           
                           {/* amount */}
-                          <View className="flex flex-row px-2 space-x-0.5 items-center justify-center bg-zinc100 w-1/4 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc400">
+                          <View className="flex flex-row px-1 space-x-0.5 items-center justify-center bg-zinc100 w-1/4 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc400">
                             {/* Amount Input */}
                             <TextInput
-                              className="text-[9px] text-center"
+                              className="text-[9px] flex text-center h-full pl-4"
                               placeholder="_"
                               placeholderTextColor={colors.zinc450}
-                              value={prepCurrentAmounts[index]}
+                              value={prepCurrentAmounts?.[index]}
                               onChangeText={(value) => {
                                 setPrepCurrentAmounts((prev) => {
                                   const updated = [...prev];
@@ -1197,25 +1345,27 @@ const MealDetailsModal = ({
                             
                             {/* Unit Input */}
                             <TextInput
-                              className="text-[9px] text-center"
+                              className="text-[9px] leading-[12px] flex text-center pr-4 py-1"
                               placeholder="unit(s)"
                               placeholderTextColor={colors.zinc450}
-                              value={prepCurrentData[index]?.ingredientData[prepCurrentData[index]?.ingredientStore]?.unit || ""}
+                              value={prepCurrentData?.[index]?.ingredientData[prepCurrentData?.[index]?.ingredientStore]?.unit || ""}
                               onChangeText={(value) => changeUnit(index, value)}
+                              multiline={true}
+                              blurOnSubmit={true}
                               onFocus={() => setKeyboardType("grid")}
                               onBlur={() => setKeyboardType("")}
                             />
                           </View>
     
                           {/* calories */}
-                          <View className="flex flex-row px-3 space-x-0.5 items-center justify-center bg-white w-1/6 border-b-0.5 border-b-zinc400">
+                          <View className="flex flex-row px-1 space-x-0.5 items-center justify-center bg-white w-1/6 border-b-0.5 border-b-zinc400">
                             
                             {/* Amount Input */}
                             <TextInput
-                              className="text-[9px] text-center"
+                              className="text-[9px] flex-auto text-right"
                               placeholder="_"
                               placeholderTextColor={colors.zinc400}
-                              value={prepCurrentCals[index].toString()}
+                              value={prepCurrentCals?.[index]?.toString()}
                               onChangeText={(value) => {
                                 setPrepCurrentCals((prev) => {
                                   const updated = [...prev];
@@ -1228,14 +1378,14 @@ const MealDetailsModal = ({
                             />
 
                             {/* Label */}
-                            <Text className="text-[9px] text-center">
+                            <Text className="text-[9px] flex-auto text-left">
                               {"cal"}
                             </Text>
                           </View>
                         </View>
 
                         {/* Delete Button */}
-                        <View className="flex w-[20px] z-50 justify-center items-center">
+                        <View className="flex w-[20px] mx-[-2.5px] pl-1 z-50 justify-center items-center">
                           <Icon
                             name="close"
                             size={15}
@@ -1249,14 +1399,30 @@ const MealDetailsModal = ({
                   }
 
                   {/* Add Another Ingredient Row */}
-                  {numIngredients < 12 && 
-                  <View className="flex flex-row items-center justify-center ml-[20px]">
+                  {(copyData === null 
+                    ? (id === null || id?.includes("LUNCH") || id?.includes("DINNER") || id?.includes("."))
+                    : (copyData?.prepId === null || copyData?.prepId?.includes("LUNCH") || copyData?.prepId?.includes("DINNER") || copyData?.prepId?.includes(".")))
+                  &&
+                  <View className="flex flex-row items-center justify-center ml-[15px] mr-[10px]">
+
+                    {/* Last Index Add Indicator */}
+                    <View className="absolute w-[20px] left-[-15px] pr-1 top-[-5px] z-50 justify-end items-center">
+                      {showNewIndex &&
+                      <Icon
+                        name="send"
+                        size={10}
+                        color={colors.zinc600}
+                        onPress={() => addPrepIngredient(numIngredients)}
+                      />
+                      }
+                    </View>   
+
                     <TouchableOpacity 
                       className="flex justify-center items-center bg-zinc350 w-full py-0.5 border-b-[1px] border-x-[1px] border-zinc400"
-                      onPress={() => setNumIngredients(numIngredients + 1)}
+                      onPress={() => setShowNewIndex(!showNewIndex)}
                     >
                       <Icon
-                        name="add"
+                        name={!showNewIndex ? "add" : "close-outline"}
                         size={14}
                         color={colors.zinc900}
                       />
@@ -1282,7 +1448,10 @@ const MealDetailsModal = ({
                   </TouchableOpacity>
 
                   {/* WARNING FOR PREP */}
-                  {!(id === null || id?.includes("LUNCH") || id?.includes("DINNER") || id?.includes("!")) &&
+                  {(copyData === null 
+                    ? !(id === null || id?.includes("LUNCH") || id?.includes("DINNER") || id?.includes("."))
+                    : !(copyData?.prepId === null || copyData?.prepId?.includes("LUNCH") || copyData?.prepId?.includes("DINNER") || copyData?.prepId?.includes(".")))
+                  &&
                   <View className="w-full mt-2 ml-[20px] px-2">
                     {/* divider */}
                     <View className="h-[1px] bg-zinc350 m-4"/>
@@ -1313,7 +1482,7 @@ const MealDetailsModal = ({
                 {/* filter input */}
                 <View className="flex bg-white w-full border-0.5 h-full border-zinc500 rounded-md justify-center items-start pl-2 pr-6">
                   <TextInput
-                    className="mb-1 text-left text-[14px] leading-[17px]"
+                    className="w-full mb-1 text-left text-[14px] leading-[17px]"
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                     placeholder="search for ingredient"
@@ -1351,6 +1520,8 @@ const MealDetailsModal = ({
 
               {/* MAP OF INGREDIENTS */}
               <View className="px-3">
+                {filteredIngredients.length > 0 
+                ?
                 <ScrollView
                   vertical
                   scrollEventThrottle={16}
@@ -1380,6 +1551,14 @@ const MealDetailsModal = ({
                     </View>
                   ))}
                 </ScrollView>
+                :
+                // empty snack list after filtering
+                <View className="flex w-full justify-center items-center h-[300px] border-4 border-zinc300 bg-zinc350">
+                  <Text className="italic text-center text-theme900 font-semibold">
+                    no ingredients match the current filter
+                  </Text>
+                </View>
+                }
               </View>
             </View>
 
@@ -1387,10 +1566,10 @@ const MealDetailsModal = ({
               <>
               {!showSearchSection
               ?
-                <View className="flex flex-col">
+                <View className="flex flex-col w-full justify-center items-center">
     
                   {/* row above calendar */}
-                  <View className="flex flex-row">
+                  <View className="flex flex-row w-4/5">
     
                     {/* Meal Selection */}
                     <View className="flex-1">
@@ -1411,18 +1590,19 @@ const MealDetailsModal = ({
                       </Picker>
                     </View>
     
-                  {/* Search Button */}
-                  <View className="absolute h-full right-0 justify-center items-center px-1 bg-zinc600">
-                    <Icon
-                      name="search"
-                      color="white"
-                      size={18}
-                      onPress={() => setShowSearchSection(true)}
-                    />
-                  </View>
+                    {/* Search Button */}
+                    <View className="absolute h-full right-0 justify-center items-center px-1 bg-zinc600">
+                      <Icon
+                        name="search"
+                        color="white"
+                        size={18}
+                        onPress={() => setShowSearchSection(true)}
+                      />
+                    </View>
                   </View>
     
                   {/* Date Selection */}
+                  <View className="flex w-4/5">
                   <Calendar
                     key={copyDate}
                     current={copyDate}           
@@ -1441,64 +1621,66 @@ const MealDetailsModal = ({
                       monthTextColor: 'black',
                     }}
                   />
-    
-                  {/* Divider */}
-                  <View className="h-[1px] bg-zinc400 w-full my-2"/>
+                  </View>
     
                   {/* Meal Display */}
-                  {copyData?.prepData?.prepName 
-                  ?
-                    <View className="flex flex-col space-y-1 -mx-5 mb-2 justify-center items-center bg-theme100 py-1 border-2 border-zinc350">
-                      <Text className="font-bold text-theme900">
-                        SELECTED MEAL PREP:
-                      </Text>
-                      <Text className="italic">
-                        {copyData.prepData.prepName}
-                      </Text>
-                    </View>
-                  
-                  : // invalid data
-                    <View className="flex flex-col space-y-1 -mx-5 mb-2 justify-center items-center bg-theme100 py-1 border-2 border-zinc350">
+                  <View className="flex flex-col w-11/12 space-y-1 -mx-5 mt-4 mb-2 px-2 justify-center items-center bg-theme100 py-1 border-2 border-zinc350">
+                    {copyData?.prepData?.prepName 
+                    ?
+                      <>
+                        <Text className="font-bold text-theme900 text-center">
+                          SELECTED MEAL PREP:
+                        </Text>
+                        <View className="flex w-full">
+                          <Text className="flex italic text-center">
+                            {copyData.prepData.prepName}
+                          </Text>
+                        </View>
+                      </>
+                    
+                    : // invalid data
                       <Text className="font-bold text-theme800 italic">
                         no meal prep matches this selection
                       </Text>
-                    </View>
-                  }
+                    }
+                  </View>
                 </View>
               :
                 <View className="flex flex-col">
                   
                   {/* RECIPE FILTERING SECTION */}
-                  <View className="flex flex-row w-full px-5 justify-center items-center mb-[20px] space-x-2">
+                  <View className="flex flex-row w-full px-3 justify-center items-center mb-[20px] space-x-2">
 
-                    {/* Button to stop searching */}
-                    <View className="flex w-1/12">
-                      <Icon
-                        name="backspace"
-                        size={24}
-                        color={colors.zinc700}
-                        onPress={() => setShowSearchSection(false)}
-                      />
-                    </View>
+                    {/* Keyword Type Selector */}
+                    <Icon
+                      name={keywordType === "meal prep" ? "code-working" : keywordType === "ingredient" && "list"}
+                      color={colors.zinc900}
+                      size={20}
+                      onPress={() => {
+                        const keyword = keywordType === "meal prep" ? "ingredient" : "meal prep";
+                        setKeywordType(keyword)
+                        filterPreps(keyword, "", prepTypeFilter)
+                      }}
+                    />
 
                     {/* text input */}
                     <TextInput
                       value={prepKeywordQuery}
-                      onChangeText={(value) => filterPreps(value, prepTypeFilter)}
-                      placeholder="recipe keyword(s)"
+                      onChangeText={(value) => filterPreps(keywordType, value, prepTypeFilter)}
+                      placeholder={`${keywordType} keyword(s)`}
                       placeholderTextColor={colors.zinc400}
-                      className="flex-1 w-5/6 bg-white radius-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 py-1.5 rounded-md text-[14px] leading-[17px]"
+                      className="flex-1 w-5/6 bg-white radius-[5px] border-[1px] border-zinc300 pl-2.5 pr-[50px] py-1.5 rounded-md text-[14px] leading-[17px]"
                     />
         
                     {/* BUTTONS */}
-                    <View className="flex flex-row absolute right-6 h-[30px] items-center justify-center">
+                    <View className="flex flex-row absolute right-5 h-[30px] items-center justify-center">
 
                       {/* type filtering */}
                       <Icon
                         name={prepTypeFilter === "prep" ? "information-circle" : prepTypeFilter === "complex" ? "stop-circle" : prepTypeFilter === "simple" ? "ellipse" : "ellipse-outline"}
                         color={colors.zinc700}
                         size={18}
-                        onPress={() => filterPreps(prepKeywordQuery, prepTypeFilter === "prep" ? "complex" : prepTypeFilter === "complex" ? "simple" : prepTypeFilter === "simple" ? "" : "prep")}
+                        onPress={() => filterPreps(keywordType, prepKeywordQuery, prepTypeFilter === "prep" ? "complex" : prepTypeFilter === "complex" ? "simple" : prepTypeFilter === "simple" ? "" : "prep")}
                       />
 
                       {/* clear */}
@@ -1508,7 +1690,11 @@ const MealDetailsModal = ({
                         color="black"
                         onPress={() => {
                           setPrepKeywordQuery("");
-                          filterPreps("", prepTypeFilter);
+                          setOpenPrepIndex(-1);
+                          setOpenComplexIndex(-1);
+                          setOpenSimpleIndex(-1);
+                          setShowSpecifics(false);
+                          filterPreps(keywordType, "", prepTypeFilter);
                         }}
                       />
                     </View>
@@ -1597,10 +1783,11 @@ const MealDetailsModal = ({
                                 setOpenSimpleIndex(openSimpleIndex === index ? -1 : index)
                                 setOpenComplexIndex(-1)
                                 setOpenPrepIndex(-1)
+                                setShowSpecifics(false)
                               }}
                             />
                           </View>
-                          : (filteredPrepIds[index]?.[(openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("!"))
+                          : (filteredPrepIds[index]?.[(openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("."))
                           ? // if complex custom
                           <View className="flex w-1/12 py-2 justify-center items-center bg-zinc350">
                             <Icon
@@ -1612,6 +1799,7 @@ const MealDetailsModal = ({
                                 setOpenComplexIndex(openComplexIndex === index ? -1 : index)
                                 setOpenSimpleIndex(-1)
                                 setOpenPrepIndex(-1)
+                                setShowSpecifics(false)
                               }}
                             />
                           </View>
@@ -1626,6 +1814,7 @@ const MealDetailsModal = ({
                                 setOpenPrepIndex(openPrepIndex === index ? -1 : index)
                                 setOpenComplexIndex(-1)
                                 setOpenSimpleIndex(-1)
+                                setShowSpecifics(false)
                               }}
                             />
                           </View>
@@ -1635,25 +1824,80 @@ const MealDetailsModal = ({
                         {/* COMPLEX DETAILS */}
                         {(openPrepIndex === index || openComplexIndex === index) && (
                           <View className="flex flex-row w-full">
-                            {/* Ingredient List */}
+                          {/* Ingredient List */}
+
+                            {!showSpecifics
+                            ? // not showing specific amounts
                             <View className="flex flex-col w-3/4 bg-zinc300 py-1 items-start justify-center">
-                              {prep[currIndex]?.currentData.slice().map((current, i) => 
+                              {prep[currIndex]?.currentData.map((current, i) => 
                                 current !== null && (
                                   <View key={i} className="flex flex-row w-full pl-2 pr-5 space-x-1">
                                     {/* current ingredient name */}
                                     <Text className="text-zinc800 text-[11px] text-center">
                                       {"⁃"}
                                     </Text>
-                                    <Text className="text-zinc800 text-[11px] text-left">
+                                    <Text className="text-zinc800 text-[11px] text-left pr-2">
                                       {current.ingredientName}
                                     </Text>
                                   </View>
                                 )
                               )}
                             </View>
+                            : 
+                            // showing specific amounts
+                            <View className="flex w-full bg-zinc300 items-start justify-center">
+                              <>
+                              {prep[currIndex].currentData.map((current, i) => 
+                                current !== null && (
+                                  <View key={i} className="flex flex-row">
+
+                                    {/* INGREDIENT NAME */}
+                                    <View className={`${i === 0 && "pt-1"} ${i === prep[currIndex].currentData.filter(curr => curr !== null).length - 1 && "pb-1"} w-3/4 flex flex-row pl-2 pr-5 space-x-1`}>
+                                      <Text className="text-zinc800 text-[11px] text-center">
+                                        {"⁃"}
+                                      </Text>
+                                      <Text className="text-zinc800 text-[11px] text-left pr-2">
+                                        {`${current.ingredientName}`}
+                                      </Text>
+                                    </View>
+
+                                    {/* INGREDIENT AMOUNT */}
+                                    <View className={`${i === 0 && "pt-1"} ${i === prep[currIndex].currentData.filter(curr => curr !== null).length - 1 && "pb-1"} w-1/4 justify-center items-center bg-zinc350`}>
+                                      <Text className="text-theme900 font-medium text-[9px] text-center">
+                                        {`${prep[currIndex].currentAmounts[i]} ${extractUnit(current.ingredientData[current.ingredientStore].unit, prep[currIndex].currentAmounts[i])}`}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                )
+                              )}
+                              </>
+
+                              {/* collapse specifics */}
+                              <View className="absolute w-1/4 right-0 mr-[20px] z-20 h-full items-start justify-center">
+                                <Icon
+                                  name="chevron-collapse"
+                                  color={colors.zinc900}
+                                  size={16}
+                                  onPress={() => setShowSpecifics(false)}
+                                />
+                              </View>
+                            </View>
+                            }
                                                 
                             {/* Details */}
+                            {!showSpecifics &&
                             <View className="flex flex-col w-1/4 bg-zinc350 justify-center space-y-0.5 py-1">
+                            
+                              {/* expand specifics */}
+                              <View className="absolute left-[-20px] h-full items-center justify-center">
+                                <Icon
+                                  name="resize"
+                                  color={colors.zinc900}
+                                  size={16}
+                                  onPress={() => setShowSpecifics(true)}
+                                />
+                              </View>
+
                               {/* total calories */}
                               <Text className="text-theme900 font-medium text-[11px] text-center">
                                 {prep[currIndex]?.prepCal} {"cal"}
@@ -1663,6 +1907,7 @@ const MealDetailsModal = ({
                                 {"$"}{prep[currIndex]?.prepPrice}
                               </Text>
                             </View>
+                            }
                           </View>
                         )}
                         
@@ -1706,6 +1951,16 @@ const MealDetailsModal = ({
                   <Text className="text-mauve600 italic">
                     meal prep name is required
                   </Text>
+                }
+                    
+                {/* Button to stop searching */}
+                {showSearchSection && 
+                  <Icon
+                    name="backspace"
+                    size={24}
+                    color={colors.zinc700}
+                    onPress={() => setShowSearchSection(false)}
+                  />
                 }
     
                 {/* BUTTONS */}

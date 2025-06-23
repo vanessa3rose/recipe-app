@@ -18,6 +18,7 @@ var Fractional = require('fractional').Fraction;
 // modals
 import CalendarModal from '../../components/Planning-Plan/CalendarModal';
 import SnackListModal from '../../components/Planning-Plan/SnackListModal';
+import SnackSearchModal from '../../components/Planning-Plan/SnackSearchModal';
 import MealDetailsModal from '../../components/Planning-Plan/MealDetailsModal';
 import MealSearchModal from '../../components/Planning-Plan/MealSearchModal';
 import MealOverviewModal from '../../components/Planning/MealOverviewModal';
@@ -43,7 +44,6 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       setSelectedPrepId(null);
       updatePreps();
       fetchGlobalPlan();
-      fetchGlobalPreps();
     }
   }, [isSelectedTab])
 
@@ -59,7 +59,6 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         setSelectedPrepId(null);
         updatePreps();
         fetchGlobalPlan();
-        fetchGlobalPreps();
       }, 1000);
     }
 
@@ -108,13 +107,13 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   }
 
   // gets the list of preps that are completed
-  const fetchGlobalPreps = async () => {
-    const prepDoc = ((await getDoc(doc(db, 'GLOBALS', 'prep'))));
-    if (prepDoc.exists()) { 
-      setGlobalCompleted(prepDoc.data().preps); 
+  const fetchGlobalPreps = async (prepsArray) => {
+    const prepDoc = await getDoc(doc(db, 'GLOBALS', 'prep')); 
 
-      // gets dropdown items
-      fetchDropdownItems(prepDoc.data().preps);
+    // gets dropdown items and stores completed
+    if (prepDoc.exists()) {
+      setGlobalCompleted(prepDoc.data().preps); 
+      fetchDropdownItems(prepDoc.data().preps, prepsArray);
     }
   }
 
@@ -377,7 +376,24 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           
         // gets the data of the selected meal prep
         const docSnap = await getDoc(doc(db, 'PREPS', selectedPrepId));   
-        const selectedPrepData = docSnap.exists() ? docSnap.data() : null;
+        let selectedPrepData = docSnap.exists() ? docSnap.data() : null;
+
+        // filters out any non-included currents
+        if (selectedPrepData !== null) {
+          // the list of included (or blank) indices
+          const includedIdx = selectedPrepData.currentIncluded.map((included, index) => included !== false ? index : null).filter(index => index !== null)
+          
+          // the newly formatted prep data
+          selectedPrepData = {
+            ...selectedPrepData,
+            currentAmounts: selectedPrepData.currentAmounts.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
+            currentCals: selectedPrepData.currentCals.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
+            currentData: selectedPrepData.currentData.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill(null)),
+            currentIds: selectedPrepData.currentIds.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
+            currentIncluded: selectedPrepData.currentIncluded.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
+            currentPrices: selectedPrepData.currentPrices.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
+          }
+        }
 
         // loops over the 7 days of the week
         for (let index = 0; index < 7; index++) {
@@ -426,7 +442,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         await batch.commit();
       
         // refreshes and updates the dropdown amounts
-        fetchDropdownItems(globalCompleted);
+        fetchDropdownItems(globalCompleted, prepData);
         getCollectionPlans();
       }
 
@@ -478,7 +494,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       getCollectionPlans();
       
       // updates the dropdown amounts
-      fetchDropdownItems(globalCompleted);
+      fetchDropdownItems(globalCompleted, prepData);
 
     } catch (error) {
       console.error('Error updating weekly plans:', error);
@@ -502,32 +518,56 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       for (let index = 0; index < 7; index++) {
         
         if (isLunchChecked[index] && !detailsOne) {
-          detailsOne = { date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), meal: "LUNCH", data: weekData[index].meals.lunch, otherData: weekData[index].meals.dinner, snacks: weekData[index].snacks };
+          detailsOne = { 
+            date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), 
+            meal: "LUNCH", 
+            data: weekData[index]?.meals?.lunch || { prepData: null, prepId: null }, 
+            otherData: weekData[index]?.meals?.dinner || { prepData: null, prepId: null }, 
+            snacks: weekData[index]?.snacks || null
+          };
         } else if (isLunchChecked[index] && detailsOne) {
-          detailsTwo = { date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), meal: "LUNCH", data: weekData[index].meals.lunch, otherData: weekData[index].meals.dinner, snacks: weekData[index].snacks };
+          detailsTwo = { 
+            date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), 
+            meal: "LUNCH", 
+            data: weekData[index]?.meals?.lunch || { prepData: null, prepId: null },  
+            otherData: weekData[index]?.meals?.dinner || { prepData: null, prepId: null }, 
+            snacks: weekData[index]?.snacks || null
+          };
         }
         
         if (isDinnerChecked[index] && !detailsOne) {
-          detailsOne = { date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), meal: "DINNER", data: weekData[index].meals.dinner, otherData: weekData[index].meals.lunch, snacks: weekData[index].snacks };
+          detailsOne = { 
+            date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), 
+            meal: "DINNER", 
+            data: weekData[index]?.meals?.dinner || { prepData: null, prepId: null }, 
+            otherData: weekData[index]?.meals?.lunch || { prepData: null, prepId: null }, 
+            snacks: weekData[index]?.snacks || null
+          };
         } else if (isDinnerChecked[index] && detailsOne) {
-          detailsTwo = { date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), meal: "DINNER", data: weekData[index].meals.dinner, otherData: weekData[index].meals.lunch, snacks: weekData[index].snacks };
-        }
+          detailsTwo = { 
+            date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), 
+            meal: "DINNER", 
+            data: weekData[index]?.meals?.dinner || { prepData: null, prepId: null }, 
+            otherData: weekData[index]?.meals?.lunch || { prepData: null, prepId: null }, 
+            snacks: weekData[index]?.snacks || null
+          };
+        } 
       }
 
       // IF THE SWAP HAPPENS ON ONLY ONE DAY
       if (detailsOne.date === detailsTwo.date) {
         
         // swaps the id meal if the first one is custom
-        if (detailsOne.meal === "LUNCH" && detailsOne?.data?.prepId?.includes("LUNCH")) {
+        if (detailsOne.meal === "LUNCH" && detailsOne?.data?.prepId !== null && detailsOne?.data?.prepId?.includes("LUNCH")) {
           detailsOne.data.prepId = detailsOne.data.prepId.replace("LUNCH", "DINNER");
-        } else if (detailsOne.meal === "DINNER" && detailsOne?.data?.prepId?.includes("DINNER")) {
+        } else if (detailsOne.meal === "DINNER" && detailsOne?.data?.prepId !== null && detailsOne?.data?.prepId?.includes("DINNER")) {
           detailsOne.data.prepId = detailsOne.data.prepId.replace("DINNER", "LUNCH");
         }
 
         // swaps the id meal if the second one is custom
-        if (detailsTwo.meal === "LUNCH" && detailsTwo?.data?.prepId?.includes("LUNCH")) {
+        if (detailsTwo.meal === "LUNCH" && detailsTwo?.data?.prepId !== null && detailsTwo?.data?.prepId?.includes("LUNCH")) {
           detailsTwo.data.prepId = detailsTwo.data.prepId.replace("LUNCH", "DINNER");
-        } else if (detailsTwo.meal === "DINNER" && detailsTwo?.data?.prepId?.includes("DINNER")) {
+        } else if (detailsTwo.meal === "DINNER" && detailsTwo?.data?.prepId !== null && detailsTwo?.data?.prepId?.includes("DINNER")) {
           detailsTwo.data.prepId = detailsTwo.data.prepId.replace("DINNER", "LUNCH");
         }
         
@@ -546,7 +586,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         // reformatting date
         const [year, month, day] = detailsOne.date.split("-").map(Number);
         const longDate = new Date(year, month - 1, day);
-
+        
         // determines if initial radios were checked
         let lunchRadio = ogSelected.filter(item => item.meal === "LUNCH " + longDate).length !== 0;
         let dinnerRadio = ogSelected.filter(item => item.meal === "DINNER " + longDate).length !== 0;
@@ -573,6 +613,12 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       // IF IT HAPPENS ON TWO SEPARATE DAYS
       } else {
 
+        // reformatting dates
+        const [year1, month1, day1] = detailsOne.date.split("-").map(Number);
+        const longDate1 = new Date(year1, month1 - 1, day1);
+        const [year2, month2, day2] = detailsTwo.date.split("-").map(Number);
+        const longDate2 = new Date(year2, month2 - 1, day2);
+
         // first day
         let swappedDayOne = {
           date: detailsOne.date,
@@ -593,29 +639,23 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           ...(detailsTwo?.snacks && { snacks: detailsTwo?.snacks }),
         };
         
-        // swaps the id meal if the first lunch is custom
-        if (swappedDayOne?.meals?.lunch?.prepId?.includes("DINNER")) {
-          swappedDayOne.data.prepId = swappedDayOne.data.prepId.replace("DINNER", "LUNCH");
-        // swaps the id meal if the first dinner is custom
-        } if (swappedDayOne?.meals?.dinner?.prepId?.includes("LUNCH")) {
-          swappedDayOne.data.prepId = swappedDayOne.data.prepId.replace("LUNCH", "DINNER");
-        // swaps the id meal if the second lunch is custom
-        } if (swappedDayTwo?.meals?.lunch?.prepId?.includes("DINNER")) {
-          swappedDayTwo.data.prepId = swappedDayTwo.data.prepId.replace("DINNER", "LUNCH");
-        // swaps the id meal if the second dinner is custom
-        } if (swappedDayTwo?.meals?.dinner?.prepId?.includes("LUNCH")) {
-          swappedDayTwo.data.prepId = swappedDayTwo.data.prepId.replace("LUNCH", "DINNER");
+        // changes the id meal if the first lunch is custom
+        if (swappedDayOne?.meals?.lunch?.prepId?.includes("LUNCH") || swappedDayOne?.meals?.lunch?.prepId?.includes("DINNER")) {
+          swappedDayOne.meals.lunch.prepId = `LUNCH ${month1}/${day1}/${year1 % 100}`;
+        // changes the id meal if the first dinner is custom
+        } if (swappedDayOne?.meals?.dinner?.prepId?.includes("LUNCH") || swappedDayOne?.meals?.dinner?.prepId?.includes("DINNER")) {
+          swappedDayOne.meals.dinner.prepId = `DINNER ${month1}/${day1}/${year1 % 100}`;
+        // changes the id meal if the second lunch is custom
+        } if (swappedDayTwo?.meals?.lunch?.prepId?.includes("LUNCH") || swappedDayTwo?.meals?.lunch?.prepId?.includes("DINNER")) {
+          swappedDayTwo.meals.lunch.prepId = `LUNCH ${month2}/${day2}/${year2 % 100}`;
+        // changes the id meal if the second dinner is custom
+        } if (swappedDayTwo?.meals?.dinner?.prepId?.includes("LUNCH") || swappedDayTwo?.meals?.dinner?.prepId?.includes("DINNER")) {
+          swappedDayTwo.meals.dinner.prepId = `DINNER ${month2}/${day2}/${year2 % 100}`;
         } 
 
         // changed dates
         batch.set(doc(db, 'PLANS', detailsOne.date), swappedDayOne);
         batch.set(doc(db, 'PLANS', detailsTwo.date), swappedDayTwo);
-
-        // reformatting dates
-        const [year1, month1, day1] = detailsOne.date.split("-").map(Number);
-        const longDate1 = new Date(year1, month1 - 1, day1);
-        const [year2, month2, day2] = detailsTwo.date.split("-").map(Number);
-        const longDate2 = new Date(year2, month2 - 1, day2);
  
         // determines if initial radios were checked
         let radio1 = ogSelected.filter(item => item.meal === (detailsOne.meal + " " + longDate1)).length !== 0;
@@ -652,7 +692,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       getCollectionPlans();
       
       // updates the dropdown amounts
-      fetchDropdownItems(globalCompleted);
+      fetchDropdownItems(globalCompleted, prepData);
 
     } catch (error) {
       console.error('Error updating weekly plans:', error);
@@ -674,7 +714,6 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
   // updates the current list of meal preps
   const updatePreps = async () => {
-    
     try {
     
       // initial data for the week
@@ -715,6 +754,42 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           // finds the index of the lunch and dinner in the planData
           const lunchIndex = prepIds.indexOf(planData.meals.lunch.prepId);
           const dinnerIndex = prepIds.indexOf(planData.meals.dinner.prepId);
+
+          // filters out any non-included currents in the lunch data
+          let lunchData = lunchIndex === -1 ? planData.meals.lunch.prepData : (({ id, ...rest }) => rest)(prepsArray[lunchIndex]);
+          if (lunchIndex !== -1) {
+            
+            // the list of included (or blank) indices
+            const includedLunch = lunchData.currentIncluded.map((included, index) => included !== false ? index : null).filter(index => index !== null)
+            // the newly formatted prep data
+            lunchData = {
+              ...lunchData,
+              currentAmounts: lunchData.currentAmounts.filter((_, index) => includedLunch.includes(index)).concat(Array(12 - includedLunch.length).fill("")),
+              currentCals: lunchData.currentCals.filter((_, index) => includedLunch.includes(index)).concat(Array(12 - includedLunch.length).fill("")),
+              currentData: lunchData.currentData.filter((_, index) => includedLunch.includes(index)).concat(Array(12 - includedLunch.length).fill(null)),
+              currentIds: lunchData.currentIds.filter((_, index) => includedLunch.includes(index)).concat(Array(12 - includedLunch.length).fill("")),
+              currentIncluded: lunchData.currentIncluded.filter((_, index) => includedLunch.includes(index)).concat(Array(12 - includedLunch.length).fill("")),
+              currentPrices: lunchData.currentPrices.filter((_, index) => includedLunch.includes(index)).concat(Array(12 - includedLunch.length).fill("")),
+            }
+          }
+
+          // filters out any non-included currents in the dinner data
+          let dinnerData = dinnerIndex === -1 ? planData.meals.dinner.prepData : (({ id, ...rest }) => rest)(prepsArray[dinnerIndex]);
+          if (dinnerIndex !== -1) {
+
+            // the list of included (or blank) indices
+            const includedDinner = dinnerData.currentIncluded.map((included, index) => included !== false ? index : null).filter(index => index !== null)
+            // the newly formatted prep data
+            dinnerData = {
+              ...dinnerData,
+              currentAmounts: dinnerData.currentAmounts.filter((_, index) => includedDinner.includes(index)).concat(Array(12 - includedDinner.length).fill("")),
+              currentCals: dinnerData.currentCals.filter((_, index) => includedDinner.includes(index)).concat(Array(12 - includedDinner.length).fill("")),
+              currentData: dinnerData.currentData.filter((_, index) => includedDinner.includes(index)).concat(Array(12 - includedDinner.length).fill(null)),
+              currentIds: dinnerData.currentIds.filter((_, index) => includedDinner.includes(index)).concat(Array(12 - includedDinner.length).fill("")),
+              currentIncluded: dinnerData.currentIncluded.filter((_, index) => includedDinner.includes(index)).concat(Array(12 - includedDinner.length).fill("")),
+              currentPrices: dinnerData.currentPrices.filter((_, index) => includedDinner.includes(index)).concat(Array(12 - includedDinner.length).fill("")),
+            }
+          }
           
           // the data for the current date
           const docData = {
@@ -722,11 +797,11 @@ export default function WeeklyPlan ({ isSelectedTab }) {
             meals: {
               lunch: {
                 prepId: planData.meals.lunch.prepId,          
-                prepData: lunchIndex === -1 ? planData.meals.lunch.prepData : prepsArray[lunchIndex],
+                prepData: lunchData,
               },
               dinner: {
                 prepId: planData.meals.dinner.prepId,         
-                prepData: dinnerIndex === -1 ? planData.meals.dinner.prepData : prepsArray[dinnerIndex],
+                prepData: dinnerData,
               },
             },
             ...(planData?.snacks && { snacks: planData?.snacks }),
@@ -757,6 +832,9 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         setCurrAvailable(0);
         setCurrRemaining(0);
       }
+
+      // gets the global preps
+      fetchGlobalPreps(prepsArray);
 
     } catch (error) {
       console.error('Error updating preps:', error);
@@ -809,9 +887,10 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   }, [selectedPrepId]);
 
   // function to loop over the prepData to create dropdown items for each
-  const fetchDropdownItems = async (completed) => {
+  const fetchDropdownItems = async (completed, data) => {
+    
     let updatedItems = await Promise.all(
-      prepData.map(async (prep) => {
+      data.map(async (prep) => {
         const remaining = await calcRemaining(prep.id, prep);
 
         // reformats
@@ -837,7 +916,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
   // calls the previous function whenever prepData is changed
   useEffect(() => {
-    fetchDropdownItems(globalCompleted);
+    fetchDropdownItems(globalCompleted, prepData);
   }, [prepData]);
 
 
@@ -914,7 +993,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     setMealModalData(null);
       
     // updates the dropdown amounts and refreshes
-    fetchDropdownItems(globalCompleted);
+    fetchDropdownItems(globalCompleted, prepData);
     getCollectionPlans();
   }
 
@@ -1014,7 +1093,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected });
     
     // updates the dropdown amounts and refreshes
-    fetchDropdownItems(globalCompleted);
+    fetchDropdownItems(globalCompleted, prepData);
     getCollectionPlans();
 
     closeWarningModal();
@@ -1045,32 +1124,33 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   }, [selectedList]);
 
 
-  ///////////////////////////////// SEARCH MODAL /////////////////////////////////
+  ///////////////////////////////// SEARCH MODALS /////////////////////////////////
 
-  // for the meal search
-  const [searchModalVisible, setSearchModalVisible] = useState(false);
-  const [gotoDate, setGotoDate] = useState(null);
+  // for the snack and meal searches
+  const [snackSearchModalVisible, setSnackSearchModalVisible] = useState(false);
+  const [mealSearchModalVisible, setMealSearchModalVisible] = useState(false);
+  const [gotoMealDate, setGotoMealDate] = useState(null);
 
-  // to close the calendar popup
+  // to close the meal search modal
   const closeSearchModal = (selectedMeal, selectedDate) => {
     
     // unshows the modal
-    setSearchModalVisible(false);
+    setMealSearchModalVisible(false);
     
     // if the selected date is valid
     if (selectedDate) {
       changeGlobalPlan(selectedDate);     // updates the date of the plan in the global doc
       calculateWeekRange(selectedDate);   // calculates the new week range
-
+      
       // stores the date to highlight
-      setGotoDate({meal: selectedMeal, date: selectedDate});
+      setGotoMealDate({meal: selectedMeal, date: selectedDate});
     }
   };
 
 
   ///////////////////////////////// SNACK MODAL /////////////////////////////////
 
-  const [snackModalVisible, setSnackModalVisible] = useState(false);
+  const [snackListModalVisible, setSnackListModalVisible] = useState(false);
   const [snackModalDate, setSnackModalDate] = useState(null);
   const [snackModalDispDate, setSnackModalDispDate] = useState(null);
   const [snackModalData, setSnackModalData] = useState(null);
@@ -1086,7 +1166,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     setSnackModalDate(date);
     setSnackModalDispDate(dispDate);
     setSnackModalData(data ? data : null);
-    setSnackModalVisible(true);
+    setSnackListModalVisible(true);
   }
 
   // for closing the snack modal after editing
@@ -1097,7 +1177,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     setSnackModalData(null);
       
     // updates the dropdown amounts and refreshes
-    fetchDropdownItems(globalCompleted);
+    fetchDropdownItems(globalCompleted, prepData);
     getCollectionPlans();
   }
 
@@ -1199,7 +1279,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           {/* searchbar */}
           <View className="flex w-[45%] justify-center items-center">
             <TouchableOpacity 
-              onPress={() => setSearchModalVisible(true)}
+              onPress={() => setMealSearchModalVisible(true)}
               className="w-1/2 py-0.5 justify-center items-center bg-theme200 rounded-full"
             >
               <Icon name="search"/>
@@ -1226,23 +1306,35 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           </View>
 
           {/* snack indicator */}
-          <View className="w-1/6 justify-center items-center bg-theme200">
+          <TouchableOpacity 
+            className="w-1/6 justify-center items-center bg-theme200"
+            onPress={() => setSnackSearchModalVisible(true)}
+          >
             <Icon
               name="nutrition"
               size={16}
               color={colors.zinc700}
             />
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
 
+      {/* SEARCH MODAL */}
+      {snackSearchModalVisible && 
+        <SnackSearchModal
+          snapshot={plansSnapshot}
+          modalVisible={snackSearchModalVisible}
+          setModalVisible={setSnackSearchModalVisible}
+          closeModal={closeSearchModal}
+        />
+      }
 
       {/* SEARCH MODAL */}
-      {searchModalVisible && 
+      {mealSearchModalVisible && 
         <MealSearchModal
           snapshot={plansSnapshot}
-          modalVisible={searchModalVisible}
-          setModalVisible={setSearchModalVisible}
+          modalVisible={mealSearchModalVisible}
+          setModalVisible={setMealSearchModalVisible}
           closeModal={closeSearchModal}
         />
       }
@@ -1306,7 +1398,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                   activeOpacity={0.6}
                   className="flex flex-row bg-zinc350 w-full justify-center items-center h-1/2 px-1"
                 >
-                  <Text className={`text-[11px] font-bold text-center ${(gotoDate?.meal === "LUNCH" && gotoDate?.date?.dateString === data?.date) ? "text-pink-800" : (data?.meals?.lunch?.prepId === selectedPrepId) ? "text-theme700" : "text-black"}`}>
+                  <Text className={`text-[11px] font-bold text-center ${(gotoMealDate?.meal === "LUNCH" && gotoMealDate?.date?.dateString === data?.date) ? "text-pink-800" : (data?.meals?.lunch?.prepId === selectedPrepId) ? "text-theme700" : "text-black"}`}>
                     {data?.meals?.lunch?.prepData?.prepName ?? ""}
                   </Text>
                 </TouchableOpacity>
@@ -1317,7 +1409,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                   activeOpacity={0.6}
                   className="bg-zinc400 w-full justify-center items-center h-1/2 px-1"
                 >
-                  <Text className={`text-[11px] font-bold text-center ${(gotoDate?.meal === "DINNER" && gotoDate?.date?.dateString === data?.date) ? "text-pink-800" : (data?.meals?.dinner?.prepId === selectedPrepId) ? "text-theme800" : "text-black"}`}>
+                  <Text className={`text-[11px] font-bold text-center ${(gotoMealDate?.meal === "DINNER" && gotoMealDate?.date?.dateString === data?.date) ? "text-pink-800" : (data?.meals?.dinner?.prepId === selectedPrepId) ? "text-theme800" : "text-black"}`}>
                     {data?.meals?.dinner?.prepData?.prepName ?? ""}
                   </Text>
                 </TouchableOpacity>
@@ -1439,21 +1531,21 @@ export default function WeeklyPlan ({ isSelectedTab }) {
               <View className="absolute right-0.5 bottom-0.5">
                 <Icon
                   name={"nutrition"}
-                  color={weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA') ? colors.zinc350 : colors.theme300}
+                  color={gotoMealDate?.date?.dateString === data?.date ? colors.mauve100 : weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA') ? colors.zinc350 : colors.theme300}
                   size={12}
                 />
               </View>
               }
 
               {/* Modal to Display a Specific Snack */}
-              {snackModalVisible && 
+              {snackListModalVisible && 
                 <SnackListModal
                   date={snackModalDate}
                   dispDate={snackModalDispDate}
                   data={snackModalData}
                   snapshot={plansSnapshot}
-                  modalVisible={snackModalVisible}
-                  setModalVisible={setSnackModalVisible}
+                  modalVisible={snackListModalVisible}
+                  setModalVisible={setSnackListModalVisible}
                   closeModal={closeSnackModal}
                 />
               }
@@ -1514,6 +1606,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
         {/* Meal Prep Search */}
         <View className="flex flex-col w-1/2 h-[70px] space-y-1 justify-center items-center">
+        
         {/* dropdown */}
         {dropdownItems.length > 0 &&
           <DropDownPicker 
@@ -1586,15 +1679,16 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
         {/* Selected Checkbox */}
         {(selectedPrepId !== null && selectedPrepId !== "" 
-        && weekData.filter(data => data?.meals?.lunch?.prepId === selectedPrepId).length + weekData.filter(data => data?.meals?.dinner?.prepId === selectedPrepId).length !== 0) &&
-        <View className="flex pl-1">
-          <Icon
-            name="checkbox"
-            size={20}
-            color={colors.zinc600}
-            onPress={() => checkCurrent()}
-          />
-        </View>
+          && weekData.filter(data => data?.meals?.lunch?.prepId === selectedPrepId).length + weekData.filter(data => data?.meals?.dinner?.prepId === selectedPrepId).length !== 0) 
+        &&
+          <View className="flex pl-1">
+            <Icon
+              name="checkbox"
+              size={20}
+              color={colors.zinc600}
+              onPress={() => checkCurrent()}
+            />
+          </View>
         }
       </View>
     </View>

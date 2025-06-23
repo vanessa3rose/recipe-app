@@ -10,6 +10,10 @@ import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView } from 'reac
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
+// validation
+import extractUnit from '../../components/Validation/extractUnit';
+import { deepPrepIndexOf } from '../Validation/deepPrepSearch';
+
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
@@ -18,51 +22,9 @@ const MealSearchModal = ({
 }) => {
 
 
-  ///////////////////////////////// DEEP SEARCH /////////////////////////////////
-
-  // checks if two preps' data are equal
-  function deepPrepEqual(a, b) {
-    const ignoredKeys = [
-      "prepNote", "prepMult", 
-      "amountLeft", "amountTotal", "archive", "check", 
-      "ingredientData", "ingredientId", "ingredientStore", "ingredientTypes", 
-      "id", "containerPrice", "unitPrice"
-    ];
-
-    if (a === b) return true;
-  
-    if (typeof a !== typeof b || a === null || b === null) return false;
-  
-    if (Array.isArray(a) && Array.isArray(b)) {
-      if (a.length !== b.length) return false;
-      return a.every((item, i) => deepPrepEqual(item, b[i]));
-    }
-  
-    if (typeof a === 'object') {
-      const aKeys = Object.keys(a).filter(key => !ignoredKeys.includes(key));
-      const bKeys = Object.keys(b).filter(key => !ignoredKeys.includes(key));
-  
-      if (aKeys.length !== bKeys.length) return false;
-      return aKeys.every(key => deepPrepEqual(a[key], b[key]));
-    }
-  
-    return false;
-  }
-
-  // finds a specific prep within a list
-  function deepPrepIndexOf(array, target) {
-    for (let i = 0; i < array.length; i++) {
-      if (deepPrepEqual(array[i], target)) {
-        return i;
-      }
-    }
-    return -1;
-  }  
-
-
   ///////////////////////////////// ON OPEN /////////////////////////////////
 
-  // stores whether a prep is being edited on open
+  // loads data on open
   useEffect(() => {
     if (modalVisible) {
       loadPreps();
@@ -187,6 +149,7 @@ const MealSearchModal = ({
   const [openSimpleIndex, setOpenSimpleIndex] = useState(-1);
   const [openComplexIndex, setOpenComplexIndex] = useState(-1);
   const [openDatesIndex, setOpenDatesIndex] = useState(-1);
+  const [showSpecifics, setShowSpecifics] = useState(false);
 
   // to format the given date as "mm/dd/yy"
   const formatDateShort = (currDate) => {
@@ -205,6 +168,7 @@ const MealSearchModal = ({
   const [currIndex, setCurrIndex] = useState(0);
   const [prepKeywordQuery, setPrepKeywordQuery] = useState("");
   const [prepTypeFilter, setPrepTypeFilter] = useState("");
+  const [keywordType, setKeywordType] = useState("meal prep");
 
   const [filteredPrepNames, setFilteredPrepNames] = useState(null);
   const [filteredPrepIds, setFilteredPrepIds] = useState(null);
@@ -213,13 +177,13 @@ const MealSearchModal = ({
   const [filteredPrepMeals, setFilteredPrepMeals] = useState(null);
   
   // to filter the list of preps in the search section
-  const filterPreps = (searchQuery, typeFilter) => {
-    
+  const filterPreps = (keyword, searchQuery, typeFilter) => {
     setPrepKeywordQuery(searchQuery);
     setPrepTypeFilter(typeFilter);
     setOpenPrepIndex(-1);
     setOpenSimpleIndex(-1);
     setOpenComplexIndex(-1);
+    setShowSpecifics(false);
     setCurrIndex(0);
 
     // to get the unique list of preps
@@ -229,19 +193,54 @@ const MealSearchModal = ({
     let prepDates = [];
     let prepMeals = [];
 
+    // helper function for keyword filtering
+    const matchesKeywordFilter = (i, index) => {
+      // meal prep keyword - checks the meal prep name
+      if (keyword === "meal prep") {
+        return searchQuery.split(" ").every((word) => 
+          uniquePrepNames[index].toLowerCase().includes(word.toLowerCase()
+        ));
+      }
+      // ingredient keyword - checks each ingredient's name
+      if (keyword === "ingredient") {
+        return uniquePrepData[index][i]?.currentData?.some(current =>
+          searchQuery.split(" ").every(word =>
+            current?.ingredientName?.toLowerCase().includes(word.toLowerCase())
+          )
+        );
+      }
+      // otherwise
+      return false;
+    };
+
+    // helper function for type filtering
+    const matchesTypeFilter = (id) => {
+      return (
+        typeFilter === "" ||
+        (typeFilter === "prep" && !(id.includes("LUNCH") || id.includes("DINNER") || id.includes("."))) ||
+        (typeFilter === "complex" && id.includes(".")) ||
+        (typeFilter === "simple" && (id.includes("LUNCH") || id.includes("DINNER")))
+      );
+    };
+
     // adds the data to the prep lists that matches the filtering
     uniquePrepNames.map((name, index) => {
-      if (searchQuery.split(' ').every(keyword => name.toLowerCase().includes(keyword.toLowerCase()))
-        && (typeFilter === "" 
-          || (typeFilter === "prep" && !(uniquePrepIds[index][0].includes("LUNCH") || uniquePrepIds[index][0].includes("DINNER") || uniquePrepIds[index][0].includes("!")))
-          || (typeFilter === "complex" && uniquePrepIds[index][0].includes("!"))
-          || (typeFilter === "simple" && (uniquePrepIds[index][0].includes("LUNCH") || uniquePrepIds[index][0].includes("DINNER"))))
-      ) {
-        prepNames.push(name);
-        prepIds.push(uniquePrepIds[index]);
-        prepData.push(uniquePrepData[index]);
-        prepDates.push(uniquePrepDates[index]);
-        prepMeals.push(uniquePrepMeals[index]);
+      
+      // if the type and keywords match
+      if (uniquePrepIds[index].some((id, i) => matchesTypeFilter(id) && matchesKeywordFilter(i, index))) {
+        // adds the name to the filtered names
+        prepNames.push(name); 
+
+        // uses type and keyword filtering for specific indices
+        const keepIndices = uniquePrepIds[index]
+          .map((id, i) => (matchesTypeFilter(id) && matchesKeywordFilter(i, index)) ? i : -1)
+          .filter(i => i !== -1);
+
+        // adds the data after filtering
+        prepIds.push(keepIndices.map((i) => uniquePrepIds[index][i]));
+        prepData.push(keepIndices.map((i) => uniquePrepData[index][i]));
+        prepDates.push(keepIndices.map((i) => uniquePrepDates[index][i]));
+        prepMeals.push(keepIndices.map((i) => uniquePrepMeals[index][i]));
       }
     })
 
@@ -285,26 +284,38 @@ const MealSearchModal = ({
           <View className="flex flex-col items-center justify-center">
 
             {/* RECIPE FILTERING SECTION */}
-            <View className="flex flex-row w-full px-5 justify-center items-center mb-[20px] space-x-2">
+            <View className="flex flex-row w-full px-3 justify-center items-center mb-[20px] space-x-2">
+
+              {/* Keyword Type Selector */}
+              <Icon
+                name={keywordType === "meal prep" ? "code-working" : keywordType === "ingredient" && "list"}
+                color={colors.zinc900}
+                size={20}
+                onPress={() => {
+                  const keyword = keywordType === "meal prep" ? "ingredient" : "meal prep";
+                  setKeywordType(keyword)
+                  filterPreps(keyword, "", prepTypeFilter)
+                }}
+              />
 
               {/* text input */}
               <TextInput
                 value={prepKeywordQuery}
-                onChangeText={(value) => filterPreps(value, prepTypeFilter)}
-                placeholder="recipe keyword(s)"
+                onChangeText={(value) => filterPreps(keywordType, value, prepTypeFilter)}
+                placeholder={`${keywordType} keyword(s)`}
                 placeholderTextColor={colors.zinc400}
                 className="flex-1 w-5/6 bg-white radius-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 py-1.5 rounded-md text-[14px] leading-[17px]"
               />
   
               {/* BUTTONS */}
-              <View className="flex flex-row absolute right-6 h-[30px] items-center justify-center">
+              <View className="flex flex-row absolute right-5 h-[30px] items-center justify-center">
 
                 {/* type filtering */}
                 <Icon
                   name={prepTypeFilter === "prep" ? "information-circle" : prepTypeFilter === "complex" ? "stop-circle" : prepTypeFilter === "simple" ? "ellipse" : "ellipse-outline"}
                   color={colors.zinc700}
                   size={18}
-                  onPress={() => filterPreps(prepKeywordQuery, prepTypeFilter === "prep" ? "complex" : prepTypeFilter === "complex" ? "simple" : prepTypeFilter === "simple" ? "" : "prep")}
+                  onPress={() => filterPreps(keywordType, prepKeywordQuery, prepTypeFilter === "prep" ? "complex" : prepTypeFilter === "complex" ? "simple" : prepTypeFilter === "simple" ? "" : "prep")}
                 />
 
                 {/* clear */}
@@ -314,7 +325,12 @@ const MealSearchModal = ({
                   color="black"
                   onPress={() => {
                     setPrepKeywordQuery("");
-                    filterPreps("", prepTypeFilter);
+                    setOpenPrepIndex(-1);
+                    setOpenComplexIndex(-1);
+                    setOpenSimpleIndex(-1);
+                    setOpenDatesIndex(-1);
+                    setShowSpecifics(false);
+                    filterPreps(keywordType, "", prepTypeFilter);
                   }}
                 />
               </View>
@@ -374,6 +390,7 @@ const MealSearchModal = ({
                           setOpenPrepIndex(-1)
                           setOpenComplexIndex(-1)
                           setOpenSimpleIndex(-1)
+                          setShowSpecifics(false)
                         }}
                       />
                     </View>
@@ -393,10 +410,11 @@ const MealSearchModal = ({
                           setOpenComplexIndex(-1)
                           setOpenPrepIndex(-1)
                           setOpenDatesIndex(-1)
+                          setShowSpecifics(false)
                         }}
                       />
                     </View>
-                    : (filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("!"))
+                    : (filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("."))
                     ? // if complex custom
                     <View className="flex w-1/12 py-2 justify-center items-center bg-zinc350">
                       <Icon
@@ -409,6 +427,7 @@ const MealSearchModal = ({
                           setOpenSimpleIndex(-1)
                           setOpenPrepIndex(-1)
                           setOpenDatesIndex(-1)
+                          setShowSpecifics(false)
                         }}
                       />
                     </View>
@@ -424,6 +443,7 @@ const MealSearchModal = ({
                           setOpenComplexIndex(-1)
                           setOpenSimpleIndex(-1)
                           setOpenDatesIndex(-1)
+                          setShowSpecifics(false)
                         }}
                       />
                     </View>
@@ -552,25 +572,80 @@ const MealSearchModal = ({
                   {/* COMPLEX DETAILS */}
                   {(openPrepIndex === index || openComplexIndex === index) && (
                     <View className="flex flex-row w-full">
-                      {/* Ingredient List */}
+                    {/* Ingredient List */}
+
+                      {!showSpecifics
+                      ? // not showing specific amounts
                       <View className="flex flex-col w-3/4 bg-zinc300 py-1 items-start justify-center">
-                        {prep[currIndex].currentData.slice().map((current, i) => 
+                        {prep[currIndex].currentData.map((current, i) => 
                           current !== null && (
                             <View key={i} className="flex flex-row w-full pl-2 pr-5 space-x-1">
                               {/* current ingredient name */}
                               <Text className="text-zinc800 text-[11px] text-center">
                                 {"⁃"}
                               </Text>
-                              <Text className="text-zinc800 text-[11px] text-left">
+                              <Text className="text-zinc800 text-[11px] text-left pr-2">
                                 {current.ingredientName}
                               </Text>
                             </View>
                           )
                         )}
                       </View>
+                      : 
+                      // showing specific amounts
+                      <View className="flex w-full bg-zinc300 items-start justify-center">
+                        <>
+                        {prep[currIndex].currentData.map((current, i) => 
+                          current !== null && (
+                            <View key={i} className="flex flex-row">
+
+                              {/* INGREDIENT NAME */}
+                              <View className={`${i === 0 && "pt-1"} ${i === prep[currIndex].currentData.filter(curr => curr !== null).length - 1 && "pb-1"} w-3/4 flex flex-row pl-2 pr-5 space-x-1`}>
+                                <Text className="text-zinc800 text-[11px] text-center">
+                                  {"⁃"}
+                                </Text>
+                                <Text className="text-zinc800 text-[11px] text-left pr-2">
+                                  {`${current.ingredientName}`}
+                                </Text>
+                              </View>
+
+                              {/* INGREDIENT AMOUNT */}
+                              <View className={`${i === 0 && "pt-1"} ${i === prep[currIndex].currentData.filter(curr => curr !== null).length - 1 && "pb-1"} w-1/4 justify-center items-center bg-zinc350`}>
+                                <Text className="text-theme900 font-medium text-[9px] text-center">
+                                  {`${prep[currIndex].currentAmounts[i]} ${extractUnit(current.ingredientData[current.ingredientStore].unit, prep[currIndex].currentAmounts[i])}`}
+                                </Text>
+                              </View>
+                            </View>
+                          )
+                        )}
+                        </>
+
+                        {/* collapse specifics */}
+                        <View className="absolute w-1/4 right-0 mr-[20px] z-20 h-full items-start justify-center">
+                          <Icon
+                            name="chevron-collapse"
+                            color={colors.zinc900}
+                            size={16}
+                            onPress={() => setShowSpecifics(false)}
+                          />
+                        </View>
+                      </View>
+                      }
                       
                       {/* Details */}
+                      {!showSpecifics &&
                       <View className="flex flex-col w-1/4 bg-zinc350 justify-center space-y-0.5 py-1">
+
+                        {/* expand specifics */}
+                        <View className="absolute left-[-20px] h-full items-center justify-center">
+                          <Icon
+                            name="resize"
+                            color={colors.zinc900}
+                            size={16}
+                            onPress={() => setShowSpecifics(true)}
+                          />
+                        </View>
+                        
                         {/* total calories */}
                         <Text className="text-theme900 font-medium text-[11px] text-center">
                           {prep[currIndex].prepCal} {"cal"}
@@ -580,6 +655,7 @@ const MealSearchModal = ({
                           {"$"}{prep[currIndex].prepPrice}
                         </Text>
                       </View>
+                      }
                     </View>
                   )}
 

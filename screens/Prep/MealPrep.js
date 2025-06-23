@@ -42,6 +42,9 @@ const db = getFirestore(app);
 
 export default function MealPrep ({ isSelectedTab }) {
 
+
+  ///////////////////////////////// KEYBOARD /////////////////////////////////
+
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   
   // keyboard listener
@@ -220,6 +223,18 @@ export default function MealPrep ({ isSelectedTab }) {
         // updates the selected data
         setSelectedPrepData({ ...calcData });
       }
+        
+    // if a meal prep is not selected, set default data
+    } else {
+      setCurrPrepMult(0);
+      setSelectedPrepData(null);
+      setSelectedNote("");
+      setCurrEnoughLeft([true, true, true, true, true, true, true, true, true, true, true, true]);
+      setCurrMoreLeft([true, true, true, true, true, true, true, true, true, true, true, true]);
+      setSelectedCurrentIndex(1);
+
+      // stores the recipe data in the firebase
+      updateDoc(doc(db, 'GLOBALS', 'prep'), { id: null });
     }
   }
   
@@ -485,7 +500,9 @@ export default function MealPrep ({ isSelectedTab }) {
             data.currentCals[index] = new Fraction(amount.divide(servings).multiply(cals).toString()) * 1;
           
             // overall
-            totalCal = (new Fractional(totalCal)).add(amount.divide(servings).multiply(cals)).toString();
+            totalCal = data.currentIncluded[index] 
+              ? (new Fractional(totalCal)).add(amount.divide(servings).multiply(cals)).toString()
+              : totalCal;
 
           // set individual calories to 0 if arguments are not valid
           } else {
@@ -499,7 +516,9 @@ export default function MealPrep ({ isSelectedTab }) {
             data.currentPrices[index] = new Fraction(amount.multiply(priceUnit).toString()) * 1;
 
             // overall
-            totalPrice = (new Fractional(totalPrice)).add(amount.multiply(priceUnit)).toString();
+            totalPrice = data.currentIncluded[index] 
+            ? (new Fractional(totalPrice)).add(amount.multiply(priceUnit)).toString()
+            : totalPrice;
 
           // set individual prices to 0 if arguments are not valid
           } else {
@@ -531,7 +550,7 @@ export default function MealPrep ({ isSelectedTab }) {
     
     // loops over the valid selected meal prep's current ingredients
     for (let index = 0; index < selectedPrepData.currentData.length; index++) {
-      if (selectedPrepData.currentData[index] && currChecks[index]) {
+      if (selectedPrepData.currentData[index] && selectedPrepData.currentIncluded[index]) {
         
         // the data from the selected meal prep
         const data = selectedPrepData.currentData[index];
@@ -587,7 +606,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
             // loops over all 12 ingredients and finds the ones that match the current
             for (let i = 0; i < 12; i++) {
-              if (prepData.currentIds[i] && prepData.currentIds[i] === currentId && prepData.currentAmounts[i] !== "") {
+              if (prepData.currentIds[i] && prepData.currentIds[i] === currentId && prepData.currentIncluded[i] && prepData.currentAmounts[i] !== "") {
                 calcAmount = ((new Fractional(calcAmount)).subtract((new Fractional(prepData.currentAmounts[i])).multiply(new Fractional(prepData.prepMult)))).toString();
               }
             }
@@ -653,13 +672,14 @@ export default function MealPrep ({ isSelectedTab }) {
 
   ///////////////////////////////// NOTES LOGIC /////////////////////////////////
 
-  // whether the current list of checkboxes is selected
+  // current meal prep note
   const [selectedNote, setSelectedNote] = useState("");
 
   // when the note box is exited, update the corresponding global document
   const dbNote = () => {
     if (selectedPrepId) {
       Keyboard.dismiss();
+      setSelectedPrepData({...selectedPrepData, prepNote: selectedNote });
       updateDoc(doc(db, 'PREPS', selectedPrepId), { prepNote: selectedNote });
     }
   }
@@ -668,6 +688,7 @@ export default function MealPrep ({ isSelectedTab }) {
   const clearNote = () => {
     if (selectedPrepId) {
       setSelectedNote("");
+      setSelectedPrepData({...selectedPrepData, prepNote: "" });
       updateDoc(doc(db, 'PREPS', selectedPrepId), { prepNote: "" });
     }
   }
@@ -775,49 +796,47 @@ export default function MealPrep ({ isSelectedTab }) {
 
   ///////////////////////////////// CURRENT CHECKBOX LOGIC /////////////////////////////////
 
-  const [currChecks, setCurrChecks] = useState([true, true, true, true, true, true, true, true, true, true, true, true]);
-
-  // updates the list of checkboxes when a new prep is selected
-  useEffect(() => {
-    setCurrChecks([true, true, true, true, true, true, true, true, true, true, true, true]);
-  }, [selectedPrepId]);
-
   // updates the check at the given index
   const updateCheck = (index) => {
-    
-    // the new value is the opposite of the old
-    const newValue = !currChecks[index];
-
-    setCurrChecks((prev) => {
-      const updated = [...prev];
-      updated[index] = newValue;
-      return updated;
-    });
-  }
-
-  const [currPrepCal, setCurrPrepCal] = useState("");
-  const [currPrepPrice, setCurrPrepPrice] = useState("");
-
-  // updates the prepCal and prepPrice
-  useEffect(() => {
-    
     if (selectedPrepData !== null) {
+    
+      // the new value is the opposite of the old
+      const newIncluded = selectedPrepData.currentIncluded.map((check, i) => i === index ? !check : check);
+      
+      // to populate totals
       let totalCal = 0;
       let totalPrice = 0;
 
       // loops over the checks to only add checked data
       for (let i = 0; i < 12; i++) {
-        if (currChecks[i]) {
+        if (newIncluded[i]) {
           totalCal += selectedPrepData.currentCals[i] * 1;
           totalPrice += selectedPrepData.currentPrices[i] * 1;
         }
       }
 
-      // stores totals
-      setCurrPrepCal((new Fraction(totalCal) * 1).toFixed(0));
-      setCurrPrepPrice((new Fraction(totalPrice) * 1).toFixed(2));
+      // conversions
+      totalCal = (new Fraction(totalCal) * 1).toFixed(0);
+      totalPrice = (new Fraction(totalPrice) * 1).toFixed(2);
+
+      // stores changes locally
+      setSelectedPrepData({...selectedPrepData, 
+        currentIncluded: newIncluded,
+        prepCal: totalCal,
+        prepPrice: totalPrice,
+      });
+
+      // stores changes in db
+      updateDoc(doc(db, 'PREPS', selectedPrepId), { 
+        currentIncluded: newIncluded,
+        prepCal: totalCal,
+        prepPrice: totalPrice,
+      });
+
+      // recalculates the amount of each current left
+      calcAllAmountsLeft();
     }
-  }, [currChecks, currCurrentAmounts, selectedPrepData]);
+  }
 
 
   ///////////////////////////////// GETTING CURRENT INGREDIENT DATA /////////////////////////////////
@@ -846,7 +865,7 @@ export default function MealPrep ({ isSelectedTab }) {
     const querySnapshot = await getDocs(collection(db, 'CURRENTS'));
     const currents = querySnapshot.docs.map((doc) => {
       const formattedCurrent = {
-        id: doc.id,
+        id: doc.id, 
         ... doc.data()
       }
       return formattedCurrent;
@@ -879,6 +898,7 @@ export default function MealPrep ({ isSelectedTab }) {
           selectedPrepData.currentData[i] = null;
           selectedPrepData.currentIds[i] = "";
           selectedPrepData.currentPrices[i] = "";
+          selectedPrepData.currentIncluded[i] = "";
         }
       }
     }
@@ -960,6 +980,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
       // calculates the details and totals
       let calcData = calcAmounts(selectedPrepData);
+      calcData.currentIncluded[selectedCurrentIndex - 1] = true;
           
       // loops over the 12 ingredients backwards to find the first empty one
       for (let i = 11; i >= 0; i--) {
@@ -997,6 +1018,7 @@ export default function MealPrep ({ isSelectedTab }) {
       let amountsArr = selectedPrepData.currentAmounts;
       let calsArr = selectedPrepData.currentCals;
       let pricesArr = selectedPrepData.currentPrices;
+      let includedArr = selectedPrepData.currentIncluded;
 
       // to store the new ingredient data - default values at first
       let newDataArr = [ null, null, null, null, null, null, null, null, null, null, null, null ];
@@ -1004,6 +1026,7 @@ export default function MealPrep ({ isSelectedTab }) {
       let newAmountsArr = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
       let newCalsArr = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
       let newPricesArr = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
+      let newIncludedArr = [ "", "", "", "", "", "", "", "", "", "", "", "" ]; 
 
 
       // if the collapse button was pressed
@@ -1018,6 +1041,7 @@ export default function MealPrep ({ isSelectedTab }) {
             newAmountsArr[index] = amountsArr[i];
             newCalsArr[index] = calsArr[i];
             newPricesArr[index] = pricesArr[i];
+            newIncludedArr[index] = includedArr[i];
 
             // increments the index
             index = index + 1;
@@ -1040,6 +1064,7 @@ export default function MealPrep ({ isSelectedTab }) {
             newAmountsArr[index] = amountsArr[i];
             newCalsArr[index] = calsArr[i];
             newPricesArr[index] = pricesArr[i];
+            newIncludedArr[index] = includedArr[i];
           } 
         }
       }
@@ -1050,6 +1075,7 @@ export default function MealPrep ({ isSelectedTab }) {
       selectedPrepData.currentAmounts = newAmountsArr;
       selectedPrepData.currentCals = newCalsArr;
       selectedPrepData.currentPrices = newPricesArr;
+      selectedPrepData.currentIncluded = newIncludedArr;
 
       // calculates the details and totals
       let calcData = calcAmounts(selectedPrepData);
@@ -1083,6 +1109,7 @@ export default function MealPrep ({ isSelectedTab }) {
     selectedPrepData.currentAmounts[selectedCurrentIndex - 1] = "";
     selectedPrepData.currentCals[selectedCurrentIndex - 1] = "";
     selectedPrepData.currentPrices[selectedCurrentIndex - 1] = "";
+    selectedPrepData.currentIncluded[selectedCurrentIndex - 1] = "";
 
     // sets the current storage of the data so the placeholders aren't janky
     setCurrCurrentAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);        
@@ -1269,7 +1296,6 @@ export default function MealPrep ({ isSelectedTab }) {
     // CONTAINER
     <View className="flex-1 items-center justify-center bg-zinc200 border-0.5">
 
-
       {/* NOTES SECTION */}
       {selectedPrepData !== null &&
       <View className="flex flex-row w-5/6 justify-center items-center mb-[20px]">
@@ -1397,7 +1423,8 @@ export default function MealPrep ({ isSelectedTab }) {
                     setOpen={setPrepDropdownOpen}
                     value={selectedPrepId}
                     setValue={setSelectedPrepId}
-                    items={prepList.map((prep) => ({
+                    items={[{label: "", value: null, key: "", labelStyle: { paddingVertical: 12.5, marginHorizontal: -50, backgroundColor: colors.zinc200 }},
+                    ...prepList.map((prep) => ({
                       label: prepDropdownOpen ? "(" + (selectedPrepId === prep.id ? currPrepMult : prep.prepMult) + ") " + prep.prepName : prep.prepName,
                       value: prep.id,
                       key: prep.id,
@@ -1405,7 +1432,7 @@ export default function MealPrep ({ isSelectedTab }) {
                         color: prepsCompleted !== null && prepsCompleted[prepsIds.indexOf(prep.id)] ? 'black' : colors.zinc500,
                         textDecorationLine: prepsCompleted !== null && prepsCompleted[prepsIds.indexOf(prep.id)] ? 'none' : 'line-through', 
                       }
-                    }))}
+                    }))]}
                     placeholder=""
                     style={{ height: 50, backgroundColor: colors.theme800, borderWidth: 0, justifyContent: 'center', }}
                     dropDownContainerStyle={{ backgroundColor: 'white', }}
@@ -1570,7 +1597,7 @@ export default function MealPrep ({ isSelectedTab }) {
                   
                   {/* indicator of the current ingredient */}
                   {(selectedPrepData !== null && (selectedCurrentIndex - 1) === (index)) &&
-                    <View className="absolute left-[-15px] z-0">
+                    <View className={`absolute left-[-15px] mb-[1px] z-10 ${(!currEnoughLeft[index] &&  selectedPrepData !== null) ? "bg-zinc300" : (!currMoreLeft[index] &&  selectedPrepData !== null) ? "bg-theme100" : "bg-zinc100"} h-[28px]`}>
                       <Icon
                         name="reorder-four"
                         size={30}
@@ -1581,11 +1608,11 @@ export default function MealPrep ({ isSelectedTab }) {
 
                   {/* amount and units */}
                   {selectedPrepData?.currentData?.[index] ?
-                    <View className="flex flex-row">
+                    <View className="flex flex-row space-x-[3px]">
                       {/* Input Amount */}
                       <TextInput
                         key={index}
-                        className="text-[10px] leading-[12px] text-center px-[3px]"
+                        className="text-[10px] leading-[12px] text-center"
                         placeholder={selectedPrepData?.currentData[index] !== null && selectedPrepData?.currentAmounts[index] !== "" ? selectedPrepData?.currentAmounts[index] : "_"}
                         placeholderTextColor="black"
                         value={currCurrentAmounts[index]}
@@ -1691,7 +1718,7 @@ export default function MealPrep ({ isSelectedTab }) {
                 <View>
                   {selectedPrepData?.prepCal ?
                     <Text className="text-white text-xs italic">
-                      {currPrepCal} {"cal"}
+                      {selectedPrepData.prepCal} {"cal"}
                     </Text>
                   : 
                     <Text className="text-white text-xs italic">
@@ -1704,7 +1731,7 @@ export default function MealPrep ({ isSelectedTab }) {
                 <View>
                   {selectedPrepData?.prepPrice ?
                     <Text className="text-white text-xs italic">
-                      {"$"}{currPrepPrice}
+                      {"$"}{selectedPrepData.prepPrice}
                     </Text>
                   : 
                     <Text className="text-white text-xs italic">
@@ -1730,7 +1757,7 @@ export default function MealPrep ({ isSelectedTab }) {
                 {selectedPrepData?.currentData[index] ?
                   <View className="flex flex-row h-[30px] justify-center items-center">
                     <Icon
-                      name={currChecks[index] ? "checkbox" : "square-outline"}
+                      name={selectedPrepData.currentIncluded[index] ? "checkbox" : "square-outline"}
                       color={colors.zinc600}
                       size={16}
                       onPress={() => updateCheck(index)}

@@ -28,7 +28,7 @@ const ViewCurrentModal = ({
       onRequestClose={closeModal}
     >
       <View className="flex-1 justify-center items-center">
-
+        
         {/* Background Overlay */}
         <TouchableOpacity onPress={closeModal} className="absolute bg-black opacity-50 w-full h-full"/>
         

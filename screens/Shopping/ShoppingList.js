@@ -26,6 +26,7 @@ import extractUnit from '../../components/Validation/extractUnit';
 // modals
 import RecipeListModal from '../../components/Shopping-List/RecipeListModal';
 import SpotlightSelectorModal from '../../components/Shopping-List/SpotlightSelectorModal';
+import StoreSwapModal from '../../components/Shopping-List/StoreSwapModal';
 
 // initialize firebase app
 import { getFirestore, doc, updateDoc, getDocs, getDoc, collection, writeBatch } from 'firebase/firestore';
@@ -36,6 +37,9 @@ const db = getFirestore(app);
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 export default function ShoppingList ({ isSelectedTab }) {
+
+
+  ///////////////////////////////// KEYBOARD /////////////////////////////////
 
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [keyboardType, setKeyboardType] = useState("");
@@ -143,9 +147,8 @@ export default function ShoppingList ({ isSelectedTab }) {
 
   // to get all shopping lists
   const getAllShoppingLists = async (querySnapshot, shoppingIds, shoppingSelected, ingredientIdList, ingredientIncludedList) => {
-
     try {
-      const batch = writeBatch(db); // initializes a Firestore batch
+      const batch = writeBatch(db);
 
       // gets all lists
       const snapshots = {};
@@ -746,7 +749,16 @@ export default function ShoppingList ({ isSelectedTab }) {
   const [spotlightsSelected, setSpotlightsSelected] = useState(null);
 
   // when the checkmark in the modal is clicked
-  const submitSpotlightModal = async (ids, selected, ingredientIdList, ingredientIncludedList) => {
+  const submitSpotlightModal = async (ids, selected, ingredientList) => {
+    
+    // restructures ingredient list into ids and included
+    let ingredientIds = Object.fromEntries(storeKeys.map(store => [store, []]));
+    let ingredientIncluded = Object.fromEntries(storeKeys.map(store => [store, []]));
+    
+    ingredientList.map(ingredient => {
+      ingredientIds[ingredient.store].push(ingredient.id);
+      ingredientIncluded[ingredient.store].push(ingredient.included);
+    });
     
     // stores the provided selected info
     setSpotlightsIds(ids);
@@ -760,8 +772,19 @@ export default function ShoppingList ({ isSelectedTab }) {
     
     // updates info and closes modal
     await updateDoc(doc(db, 'GLOBALS', 'shopping'), { spotlights: spotlightsData });
-    await getAllShoppingLists(spotlightsSnapshot, ids, selected, ingredientIdList, ingredientIncludedList);
+    await getAllShoppingLists(spotlightsSnapshot, ids, selected, ingredientIds, ingredientIncluded);
     setSpotlightModalVisible(false);
+  }
+
+
+  ///////////////////////////////// STORE SWAP MODAL /////////////////////////////////
+
+  const [swapModalVisible, setSwapModalVisible] = useState(false);
+
+  // when the checkmark in the modal is clicked
+  const submitSwapModal = async () => {
+    loadDB();
+    setSwapModalVisible(false);
   }
 
 
@@ -776,10 +799,21 @@ export default function ShoppingList ({ isSelectedTab }) {
       <View className="flex h-4/5 -mt-5 w-full justify-center items-center space-y-5">
 
         {/* HEADER */}
+        {allStoreLists[selectedStore].length > 0 && 
         <View className="flex flex-row w-11/12 justify-evenly items-center h-[30px] border-[1px] border-black bg-zinc700">
                   
+          {/* Store Swap */}
+          <View className="w-[20px] ml-[-25px]">
+            <Icon
+              name="sync-circle"
+              size={20}
+              color={colors.zinc200}
+              onPress={() => setSwapModalVisible(true)}
+            />
+          </View>
+
           {/* Selection */}
-          <View className="w-[45%] h-[30px] ml-[-10px] z-20">
+          <View className="w-[45%] ml-[-25px] h-[30px] z-20">
             <Picker
               selectedValue={selectedStore}
               onValueChange={setSelectedStore}
@@ -800,6 +834,7 @@ export default function ShoppingList ({ isSelectedTab }) {
             {"LIST COST: $"}{allStoreCosts[selectedStore]?.toFixed(2)}
           </Text>
         </View>
+        }
 
         {/* selects the store from the dropdown */}
         {storeKeys
@@ -813,7 +848,8 @@ export default function ShoppingList ({ isSelectedTab }) {
             >
               {/* DATA */}
               <View className="flex flex-col border-[1.5px] border-black w-full h-full">
-                {Array.isArray(allStoreLists[selectedStore]) && (
+                {Array.isArray(allStoreLists[selectedStore]) && allStoreLists[selectedStore].length > 0
+                ? (
                   <>
                     {/* SCROLLABLE INGREDIENT SECTION */}
                     <ScrollView>
@@ -973,12 +1009,32 @@ export default function ShoppingList ({ isSelectedTab }) {
                       ))}
                     </ScrollView>
                   </>
-                )}
+                )
+                : 
+                // if no ingredients are part of the shopping list
+                <View className="flex w-full h-full justify-center items-center">
+                  <Text className="text-theme400 italic font-bold">
+                    NO SHOPPING LISTS AVAILABLE
+                  </Text>
+                </View>
+                }
               </View>
             </View>
           );
         })}
       </View>
+
+
+      {/* Store Swap Modal */}
+      {swapModalVisible &&
+        <StoreSwapModal
+          spotlightsSnapshot={spotlightsSnapshot}
+          shoppingList={allStoreLists}
+          modalVisible={swapModalVisible}
+          setModalVisible={setSwapModalVisible}
+          submitModal={submitSwapModal}
+        />
+      }
 
 
       {/* Popup to show details if clicked */}
@@ -1050,8 +1106,8 @@ export default function ShoppingList ({ isSelectedTab }) {
               ))}
             </ScrollView>
           : // if there are no other stores present
-            <View className="flex-1 pt-1.5 mb-2 justify-center items-center">
-              <Text className="text-center italic text-zinc800">
+            <View className="flex-1 pt-1.5 mb-2 px-2 justify-center items-center">
+              <Text className="text-center text-[13px] font-medium text-zinc700">
                 no other stores have shopping lists
               </Text>
             </View>

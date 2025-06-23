@@ -109,18 +109,30 @@ const ingredientEdit = async ({
 
               // calculations for the recipeData based on the amount of the current recipe
               if (isNaN(amount.toString()) || isNaN(totalYield.toString()) || isNaN(calContainer.toString()) || isNaN(priceContainer.toString())) {
-                  recipeData.ingredientCals[index] = "";
-                  recipeData.ingredientPrices[index] = "";
-                  recipeData.ingredientServings[index] = "";
+                recipeData.ingredientCals[index] = "";
+                recipeData.ingredientPrices[index] = "";
+                recipeData.ingredientServings[index] = "";
               } else if (amount.toString() === 0) {
-                  recipeData.ingredientCals[index] = 0;
-                  recipeData.ingredientPrices[index] = 0;
-                  recipeData.ingredientServings[index] = 0;
+                recipeData.ingredientCals[index] = 0;
+                recipeData.ingredientPrices[index] = 0;
+                recipeData.ingredientServings[index] = 0;
               } else {
-                  recipeData.ingredientCals[index] = (new Fraction((amount.divide(totalYield)).multiply(calContainer).toString()) * 1);
-                  recipeData.ingredientPrices[index] = (new Fraction((amount.divide(totalYield)).multiply(priceContainer).toString()) * 1);
-                  recipeData.ingredientServings[index] = (new Fraction((totalYield.divide(amount)).toString()) * 1);
+                recipeData.ingredientCals[index] = (new Fraction((amount.divide(totalYield)).multiply(calContainer).toString()) * 1);
+                recipeData.ingredientPrices[index] = (new Fraction((amount.divide(totalYield)).multiply(priceContainer).toString()) * 1);
+                recipeData.ingredientServings[index] = (new Fraction((totalYield.divide(amount)).toString()) * 1);
               }
+          
+              // calculates the next store based on the brands that are and are not empty
+              const currStore = recipeData.ingredientStores[index];
+              let nextStore = currStore;
+
+              for (let i = 1; i <= storeKeys.length; i++) {
+                if (recipeData.ingredientData[index][storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length]].brand !== "") {
+                  nextStore = storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length];
+                  break;
+                }
+              }
+              recipeData.ingredientStores[index] = nextStore;
 
             // if the current ingredient is not valid, clear its values
             } else {
@@ -227,6 +239,18 @@ const ingredientEdit = async ({
                 spotlightData.ingredientPrices[index] = (new Fraction((amount.divide(totalYield)).multiply(priceContainer).toString()) * 1);
                 spotlightData.ingredientServings[index] = (new Fraction((totalYield.divide(amount)).toString()) * 1);
               }
+          
+              // calculates the next store based on the brands that are and are not empty
+              const currStore = spotlightData.ingredientStores[index];
+              let nextStore = currStore;
+
+              for (let i = 1; i <= storeKeys.length; i++) {
+                if (spotlightData.ingredientData[index][storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length]].brand !== "") {
+                  nextStore = storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length];
+                  break;
+                }
+              }
+              spotlightData.ingredientStores[index] = nextStore;
 
             // if the current ingredient is not valid, clear its values
             } else {

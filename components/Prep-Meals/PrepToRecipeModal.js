@@ -36,6 +36,9 @@ const PrepToRecipeModal = ({
   prepData, ingredientsSnapshot, recipesSnapshot, modalVisible, closeModal
 }) => {
 
+
+  ///////////////////////////////// KEYBOARD /////////////////////////////////
+
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [keyboardType, setKeyboardType] = useState("");
 
@@ -849,17 +852,17 @@ const PrepToRecipeModal = ({
                       </View>
 
                       {/* Calculations */}
-                      <View className="flex flex-row h-[30px] bg-zinc400 justify-evenly items-center z-50 border-t-[1px] border-t-zinc450">
+                      <View className="px-2 flex flex-row h-[30px] bg-zinc400 space-x-2 justify-center items-center z-50 border-t-[1px] border-t-zinc450">
                         {/* calories */}
-                        <Text className="text-[12px] text-white font-semibold">
+                        <Text className="flex-auto text-center text-[12px] text-white font-semibold">
                           {ingredientCals[editIngredientIndex] === "" ? "0" : ingredientCals[editIngredientIndex].toFixed(0)}{" cals"}
                         </Text>
                         {/* price */}
-                        <Text className="text-[12px] text-white font-semibold">
+                        <Text className="flex-auto text-center text-[12px] text-white font-semibold">
                           {"$"}{ingredientPrices[editIngredientIndex] === "" ? "0.00" : ingredientPrices[editIngredientIndex].toFixed(2)}
                         </Text>
                         {/* servings */}
-                        <Text className="text-[12px] text-white font-semibold">
+                        <Text className="flex-auto text-center text-[12px] text-white font-semibold">
                           {ingredientServings[editIngredientIndex] === "" ? "0.00" : ingredientServings[editIngredientIndex].toFixed(2)}{" servings"}
                         </Text>
                       </View>
@@ -1016,7 +1019,7 @@ const PrepToRecipeModal = ({
                         onChangeText={setIngredientKeywordQuery}
                         placeholder="ingredient keyword(s)"
                         placeholderTextColor={colors.zinc400}
-                        className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 text-[13px] leading-[16px]"
+                        className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc300 pl-2.5 pr-[20px] text-[13px] leading-[16px]"
                         onFocus={() => setKeyboardType("ingredient keyword")}
                         onBlur={() => setKeyboardType("")}
                       />
@@ -1042,7 +1045,7 @@ const PrepToRecipeModal = ({
                           onChangeText={setRecipeKeywordQuery}
                           placeholder="recipe keyword(s)"
                           placeholderTextColor={colors.zinc400}
-                          className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 text-[13px] leading-[16px]"
+                          className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc300 pl-2.5 pr-[20px] text-[13px] leading-[16px]"
                           onFocus={() => setKeyboardType("recipe keyword")}
                           onBlur={() => setKeyboardType("")}
                         />

@@ -432,7 +432,7 @@ const ModIngredientModal = ({
             {/* Ingredient Name */}
             <View className="flex bg-white w-5/12 border-0.5 border-zinc500 rounded-md p-2 justify-center items-center">
               <TextInput
-                className="text-center pb-1 text-[14px] leading-[17px]"
+                className="w-full text-center pb-1 text-[14px] leading-[17px]"
                 placeholder="Ingredient Name"
                 placeholderTextColor={colors.zinc400}
                 multiline={true}
@@ -469,7 +469,7 @@ const ModIngredientModal = ({
                       <TextInput
                         placeholder="Custom Type"
                         placeholderTextColor={colors.zinc500}
-                        className="text-[12px] leading-[14px] text-center pb-1"
+                        className="w-full text-[12px] leading-[14px] text-center pb-1"
                         value={customType}
                         onChangeText={setCustomType}
                         multiline={true}
@@ -605,7 +605,7 @@ const ModIngredientModal = ({
                             const value = typeof valueOrFn === 'function' ? valueOrFn(brand[store]) : valueOrFn;
                             setBrand(prev => ({ ...prev, [store]: value }));
                           }}
-                          items={brandLists[store].length === 0 ? [{ label: "", value: "no_data", disabled: true }] : brandLists[store]}
+                          items={brandLists[store]?.length === 0 ? [{ label: "", value: "no_data", disabled: true }] : brandLists[store]}
                           setItems={(items) => setBrandLists(prev => ({ ...prev, [store]: items }))}
                           placeholder="Select Brand"
                           style={{ backgroundColor: colors.theme200, borderWidth: 1, borderColor: colors.zinc400}}
@@ -651,7 +651,7 @@ const ModIngredientModal = ({
                             {/* Inputing a new brand */}
                             <View className="flex bg-white border-0.5 border-zinc500 rounded-md py-1 px-2 ml-2 w-2/5 h-full z-10 justify-center items-center">
                               <TextInput
-                                className="text-center pb-1 text-[14px] leading-[17px]"
+                                className="w-full text-center pb-1 text-[14px] leading-[17px]"
                                 placeholder="Custom Brand"
                                 placeholderTextColor={colors.zinc400}
                                 value={customBrand}
@@ -698,7 +698,7 @@ const ModIngredientModal = ({
                         <View className="flex-1 flex-row justify-center items-center bg-theme100 border-0.5 border-zinc500 px-2">
                           {/* Size */}
                           <TextInput
-                            className="p-1 flex text-center text-[14px] leading-[17px]"
+                            className="p-1 flex-auto text-right text-[14px] leading-[17px]"
                             placeholder="0 0/0"
                             placeholderTextColor={colors.zinc400}
                             value={servingSize[store]}
@@ -713,7 +713,7 @@ const ModIngredientModal = ({
 
                           {/* Units */}
                           <TextInput
-                            className="p-1 flex text-center text-[14px] leading-[17px]"
+                            className="p-1 flex-auto text-left text-[14px] leading-[17px]"
                             placeholder="unit(s)"
                             placeholderTextColor={colors.zinc400}
                             value={unit[store]}
@@ -790,7 +790,7 @@ const ModIngredientModal = ({
 
                           {/* Dummy $ */}
                           <TextInput
-                            className="flex text-right text-[14px] leading-[17px]"
+                            className="flex-auto text-right text-[14px] leading-[17px]"
                             placeholder="$"
                             placeholderTextColor={priceContainer[store] ? "black" : colors.zinc400}
                             editable={false}
@@ -798,7 +798,7 @@ const ModIngredientModal = ({
 
                           {/* User Input */}
                           <TextInput
-                            className="flex text-left text-[14px] leading-[17px]"
+                            className="flex-auto text-left text-[14px] leading-[17px]"
                             placeholder="0.00"
                             placeholderTextColor={colors.zinc400}
                             value={priceContainer[store]}

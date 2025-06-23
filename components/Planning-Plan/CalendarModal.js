@@ -52,7 +52,7 @@ const CalendarModal = ({
       visible={modalVisible}
       transparent={true}
       animationType="slide"
-      onRequestClose={closeModal} // Close modal on back press
+      onRequestClose={closeModal}
     >
       <View className="flex-1 justify-center items-center">
 
@@ -88,14 +88,12 @@ const CalendarModal = ({
             name="checkmark-circle"
             size={24}
             color={colors.zinc600}
-            onPress={() => closeModal(date)} // Close modal and send selected date back
+            onPress={() => closeModal(date)}
           />
 
           {/* TODAY button */}
           <TouchableOpacity
-            onPress={() => {
-              setDate(today); // Update the selected date to today's date
-            }}
+            onPress={() => setDate(today)}
           >
             <Text className="bg-theme300 text-black px-5 py-2 rounded-3xl">
               TODAY
@@ -107,7 +105,7 @@ const CalendarModal = ({
             name="close-circle"
             size={24}
             color={colors.zinc600}
-            onPress={() => setModalVisible(false)} // Close modal and send original selected date back
+            onPress={() => setModalVisible(false)}
           />
         </View>
       </View>

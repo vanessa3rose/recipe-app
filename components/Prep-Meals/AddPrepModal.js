@@ -44,7 +44,7 @@ const AddPrepModal = ({
     // if the modal is opened
     if (modalVisible) {
       setPrepName("Meal Prep " + (numPreps + 1));
-      setSelectedCurrentIds([null, null, null, null, null, null, null, null, null, null, null, null]);
+      setSelectedCurrentIds(["", "", "", "", "", "", "", "", "", "", "", ""]);
       getSpotlights();
     }
   }, [modalVisible]);
@@ -95,13 +95,13 @@ const AddPrepModal = ({
 
   ///////////////////////////////// CURRENT PICKERS /////////////////////////////////
 
-  const [selectedCurrentIds, setSelectedCurrentIds] = useState([null, null, null, null, null, null, null, null, null, null, null, null]);
+  const [selectedCurrentIds, setSelectedCurrentIds] = useState(["", "", "", "", "", "", "", "", "", "", "", ""]);
   
   // to update the id of the current index
   const setCurrents = async (value, index) => {
     setSelectedCurrentIds((prev) => {
       const updated = [...prev]; 
-      updated[index] = value === "" ? null : value;
+      updated[index] = value;
       return updated;
     });
   }
@@ -127,7 +127,7 @@ const AddPrepModal = ({
       
       // loops over the 12 currents
       for (let index = 0; index < 12; index++) {
-        if (selectedCurrentIds[index] !== null) {
+        if (selectedCurrentIds[index] !== "") {
           
           // gets the current data
           const currentDoc = await getDoc(doc(db, 'CURRENTS', selectedCurrentIds[index]));
@@ -205,6 +205,7 @@ const AddPrepModal = ({
         currentAmounts: currAmounts, 
         currentCals: currCals, 
         currentPrices: currPrices,
+        currentIncluded: selectedCurrentIds.map(id => id !== "" ? true : id),
       };
     
     
@@ -216,6 +217,7 @@ const AddPrepModal = ({
         currentData: [null, null, null, null, null, null, null, null, null, null, null, null], 
         currentIds: ["", "", "", "", "", "", "", "", "", "", "", ""], 
         currentPrices: ["", "", "", "", "", "", "", "", "", "", "", ""],
+        currentIncluded: ["", "", "", "", "", "", "", "", "", "", "", ""],
         prepCal: "0", 
         prepMult: 0,
         prepName: prepName,
@@ -238,7 +240,7 @@ const AddPrepModal = ({
   const exitModal = (type) => {
     setModalVisible(false);
     setPrepName("");
-    setSelectedCurrentIds([null, null, null, null, null, null, null, null, null, null, null, null]);
+    setSelectedCurrentIds(["", "", "", "", "", "", "", "", "", "", "", ""]);
   };
 
 
@@ -338,7 +340,7 @@ const AddPrepModal = ({
               <View className="flex flex-row justify-center items-center mb-2 h-[50px] border-0.5 border-zinc500 bg-white rounded-md p-2 mx-4">
                 {/* Prep Name Input */}
                 <TextInput
-                  className="text-center mb-1 text-[14px] leading-[17px]"
+                  className="w-full text-center mb-1 text-[14px] leading-[17px]"
                   placeholder={prepName}
                   placeholderTextColor={colors.zinc400}
                   multiline={true}

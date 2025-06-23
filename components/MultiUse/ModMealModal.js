@@ -174,7 +174,7 @@ const ModMealModal = ({
             {/* Meal Name */}
             <View className={`flex items-center justify-center border-0.5 border-zinc500 bg-white rounded-md px-2 ${editingId !== null || type !== "recipe" ? "w-[90%]" : "w-5/6"}`}>
               <TextInput
-                className="text-center mb-1 text-[14px] leading-[17px]"
+                className="w-full text-center mb-1 text-[14px] leading-[17px]"
                 placeholder={(editingId || type !== "recipe") ? mealName : ("Recipe " + defaultName)}
                 placeholderTextColor={colors.zinc400}
                 multiline={true}

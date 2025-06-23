@@ -153,14 +153,14 @@ const ModPriceModal = ({
               CONTAINER COST
             </Text>
 
-            <View className="flex-1 flex-row py-1 justify-center items-center border-[1px] border-zinc350 bg-theme100">
+            <View className="flex-1 flex-row p-1 justify-center items-center border-[1px] border-zinc350 bg-theme100">
               {/* Dollar Sign */}
-              <Text className={`${containerCost === "" ? "text-zinc500" : "text-black"} text-[14px] leading-[17px]`}>
+              <Text className={`flex-auto text-right ${containerCost === "" ? "text-zinc500" : "text-black"} text-[14px] leading-[17px]`}>
                 $
               </Text>
               {/* Text Input */}
               <TextInput
-                className="text-center text-[14px] leading-[17px]"
+                className="flex-auto text-left text-[14px] leading-[17px]"
                 placeholder="0.00"
                 placeholderTextColor={colors.zinc500}
                 value={containerCost}
@@ -177,17 +177,17 @@ const ModPriceModal = ({
               AMOUNT
             </Text>
             
-            <View className="flex-1 flex-row py-1 space-x-2 justify-center items-center border-[1px] border-zinc350 bg-theme100">
+            <View className="flex-1 flex-row p-1 space-x-1.5 justify-center items-center border-[1px] border-zinc350 bg-theme100">
               {/* Text Input */}
               <TextInput
-                className="bg-theme100 text-[14px] leading-[17px]"
+                className="flex-auto text-right bg-theme100 text-[14px] leading-[17px]"
                 placeholder="0 0/0"
                 placeholderTextColor={colors.zinc500}
                 value={amount}
                 onChangeText={(value) => setAmount(validateFractionInput(value))}
               />
               {/* Unit */}
-              <Text className={`${amount === "" ? "text-zinc500" : "text-black"} text-[14px] leading-[17px]`}>
+              <Text className={`flex-auto text-left w-fit ${amount === "" ? "text-zinc500" : "text-black"} text-[14px] leading-[17px]`}>
                 {extractUnit(unit, amount)}
               </Text>
             </View>

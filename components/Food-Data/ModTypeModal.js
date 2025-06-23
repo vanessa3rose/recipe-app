@@ -25,7 +25,7 @@ const db = getFirestore(app);
 const ModTypeModal = ({ 
   modalVisible, setModalVisible, closeModal, 
   initialTypeList, initialQuery, 
-  ingredientSnapshot, recipeSnapshot, spotlightSnapshot
+  ingredientsSnapshot, recipeSnapshot, spotlightSnapshot
 }) => {
 
 
@@ -46,7 +46,7 @@ const ModTypeModal = ({
   const storeData = () => {
  
     // stores the ingredient snapshot as a map of data
-    let ingredients = ingredientSnapshot.docs.map((ingredient) => {
+    let ingredients = ingredientsSnapshot.docs.map((ingredient) => {
       return {
         id: ingredient.id,    
         ...ingredient.data(),  
@@ -76,7 +76,7 @@ const ModTypeModal = ({
     if (filterChanged) {
 
       // original data
-      let oldIngredients = ingredientSnapshot.docs.map((ingredient) => {
+      let oldIngredients = ingredientsSnapshot.docs.map((ingredient) => {
         return {
           id: ingredient.id,    
           ...ingredient.data(),  
@@ -319,7 +319,7 @@ const ModTypeModal = ({
     const changedTypes = [];
 
     // recollects the initial ingredients
-    const oldIngredientsMap = new Map(ingredientSnapshot.docs.map(doc => [doc.id, doc.data()]));
+    const oldIngredientsMap = new Map(ingredientsSnapshot.docs.map(doc => [doc.id, doc.data()]));
 
     // loops over the current ingredients
     ingredients.forEach((newIngredient) => {
@@ -444,7 +444,7 @@ const ModTypeModal = ({
               {/* filter input */}
               <View className="flex bg-white w-full border-0.5 h-full border-zinc500 rounded-md p-2 justify-center items-center">
                 <TextInput
-                  className="mb-1 text-center text-[14px] leading-[17px]"
+                  className="w-full mb-1 text-center text-[14px] leading-[17px]"
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   placeholder="search for ingredient"
@@ -498,7 +498,7 @@ const ModTypeModal = ({
                       <TextInput
                         placeholder="Custom Type"
                         placeholderTextColor={colors.zinc500}
-                        className="text-[12px] leading-[14px] text-center"
+                        className="w-full text-[12px] leading-[14px] text-center"
                         value={customType}
                         onChangeText={setCustomType}
                         multiline={true}
@@ -525,7 +525,7 @@ const ModTypeModal = ({
                       <TextInput
                         placeholder="Edit Type"
                         placeholderTextColor={colors.zinc500}
-                        className="text-[12px] leading-[14px] text-center"
+                        className="w-full text-[12px] leading-[14px] text-center"
                         value={editType}
                         onChangeText={setEditType}
                         multiline={true}
@@ -635,6 +635,7 @@ const ModTypeModal = ({
                 </View>
 
                 {/* Edit Type */}
+                {filterType !== "" &&
                 <View className="pl-4">
                   <Icon
                     name={showEditType ? "backspace" : "create"}
@@ -643,6 +644,7 @@ const ModTypeModal = ({
                     onPress={() => openEditType()}
                   />
                 </View>
+                }
               </View>
             </View>
           </View>

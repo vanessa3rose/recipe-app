@@ -236,6 +236,8 @@ export default function Details ({ isSelectedTab }) {
 
         {/* SCROLLABLE CONTENT */}
         <View className="flex h-4/5 mt-[0.5px]">
+          {prepData.length > 0
+          ?
           <ScrollView
             className="mt[70px]"
             vertical
@@ -327,6 +329,14 @@ export default function Details ({ isSelectedTab }) {
               </View>
             ))}
           </ScrollView>
+          :
+            // if there are no current meal preps
+            <View className="flex w-full h-full justify-center items-center">
+              <Text className="text-theme400 italic font-bold">
+                NO MEAL PREPS AVAILABLE
+              </Text>
+            </View>
+          }
         </View>
 
 
