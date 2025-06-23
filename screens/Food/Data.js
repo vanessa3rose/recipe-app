@@ -204,9 +204,8 @@ export default function Data ({ isSelectedTab }) {
 
   // remove empty brands and maintain sorting
   const filterIngredientData = async (snapshot, currIngredient, prevPage) => {
-    
     let dataToUse = await storeIngredientFetch(selectedStore, snapshot);
-
+    
     // refilters based on type
     if (selectedType !== "-") {
       dataToUse = dataToUse.filter(ingredient => 
@@ -274,7 +273,7 @@ export default function Data ({ isSelectedTab }) {
         : Math.round((prevPage / dataLength) * dataToUse.length)
       ).toString();
     }
-
+    
     setDataPage(newPage);
     setDataLength(dataToUse.length);
 
@@ -357,17 +356,17 @@ export default function Data ({ isSelectedTab }) {
       setDeleteModalVisible(false);
       setDeletingId(null);
 
-      // reloads types and brands
-      loadUniqueLists(null);
-
       // resets the selected type if it's not in the typeList
-      if (selectedType !== "-" && !typeList.some(item => item.label === selectedType || item.value === selectedType)) {
+      if (selectedType !== "-" && selectedType !== "" && !typeList.some(item => item.label === selectedType || item.value === selectedType)) {
         setSelectedType("-"); 
       }
 
-    // fetches the new snapshots
+      // fetches the new snapshots
       getRecipeSnapshot();
       getSpotlightSnapshot();
+
+      // reloads types and brands
+      loadUniqueLists(null);
     }
   };
 
@@ -385,7 +384,6 @@ export default function Data ({ isSelectedTab }) {
 
   // loads the unique ingredient or brand types
   const loadUniqueLists = async (currIngredient) => {
-    
     const valuesMap = new Map();
     
     // Initialize sets for each store and ingredientTypes
@@ -499,7 +497,7 @@ const closeTypeModal = () => {
   loadUniqueLists(null);
 
   // resets the selected type if it's not in the typeList
-  if (selectedType !== "-" && !typeList.some(item => item.label === selectedType || item.value === selectedType)) {
+  if (selectedType !== "-" && selectedType !== "" && !typeList.some(item => item.label === selectedType || item.value === selectedType)) {
     setSelectedType("-"); 
   }
 
@@ -535,7 +533,7 @@ const closeTypeModal = () => {
               onChangeText={setSearchQuery}
               placeholder={`search for ingredient`}
               placeholderTextColor={colors.zinc400}
-              className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc350 p-2.5 text-[16px] leading-[18px] ml-2.5"
+              className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc350 pl-2.5 pr-[60px] text-[16px] leading-[18px] ml-2.5"
             />
 
             <View className="absolute right-1 flex flex-row">
@@ -703,14 +701,14 @@ const closeTypeModal = () => {
                       label: item.value === 'CUSTOM' ? "no type" : item.label,
                       value: item.value === 'CUSTOM' ? "" : item.label,
                       labelStyle: item.value === 'CUSTOM' 
-                        ? { color: colors.zinc450, padding: 12.5, paddingLeft: 15, marginHorizontal: -10, backgroundColor: colors.zinc100 } 
+                        ? { color: colors.zinc450, padding: 12.5, paddingLeft: 15, marginLeft: -10, marginRight: -50, backgroundColor: colors.zinc100 } 
                         : { color: 'black',  marginRight: selectedType === item.value ? -5 : 0 } 
                     }))
                   ]
                   : [{ label: 'no types available', value: 'none', labelStyle: { color: 'black' }, disabled: true }]
                 }
                 listItemContainerStyle={{ borderBottomWidth: 1, borderBottomColor: colors.zinc200, }}
-                placeholder="all types"
+                placeholder="all types" 
                 placeholderStyle={{ fontWeight: 'bold' }}
                 style={{ height: 50, backgroundColor: colors.zinc800, borderWidth: 0, borderBottomWidth: 2, justifyContent: 'center' }}
                 dropDownContainerStyle={{ backgroundColor: 'white', }}
@@ -807,90 +805,99 @@ const closeTypeModal = () => {
           </ScrollView>
 
           {/* Scrollable Content */}
-          <ScrollView
-            className="mt-[100px] mb-[25px]"
-            ref={verticalScrollRef}
-            vertical
-            onScroll={syncVerticalScroll}
-            scrollEventThrottle={16}
-            contentContainerStyle={{ flexDirection: 'row' }}
-          >
-
-            {/* Fixed First Column */}
-            <View className="w-[125px] h-[65px]">
-              {filteredData?.map((row, index) => (
-                <View 
-                  key={index} 
-                  className={`border-b-0.5 border-b-theme600 border-r-2 ${currIngredientName === row.ingredientName ? "border-r-zinc500" : "border-r-theme600"} ${index % 2 !== 0 ? (currIngredientName === row.ingredientName ? 'bg-zinc450' : 'bg-theme400') : (currIngredientName === row.ingredientName ? 'bg-zinc350' : 'bg-theme300')} w-[125px] h-[65px] flex justify-center items-center`}
-                >
-                  <Text
-                    className={`text-center font-bold text-white text-[12px] px-2 ${row.link && "underline"}`}
-                    onPress={ row.link ? () => Linking.openURL(row.link) : undefined }
-                  >
-                    {row.ingredientName}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Scrollable Columns */}
+          {filteredData.length > 0 
+          ?
             <ScrollView
-              ref={horizontalScrollRef}
-              horizontal
-              onScroll={syncHorizontalScroll}
+              className="mt-[100px] mb-[25px]"
+              ref={verticalScrollRef}
+              vertical
+              onScroll={syncVerticalScroll}
               scrollEventThrottle={16}
-              contentContainerStyle={{ flexDirection: 'column', width: 738 }}
+              contentContainerStyle={{ flexDirection: 'row' }}
             >
-              <View>
-              {filteredData?.map((row, index) => (
 
-                <View key={index} className={`flex-row ${index % 2 !== 0 ? 'bg-gray200' : 'bg-white'}`}>
-
-                  {/* Brand */}
-                  <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r-2 border-zinc500">
-                    <Text className="text-[12px] text-center">{row.brand}</Text>
+              {/* Fixed First Column */}
+              <View className="w-[125px] h-[65px]">
+                {filteredData?.map((row, index) => (
+                  <View 
+                    key={index} 
+                    className={`border-b-0.5 border-b-theme600 border-r-2 ${currIngredientName === row.ingredientName ? "border-r-zinc500" : "border-r-theme600"} ${index % 2 !== 0 ? (currIngredientName === row.ingredientName ? 'bg-zinc450' : 'bg-theme400') : (currIngredientName === row.ingredientName ? 'bg-zinc350' : 'bg-theme300')} w-[125px] h-[65px] flex justify-center items-center`}
+                  >
+                    <Text
+                      className={`text-center font-bold text-white text-[12px] px-2 ${row.link && "underline"}`}
+                      onPress={ row.link ? () => Linking.openURL(row.link) : undefined }
+                    >
+                      {row.ingredientName}
+                    </Text>
                   </View>
-
-                  {/* Serving size + unit */}
-                  <View className="w-[100px] h-[65px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
-                    <Text className="text-[12px] text-center">{row.servingSize}</Text>
-                  </View>
-
-                  {/* Serving container */}
-                  <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
-                    <Text className="text-[12px] text-center">{row.servingContainer}</Text>
-                  </View>
-
-                  {/* Total yield */}
-                  <View className="w-[100px] h-[65px] flex justify-center items-center p-2 border-r-2 border-zinc500">
-                    <Text className="text-[12px] text-center">{row.totalYield}</Text>
-                  </View>
-
-                  {/* Calories per serving */}
-                  <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
-                    <Text className="text-[12px] text-center">{row.calServing}</Text>
-                  </View>
-
-                  {/* Calories per container */}
-                  <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r-2 border-zinc500">
-                    <Text className="text-[12px] text-center">{row.calContainer}</Text>
-                  </View>
-
-                  {/* Price per serving */}
-                  <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
-                    <Text className="text-[12px] text-center">{row.priceServing}</Text>
-                  </View>
-
-                  {/* Price per container */}
-                  <View className="w-[90px] h-[65px] flex justify-center items-center p-2">
-                    <Text className="text-[12px] text-center">{row.priceContainer}</Text>
-                  </View>
-                </View>
-              ))}
+                ))}
               </View>
+
+              {/* Scrollable Columns */}
+              <ScrollView
+                ref={horizontalScrollRef}
+                horizontal
+                onScroll={syncHorizontalScroll}
+                scrollEventThrottle={16}
+                contentContainerStyle={{ flexDirection: 'column', width: 738 }}
+              >
+                <View>
+                {filteredData?.map((row, index) => (
+
+                  <View key={index} className={`flex-row ${index % 2 !== 0 ? 'bg-gray200' : 'bg-white'}`}>
+
+                    {/* Brand */}
+                    <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r-2 border-zinc500">
+                      <Text className="text-[12px] text-center">{row.brand}</Text>
+                    </View>
+
+                    {/* Serving size + unit */}
+                    <View className="w-[100px] h-[65px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
+                      <Text className="text-[12px] text-center">{row.servingSize}</Text>
+                    </View>
+
+                    {/* Serving container */}
+                    <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
+                      <Text className="text-[12px] text-center">{row.servingContainer}</Text>
+                    </View>
+
+                    {/* Total yield */}
+                    <View className="w-[100px] h-[65px] flex justify-center items-center p-2 border-r-2 border-zinc500">
+                      <Text className="text-[12px] text-center">{row.totalYield}</Text>
+                    </View>
+
+                    {/* Calories per serving */}
+                    <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
+                      <Text className="text-[12px] text-center">{row.calServing}</Text>
+                    </View>
+
+                    {/* Calories per container */}
+                    <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r-2 border-zinc500">
+                      <Text className="text-[12px] text-center">{row.calContainer}</Text>
+                    </View>
+
+                    {/* Price per serving */}
+                    <View className="w-[90px] h-[65px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
+                      <Text className="text-[12px] text-center">{row.priceServing}</Text>
+                    </View>
+
+                    {/* Price per container */}
+                    <View className="w-[90px] h-[65px] flex justify-center items-center p-2">
+                      <Text className="text-[12px] text-center">{row.priceContainer}</Text>
+                    </View>
+                  </View>
+                ))}
+                </View>
+              </ScrollView>
             </ScrollView>
-          
-          </ScrollView>
+          :
+            // if there are no ingredients / filtering doesn't match any
+            <View className="flex w-full h-full pt-[50px] justify-center items-center">
+              <Text className="text-theme200 italic font-bold">
+                NO INGREDIENTS AVAILABLE
+              </Text>
+            </View>
+          }
 
 
           {/* PAGES */}

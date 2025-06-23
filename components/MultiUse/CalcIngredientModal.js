@@ -258,10 +258,10 @@ const CalcIngredientModal = ({
               </View>
 
               {/* Amount Section */}
-              <View className="flex flex-row w-2/5 justify-center items-center bg-theme100">
+              <View className="flex flex-row px-1 w-2/5 justify-center items-center bg-theme100">
                 {/* calculated amount and unit */}
                 <TextInput
-                  className="text-center text-[14px] leading-[17px]"
+                  className="w-full text-center text-[14px] leading-[17px]"
                   placeholder="0 0/0"
                   placeholderTextColor={colors.zinc500}
                   value={totalYield}
@@ -282,13 +282,13 @@ const CalcIngredientModal = ({
             </View>
 
             {/* Amount Section */}
-            <View className="flex flex-row w-11/12 justify-center items-center bg-zinc350 border-b-[1px] border-x-[1px] border-zinc400">
-              {/* calculated amount and unit*/}
-              <Text className="px-2 py-1 text-center">
+            <View className="flex flex-row w-11/12 mr-[0px] px-1 justify-center items-center bg-zinc350 border-b-[1px] border-x-[1px] border-zinc400">
+              {/* calculated amount and unit*/} 
+              <Text className="w-full ml-[-16px] pl-[24px] pr-2 py-1 text-center">
                 {calcAmount} {initialServings !== null ? extractUnit(ingredientData[ingredientStore].unit, calcAmount) : extractUnit(ingredientData.ingredientData[ingredientStore].unit, calcAmount)}
               </Text>
               {/* button to submit */}
-              <View className="absolute flex right-0.5">
+              <View className="flex w-[24px]">
                 <Icon
                   name="arrow-redo-circle"
                   size={24}
@@ -324,9 +324,9 @@ const CalcIngredientModal = ({
                     CALORIES
                   </Text>
                   {/* user input */}
-                  <View className="flex w-full py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
+                  <View className="flex w-full p-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
                     <TextInput
-                      className="text-center text-[14px] leading-[17px]"
+                      className="w-full text-center text-[14px] leading-[17px]"
                       placeholder="0"
                       placeholderTextColor={colors.zinc500}
                       value={goalCals}
@@ -344,12 +344,12 @@ const CalcIngredientModal = ({
                     COST
                   </Text>
                   {/* user input */}
-                  <View className="flex flex-row w-full py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
-                    <Text className={`${goalPrice === 0 || goalPrice === "" ? "text-zinc500" : "text-black"} text-[14px] leading-[17px]`}>
+                  <View className="flex flex-row w-full px-2 py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
+                    <Text className={`flex-auto text-right ${goalPrice === 0 || goalPrice === "" ? "text-zinc500" : "text-black"} text-[14px] leading-[17px]`}>
                       $
                     </Text>
                     <TextInput
-                      className="text-center text-[14px] leading-[17px]"
+                      className="flex-auto text-left text-[14px] leading-[17px]"
                       placeholder="0.00"
                       placeholderTextColor={colors.zinc500}
                       value={goalPrice}
@@ -368,7 +368,7 @@ const CalcIngredientModal = ({
                 {/* user input */}
                 <View className="flex w-full py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
                   <TextInput
-                    className="text-center text-[14px] leading-[17px]"
+                    className="flex w-full px-1 text-center text-[14px] leading-[17px]"
                     placeholder="0.00"
                     placeholderTextColor={colors.zinc500}
                     value={goalServings}

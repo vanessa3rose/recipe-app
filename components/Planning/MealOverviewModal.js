@@ -1,10 +1,17 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
 // react hooks
-import React from 'react';
+import React, { useState } from 'react';
 
 // UI components
 import { Modal, View, Text, TouchableOpacity } from 'react-native';
+
+// visual effects
+import Icon from 'react-native-vector-icons/Ionicons';
+import colors from '../../assets/colors';
+
+// validation
+import extractUnit from '../../components/Validation/extractUnit';
 
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
@@ -12,6 +19,11 @@ import { Modal, View, Text, TouchableOpacity } from 'react-native';
 const MealOverviewModal = ({ 
   data, modalVisible, setModalVisible, 
 }) => {
+
+
+  ///////////////////////////////// SPECIFICS VIEW /////////////////////////////////
+
+  const [specificsIndex, setSpecificsIndex] = useState(-1);
 
 
   ///////////////////////////////// HTML /////////////////////////////////
@@ -39,24 +51,76 @@ const MealOverviewModal = ({
           
           {/* Divider */}
           <View className="h-[1px] bg-zinc400 mt-2 mb-4 mx-4"/>
-                        
-          {/* Ingredient Names */}
-          <View className="flex justify-center items-center border-2 border-theme500 mx-5">
-            {Array.from({ length: 12 }, (_, index) => (
-              <View key={`frozen-${index}`}>
-                {data?.currentData[index]?.ingredientId !== undefined && 
-                  <View className="flex flex-row w-full h-[30px] bg-white border-b-[1px] border-zinc200">
-                    <Text className="flex justify-center w-1/12 h-full pt-[7px] text-black font-semibold text-[12px] text-right">
-                      {index + 1}{"."}
-                    </Text>
-                    <Text className="flex justify-center w-11/12 h-full pt-[7px] pl-1.5 text-black text-[12px] text-left">
-                      {data?.currentData[index]?.ingredientName || ""}
-                    </Text>
-                  </View>
-                }
+          
+          {/* GRID */}
+          {specificsIndex === -1
+          ?
+            // Ingredient Names
+            <View className="flex justify-center items-center border-2 border-theme500 mx-5">
+              {Array.from({ length: 12 }, (_, index) => (
+                <View key={`frozen-${index}`}>
+                  {data?.currentData[index]?.ingredientId !== undefined && 
+                    <View className="flex flex-row w-full min-h-[30px] bg-white border-b-[1px] border-zinc200">
+                      {/* BULLET */}
+                      <Text className="flex justify-center w-1/12 py-[7px] text-black font-semibold text-[12px] text-right">
+                        {index + 1}{"."}
+                      </Text>
+                      {/* NAME */}
+                      <Text className={`flex justify-center w-5/6 py-[7px] px-1.5 text-[12px] text-left ${!data?.currentIncluded[index] ? "line-through text-mauve600" : "text-black"}`}>
+                        {data?.currentData[index]?.ingredientName || ""}
+                      </Text>
+
+                      {/* Specific Selector */}
+                      <View className="flex w-1/12 justify-center items-center">
+                        <Icon
+                          name="resize"
+                          color={colors.zinc800}
+                          size={16}
+                          onPress={() => setSpecificsIndex(index)}
+                        />
+                      </View>
+                    </View>
+                  }
+                </View>
+              ))}
+            </View>
+          : 
+            // Specifics of selected
+            <View className="flex justify-center items-center border-2 border-theme500 mx-5">
+              <View className="flex flex-row w-full min-h-[30px] bg-white border-b-[1px] border-zinc200">
+                {/* BULLET */}
+                <Text className="flex justify-center w-1/12 py-[7px] text-black font-semibold text-[12px] text-right">
+                  {specificsIndex + 1}{"."}
+                </Text>
+                {/* NAME */}
+                <Text className={`flex justify-center w-5/6 py-[7px] pl-1.5 text-[12px] text-left ${!data?.currentIncluded[specificsIndex] ? "line-through text-mauve600" : "text-black"}`}>
+                  {data?.currentData[specificsIndex]?.ingredientName || ""}
+                </Text>
+
+                {/* Specific Deselctor */}
+                <View className="flex w-1/12 justify-center items-center">
+                  <Icon
+                    name="chevron-collapse"
+                    color={colors.zinc800}
+                    size={16}
+                    onPress={() => setSpecificsIndex(-1)}
+                  />
+                </View>
               </View>
-            ))}
-          </View>
+
+              {/* Specifics Details */}
+              <View className="flex flex-row py-1 w-full justify-evenly items-center bg-zinc350">
+                {/* AMOUNT */}
+                <Text className="text-theme900 text-[11px] font-bold">
+                  {`${data.currentAmounts[specificsIndex]} ${extractUnit(data.currentData[specificsIndex].ingredientData[data.currentData[specificsIndex].ingredientStore].unit, data.currentAmounts[specificsIndex])}`}
+                </Text>
+                {/* CAL - $ */}
+                <Text className="text-theme800 text-[10px] italic font-medium">
+                  {`${data.currentCals[specificsIndex].toFixed(0)} calories  -  $${data.currentPrices[specificsIndex].toFixed(2)}`}
+                </Text>
+              </View>
+            </View>
+          }
 
           
           {/* Divider */}

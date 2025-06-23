@@ -44,6 +44,9 @@ const db = getFirestore(app);
 
 export default function CurrentFood ({ isSelectedTab }) {
 
+
+  ///////////////////////////////// KEYBOARD /////////////////////////////////
+
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [keyboardType, setKeyboardType] = useState("");
 
@@ -351,7 +354,6 @@ export default function CurrentFood ({ isSelectedTab }) {
       // finds the index of the new current and scrolls to the correct y value
       const itemHeight = 50;
       const idx = currents.map(current => current.ingredientName).indexOf(searchIngredientQuery);
-      setScrollY(idx * itemHeight);
       if (verticalScrollRef.current) { verticalScrollRef.current.scrollTo({ y: idx * itemHeight, animated: false }); }
         
       // clears the search
@@ -539,7 +541,7 @@ export default function CurrentFood ({ isSelectedTab }) {
 
           // loops over all 12 ingredients and finds the ones that match the current
           for (let i = 0; i < 12; i++) {
-            if (prepData.currentIds[i] && prepData.currentIds[i] === currentIds[index] && prepData.currentAmounts[i] !== "") {
+            if (prepData.currentIds[i] && prepData.currentIds[i] === currentIds[index] && prepData.currentIncluded[i] && prepData.currentAmounts[i] !== "") {
               calcAmount = ((new Fractional(calcAmount)).subtract((new Fractional(prepData.currentAmounts[i])).multiply(new Fractional(prepData.prepMult)))).toString();
             }
           }
@@ -722,9 +724,11 @@ export default function CurrentFood ({ isSelectedTab }) {
     prepsSnapshot.forEach((doc) => {
       for (let i = 0; i < 12; i++) {
         if (doc.data().currentData[i] !== null) {
+
           const listId = currentList[index].ingredientId === "" ? currentList[index].ingredientName : currentList[index].ingredientId;
           const dataId = doc.data().currentData[i].ingredientId === "" ? doc.data().currentData[i].ingredientName : doc.data().currentData[i].ingredientId;
-          if (listId === dataId) {
+          
+          if (listId === dataId && doc.data().currentIncluded[i]) {
             prepList.push(doc.data().prepName);
             amountList.push(doc.data().currentAmounts[i] + " " + extractUnit(doc.data().currentData[i].ingredientData[doc.data().currentData[i].ingredientStore].unit, doc.data().currentAmounts[i]));
             multList.push(doc.data().prepMult);
@@ -964,13 +968,7 @@ export default function CurrentFood ({ isSelectedTab }) {
   }
   
   // vertical scroll syncing
-  const [scrollY, setScrollY] = useState(0);
   const verticalScrollRef = useRef(null);
-
-  const syncVerticalScroll = (e) => {
-    const contentOffsetY = e.nativeEvent.contentOffset.y;
-    setScrollY(contentOffsetY);
-  };
 
 
   ///////////////////////////////// HTML /////////////////////////////////
@@ -988,57 +986,57 @@ export default function CurrentFood ({ isSelectedTab }) {
       </View>
 
       {/* CURRENT SECTION */}
-      <View className="flex flex-row">
-        <View className="w-11/12 ml-[5px] border-[1px] border-black bg-zinc700">
+      <View className={`flex flex-col h-2/3 ${currentList.filter(current => current.archive === showArchive).length > 0 ? "pl-[15px] mx-[20px] pr-[5px] w-full" : "w-11/12"}`}>
 
-          {/* HEADER ROW */}
-          <View className="flex flex-row absolute h-[30px] bg-theme900 border-[1px] border-black z-10">
-              
-            {/* meal prep filtering button */}
-            <View className="flex items-center justify-center w-1/12">
-              <Icon
-                name={currentFilter}
-                size={16}
-                color="white"
-                onPress={() => changeFilter()}
-              />
-            </View>
-
-            {/* ingredient header */}
-            <View className="flex flex-row  space-x-4 items-center justify-center w-2/5 border-r-[1px]">
-              {/* Text */}
-              <Text className="text-white text-xs font-bold">
-                INGREDIENT
-              </Text>
-              {/* Import Button */}
-              <Icon
-                name="enter"
-                size={18}
-                color="white"
-                onPress={() => importIngredients()}
-              />
-            </View>
-
-            {/* amount header */}
-            <View className="flex items-center justify-center w-[35%] border-r-0.5">
-              <Text className="text-white text-xs font-bold">
-                AMOUNT
-              </Text>
-            </View>
-
-            {/* unit price header */}
-            <View className="flex items-center justify-center w-1/6">
-              <Text className="text-white text-xs font-bold">
-                UNIT $
-              </Text>
-            </View>
+        {/* HEADER ROW */}
+        <View className={`flex flex-row z-20 w-full h-[30px] ${currentList.filter(current => current.archive === showArchive).length > 0 && "pr-[20px]"}`}>
+            
+          {/* meal prep filtering button */}
+          <View className="flex items-center justify-center w-1/12 bg-theme900 border-y-[1px] border-l-[1px] border-black">
+            <Icon
+              name={currentFilter}
+              size={16}
+              color="white"
+              onPress={() => changeFilter()}
+            />
           </View>
-        
-          {/* SCROLLABLE INGREDIENT GRID */}
+
+          {/* ingredient header */}
+          <View className="flex flex-row  space-x-4 items-center justify-center w-2/5 bg-theme900 border-y-[1px] border-r-[1px] border-black">
+            {/* Text */}
+            <Text className="text-white text-xs font-bold">
+              INGREDIENT
+            </Text>
+            {/* Import Button */}
+            <Icon
+              name="enter"
+              size={18}
+              color="white"
+              onPress={() => importIngredients()}
+            />
+          </View>
+
+          {/* amount header */}
+          <View className="flex items-center justify-center w-[35%] border-r-0.5 bg-theme900 border-y-[1px] border-black">
+            <Text className="text-white text-xs font-bold">
+              AMOUNT
+            </Text>
+          </View>
+
+          {/* unit price header */}
+          <View className="flex items-center justify-center w-1/6 bg-theme900 border-y-[1px] border-r-[1px] border-black">
+            <Text className="text-white text-xs font-bold">
+              UNIT $
+            </Text>
+          </View>
+        </View>
+      
+        {/* SCROLLABLE INGREDIENT GRID */}
+        <View className="flex-1 z-20">
+        {currentList.filter(current => current.archive === showArchive).length > 0
+        ?
           <ScrollView
-            className="flex-1 my-[30px] w-full h-2/3"
             scrollEventThrottle={16}
-            onScroll={syncVerticalScroll}
             ref={verticalScrollRef}
             contentContainerStyle={{ flexDirection: 'row' }}
           >
@@ -1050,172 +1048,186 @@ export default function CurrentFood ({ isSelectedTab }) {
                 // only shows the ones that fit the filtering
                 <View key={`curr-${index}`}>
                   {filteredIndices[index] ?
-                    <View className="flex flex-row h-[50px]">
+                    <View className="flex flex-row h-[50px] mr-[40px]">
+
+                      {/* Main Data */}
+                      <View className="flex flex-row border-x-[1px] border-black">
                       
-                      {/* ICONS */}
-                      <View className="flex flex-col pt-2 items-center justify-center bg-theme500 w-1/12 border-b-0.5 border-b-theme900">
+                        {/* ICONS */}
+                        <View className="flex flex-col pt-2 items-center justify-center bg-theme500 w-1/12 border-b-0.5 border-b-theme900">
+                          
+                          {/* checkboxes */}
+                          <Icon
+                            name={curr.check ? "checkbox" : curr.amountLeft === "0" ? "checkbox-outline" : curr.amountLeft < "0" ? "warning" : "square-outline"}
+                            color="white"
+                            size={15}
+                          />
+
+                          {/* delete */}
+                          <Icon
+                            name="remove"
+                            size={15}
+                            color="white"
+                            onPress={() => deleteIngredient(index)}
+                          />
+                        </View>
+
+                        {/* Modal that appears to delete a current ingredient */}
+                        {deleteModalVisible && (
+                          <DeleteCurrentModal
+                            id={deletingId}
+                            isChecked={deleteChecked}
+                            currentName={deleteName}
+                            visible={deleteModalVisible}
+                            onConfirm={confirmDelete}
+                            onCancel={cancelDelete}
+                          />
+                        )}
                         
-                        {/* checkboxes */}
-                        <Icon
-                          name={curr.check ? "checkbox" : curr.amountLeft === "0" ? "checkbox-outline" : curr.amountLeft < "0" ? "warning" : "square-outline"}
-                          color="white"
-                          size={15}
-                        />
-
-                        {/* delete */}
-                        <Icon
-                          name="remove"
-                          size={15}
-                          color="white"
-                          onPress={() => deleteIngredient(index)}
-                        />
-                      </View>
-
-                      {/* Modal that appears to delete a current ingredient */}
-                      {deleteModalVisible && (
-                        <DeleteCurrentModal
-                          id={deletingId}
-                          isChecked={deleteChecked}
-                          currentName={deleteName}
-                          visible={deleteModalVisible}
-                          onConfirm={confirmDelete}
-                          onCancel={cancelDelete}
-                        />
-                      )}
-                      
-                      {/* ingredient names */}
-                      <TouchableOpacity 
-                        activeOpacity={0.75}
-                        onPress={() => openViewModal(index)}
-                        className={`flex items-start justify-center w-2/5 border-b-0.5 border-r-0.5 border-r-theme900 pl-1 pr-[5px] ${curr.ingredientId === "" && newIds.indexOf(curr.ingredientName) !== -1 ? "bg-zinc500 border-b-zinc700" : newIds.indexOf(curr.ingredientId) === -1 ? "bg-theme600 border-b-theme900" : "bg-zinc500 border-b-zinc700"}`}
-                      >
-                        <Text className="text-white text-[12px]">
-                          {curr && curr.ingredientData ? curr.ingredientName : ""}
-                        </Text>
-                      </TouchableOpacity>
-
-                      {/* Modal that appears to view an ingredient */}
-                      {currentModalVisible && (
-                        <ViewCurrentModal 
-                          modalVisible={currentModalVisible} 
-                          closeModal={closeViewModal}
-                          ingredientData={currentViewData}
-                          prepList={currPrepList}
-                          amountList={currAmountList}
-                          multList={currMultList}
-                        />
-                      )}
-
-                      {/* amount */}
-                      <View className={`flex flex-row items-center justify-center bg-white w-[35%] border-b-0.5 border-b-zinc400 z-20`}>
-                        {curr?.ingredientData ?
-                          <View className="flex flex-row items-center justify-center">
-
-                            {/* Text */}
-                            <View className="flex flex-col items-center justify-center w-full space-y-1 -ml-3">
-                              <View className="flex flex-row items-center justify-center space-x-2 mr-[20px]">
-
-                                {/* Amount Total (INPUT) */}
-                                <TextInput
-                                  key={index}
-                                  className="text-[12px] leading-[15px] text-center"
-                                  placeholder={curr.amountTotal !== "" ? curr.amountTotal : "_"}
-                                  placeholderTextColor="black"
-                                  value={currAmountTotals[index]}
-                                  onChangeText={(value) => updateTotals(validateFractionInput(value), index)}
-                                  onBlur={() => updateFilter(showArchive)}
-                                />
-
-                                {/* Amount Left (CALCULATED) */}
-                                <Text className={`pl-2 border-l-[1px] border-l-zinc400 text-[12px] 
-                                    ${curr.amountLeft !== "" ? (new Fractional(curr.amountLeft).numerator === 0 ? "text-yellow-500" 
-                                      : (new Fractional(curr.amountLeft).numerator / (new Fractional(curr.amountLeft).denominator)) < 0 ? "text-pink-500" 
-                                      : "text-emerald-500") : "text-white"}`}>
-                                  {curr.amountLeft}
-                                </Text>
-                              </View>
-
-                              {/* Unit */}
-                              <View className="flex mr-[20px]">
-                                <Text className={`text-[12px] ${curr.ingredientData[currStores[index]].unit === undefined || curr.ingredientData[currStores[index]].unit === "" ? "bg-zinc200" : "bg-white"}`}>
-                                  {` ${curr.ingredientData[currStores[index]].unit === undefined || curr.ingredientData[currStores[index]].unit === "" ? "unit(s)" : curr.ingredientData[currStores[index]].unit}`}
-                                </Text>
-                              </View>
-                            </View>
-
-                            {/* Store Logo */}
-                            <View className="flex justify-start absolute right-0 w-[30px] h-[50px] -mr-2">
-                              {currStores[index] === "-" ? 
-                                <View className="mt-[6.5px] w-full justify-center items-center">
-                                  <Icon
-                                    name="create"
-                                    size={18}
-                                    color={colors.theme500}
-                                    onPress={() => openModModal(currentList[index], currentIds[index])}
-                                  />
-                                </View>
-                                :
-                                <View className="w-full justify-center items-center">
-                                  <TouchableOpacity 
-                                    onPress={() => updateStores(index)} 
-                                  >
-                                    <View className={`${currStores[index] === "Aldi" ? "mt-[10px]" : "mt-[8px]"}`}>
-                                      {currStores[index] === "-" ? (
-                                        <Text>-</Text>
-                                      ) : (
-                                        <Image
-                                          source={storeImages[currStores[index]]?.src}
-                                          alt="store"
-                                          style={{
-                                            width: storeImages[currStores[index]]?.width,
-                                            height: storeImages[currStores[index]]?.height,
-                                          }}
-                                        />
-                                      )}
-                                    </View>
-                                  </TouchableOpacity>
-                                  <Icon 
-                                    name="ellipsis-horizontal"
-                                    color={colors.zinc500}
-                                    size={18}
-                                    onPress={() => openModModal(currentList[index], currentIds[index])}
-                                  />
-                                </View>
-                              }
-                            </View>
-                          </View>
-                        : null }
-                      </View>
-
-                      {/* Modal that appears to edit an ingredient */}
-                      {(modModalVisible && currentModData) && (
-                        <ModCurrentModal 
-                          modalVisible={modModalVisible} 
-                          closeModal={closeModModal}
-                          initialData={currentModData}
-                          editingId={currentModId}
-                        />
-                      )}
-
-                      {/* price */}
-                      <TouchableOpacity
-                        className="flex flex-row items-center justify-center w-1/6 border-b-0.5 border-b-zinc450 bg-zinc100"
-                        onPress={() => changePrice(index)}
-                        activeOpacity={0.9}
-                      >
-                        {/* Amount */}
-                        {Array.isArray(currPrices) && currPrices[index] !== "" &&
-                          <Text className={`text-[12px] leading-[15px] text-center ${(currPrices[index] === "0.00" || currPrices[index] === "0.0000") ? "bg-zinc200 p-0.5" : "bg-zinc100"}`}>
-                            {/* $ or ¢ display */}
-                            {currPrices[index] >= 0.01 || currPrices[index] === "0.00" || currPrices[index] === ""
-                            ?
-                              <Text>{"$"}{currPrices[index]} </Text>
-                            :
-                              <Text>{(currPrices[index] * 100).toFixed(2)}{"¢"}</Text>
-                            }
+                        {/* ingredient names */}
+                        <TouchableOpacity 
+                          activeOpacity={0.75}
+                          onPress={() => openViewModal(index)}
+                          className={`flex items-start justify-center w-2/5 z-10 border-b-0.5 border-r-0.5 border-r-theme900 pl-1 pr-[5px] ${curr.ingredientId === "" && newIds.indexOf(curr.ingredientName) !== -1 ? "bg-zinc500 border-b-zinc700" : newIds.indexOf(curr.ingredientId) === -1 ? "bg-theme600 border-b-theme900" : "bg-zinc500 border-b-zinc700"}`}
+                        >
+                          <Text className="text-white text-[12px]">
+                            {curr && curr.ingredientData ? curr.ingredientName : ""}
                           </Text>
-                        }
-                      </TouchableOpacity>
+                        </TouchableOpacity>
+
+                        {/* Modal that appears to view an ingredient */}
+                        {currentModalVisible && (
+                          <ViewCurrentModal 
+                            modalVisible={currentModalVisible} 
+                            closeModal={closeViewModal}
+                            ingredientData={currentViewData}
+                            prepList={currPrepList}
+                            amountList={currAmountList}
+                            multList={currMultList}
+                          />
+                        )}
+
+                        {/* amount */}
+                        <View className={`flex flex-row items-center justify-center bg-white w-[35%] border-b-0.5 border-b-zinc400 z-0`}>
+                          {curr?.ingredientData ?
+                            <View className="flex flex-row items-center justify-center">
+
+                              {/* Text */}
+                              <View className="flex flex-col items-center justify-center w-full space-y-1 -ml-3">
+                                <View className="flex flex-row items-center justify-center space-x-2 mr-[20px]">
+
+                                  {/* Amount Total (INPUT) */}
+                                  <TextInput
+                                    key={index}
+                                    className="text-[12px] leading-[15px] text-center"
+                                    placeholder={curr.amountTotal !== "" ? curr.amountTotal : "_"}
+                                    placeholderTextColor="black"
+                                    value={currAmountTotals[index]}
+                                    onChangeText={(value) => updateTotals(validateFractionInput(value), index)}
+                                    onBlur={() => updateFilter(showArchive)}
+                                  />
+
+                                  {/* Amount Left (CALCULATED) */}
+                                  <Text className={`pl-2 border-l-[1px] border-l-zinc400 text-[12px] 
+                                      ${curr.amountLeft !== "" ? (new Fractional(curr.amountLeft).numerator === 0 ? "text-yellow-500" 
+                                        : (new Fractional(curr.amountLeft).numerator / (new Fractional(curr.amountLeft).denominator)) < 0 ? "text-pink-500" 
+                                        : "text-emerald-500") : "text-white"}`}>
+                                    {curr.amountLeft}
+                                  </Text>
+                                </View>
+
+                                {/* Unit */}
+                                <View className="flex mr-[20px]">
+                                  <Text className={`text-[12px] ${curr.ingredientData[currStores[index]].unit === undefined || curr.ingredientData[currStores[index]].unit === "" ? "bg-zinc200" : "bg-white"}`}>
+                                    {` ${curr.ingredientData[currStores[index]].unit === undefined || curr.ingredientData[currStores[index]].unit === "" ? "unit(s)" : curr.ingredientData[currStores[index]].unit}`}
+                                  </Text>
+                                </View>
+                              </View>
+
+                              {/* Store Logo */}
+                              <View className="flex justify-start absolute right-0 w-[30px] h-[50px] -mr-2">
+                                {currStores[index] === "-" ? 
+                                  <View className="mt-[6.5px] w-full justify-center items-center">
+                                    <Icon
+                                      name="create"
+                                      size={18}
+                                      color={colors.theme500}
+                                      onPress={() => openModModal(currentList[index], currentIds[index])}
+                                    />
+                                  </View>
+                                  :
+                                  <View className="w-full justify-center items-center">
+                                    <TouchableOpacity 
+                                      onPress={() => updateStores(index)} 
+                                    >
+                                      <View className={`${currStores[index] === "Aldi" ? "mt-[10px]" : "mt-[8px]"}`}>
+                                        {currStores[index] === "-" ? (
+                                          <Text>-</Text>
+                                        ) : (
+                                          <Image
+                                            source={storeImages[currStores[index]]?.src}
+                                            alt="store"
+                                            style={{
+                                              width: storeImages[currStores[index]]?.width,
+                                              height: storeImages[currStores[index]]?.height,
+                                            }}
+                                          />
+                                        )}
+                                      </View>
+                                    </TouchableOpacity>
+                                    <Icon 
+                                      name="ellipsis-horizontal"
+                                      color={colors.zinc500}
+                                      size={18}
+                                      onPress={() => openModModal(currentList[index], currentIds[index])}
+                                    />
+                                  </View>
+                                }
+                              </View>
+                            </View>
+                          : null }
+                        </View>
+
+                        {/* Modal that appears to edit an ingredient */}
+                        {(modModalVisible && currentModData) && (
+                          <ModCurrentModal 
+                            modalVisible={modModalVisible} 
+                            closeModal={closeModModal}
+                            initialData={currentModData}
+                            editingId={currentModId}
+                          />
+                        )}
+
+                        {/* price */}
+                        <TouchableOpacity
+                          className="flex flex-row items-center justify-center w-1/6 border-b-0.5 border-b-zinc450 bg-zinc100"
+                          onPress={() => changePrice(index)}
+                          activeOpacity={0.9}
+                        >
+                          {/* Amount */}
+                          {Array.isArray(currPrices) && currPrices[index] !== "" &&
+                            <Text className={`text-[12px] leading-[15px] text-center ${(currPrices[index] === "0.00" || currPrices[index] === "0.0000") ? "bg-zinc200 p-0.5" : "bg-zinc100"}`}>
+                              {/* $ or ¢ display */}
+                              {currPrices[index] >= 0.01 || currPrices[index] === "0.00" || currPrices[index] === ""
+                              ?
+                                <Text>{"$"}{currPrices[index]} </Text>
+                              :
+                                <Text>{(currPrices[index] * 100).toFixed(2)}{"¢"}</Text>
+                              }
+                            </Text>
+                          }
+                        </TouchableOpacity>
+                      </View>
+      
+                      {/* Archive Button */}
+                      <View className="flex justify-center items-center h-[50px] w-[20px] bg-zinc200">
+                        <Icon
+                          name={showArchive ? "lock-closed" : "lock-open"}
+                          color={colors.zinc700}
+                          size={16}
+                          onPress={() => changeArchive(index)}
+                        />
+                      </View>
                     </View>
                   : null }
                 </View>
@@ -1227,46 +1239,47 @@ export default function CurrentFood ({ isSelectedTab }) {
               }
             </View>
           </ScrollView>   
+        :
+          // if there are no current ingredients
+          <View className="bg-zinc700 h-full w-full justify-center items-center">
+            <Text className="text-theme300 italic font-bold">
+              NO CURRENT INGREDIENTS
+            </Text>
+          </View>
+        }
         </View>
+      
+        {/* ARCHIVE INDICATOR */}
+        {currentList.length !== 0 &&
+          <View className={`flex flex-row z-20 ${currentList.filter(current => current.archive === showArchive).length > 0 && "mr-[20px]"} justify-center items-center space-x-3 bg-zinc900 border-t-2 mt-[-1px] pb-[2px] h-[30px]`}>
+            
+            {/* text */}
+            <Text className="font-bold text-[12px] text-zinc300 italic">
+              {showArchive ? "SHOWING ARCHIVE" : "HIDING ARCHIVE"}
+            </Text>
 
-        {/* Archive Column */}
-        <View className={`${currentList.length === 0 ? "w-[0px]" : "w-[20px]"} my-[30px]`}>
-        
-          {/* SCROLLABLE INGREDIENT GRID */}
-          <ScrollView
-            className="w-full h-2/3"
-            contentOffset={{ y: scrollY }}
-            scrollEnabled={false}
-          >
-            <View className="flex flex-col">
-              
-              {/* Maps over the list of current ingredients */}
-              {currentList.length > 0 && currentList.map((curr, index) => (
-
-                // only shows the ones that fit the filtering
-                <View key={`curr-${index}`}>
-                  {filteredIndices[index] ?
-
-                    // archive button
-                    <View className="flex justify-center items-center h-[50px]">
-                      <Icon
-                        name={showArchive ? "lock-closed" : "lock-open"}
-                        color={colors.zinc700}
-                        size={16}
-                        onPress={() => changeArchive(index)}
-                      />
-                    </View>
-                  : null }
-                </View>
-              ))}
-
-              {/* empty space at the bottom if the keyboard is open */}
-              {(keyboardType === "" && isKeyboardOpen) &&
-                <View className="flex flex-row h-[150px]"/>
-              }
+            {/* toggle button */}
+            <View className="justify-center items-center" style={ showArchive ? null : { transform: [{ scaleX: -1 }] } }>
+              <Icon
+                name="toggle"
+                size={20}
+                color={colors.zinc100}
+                onPress={() => {
+                  setShowArchive(!showArchive);
+                  updateFilter(!showArchive);
+                }}
+              />
             </View>
-          </ScrollView> 
-        </View>
+          </View>
+        }
+
+        {/* BACKGROUND */}
+        {currentList.filter(current => current.archive === showArchive).length > 0 &&
+        <>
+          <View className="absolute w-[25px] h-full right-0 ml-[15px] bg-zinc200 z-10"/>
+          <View className="absolute w-full h-full ml-[15px] bg-zinc700 z-0"/>
+        </>
+        }
       </View>
 
       {/* MODIFY PRICE MODAL */}
@@ -1278,28 +1291,6 @@ export default function CurrentFood ({ isSelectedTab }) {
         currentData={currentList[priceIndex]}
         currentStore={currStores[priceIndex]}
       />
-
-      {/* ARCHIVE INDICATOR */}
-      <View className={`flex flex-row ${currentList.length === 0 ? "w-[0px]" : "w-11/12"} mr-[15px] justify-center items-center space-x-3 bg-zinc900 mt-[-30px] h-[30px]`}>
-        
-        {/* text */}
-        <Text className="font-bold text-[12px] text-zinc300 italic">
-          {showArchive ? "SHOWING ARCHIVE" : "HIDING ARCHIVE"}
-        </Text>
-
-        {/* toggle button */}
-        <View className="justify-center items-center" style={ showArchive ? null : { transform: [{ scaleX: -1 }] } }>
-          <Icon
-            name="toggle"
-            size={20}
-            color={colors.zinc100}
-            onPress={() => {
-              setShowArchive(!showArchive);
-              updateFilter(!showArchive);
-            }}
-          />
-        </View>
-      </View>
       
       {/* INGREDIENT FILTERING SECTION */}
       <View className="flex flex-row mt-[20px] space-x-4">
@@ -1490,7 +1481,7 @@ export default function CurrentFood ({ isSelectedTab }) {
       {isKeyboardOpen && keyboardType === "ingredient search" &&
         <>
           {/* Grayed Out BG */}
-          <View className="absolute bg-black bg opacity-40 w-full h-full z-10"/>
+          <View className="absolute bg-black bg opacity-40 w-full h-full z-30"/>
         
           {/* Popup */}
           <View className="flex flex-col justify-center items-center w-full absolute bottom-[270px] space-y-1.5">
@@ -1504,7 +1495,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                 onChangeText={filterIngredientData}
                 placeholder="search for ingredient"
                 placeholderTextColor={colors.zinc400}
-                className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[17px] z-10`}
+                className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[17px] z-40`}
                 multiline={true}
                 blurOnSubmit={true}
                 onFocus={() => {
@@ -1545,7 +1536,7 @@ export default function CurrentFood ({ isSelectedTab }) {
               )}
         
               {/* BUTTONS */}
-              <View className="flex flex-row space-x-[-2px] absolute right-0 bottom-0 z-20">
+              <View className="flex flex-row space-x-[-2px] absolute right-0 bottom-0 z-50">
 
                 {/* Drop Up/Down */}
                 <Icon

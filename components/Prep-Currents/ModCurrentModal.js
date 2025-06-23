@@ -139,7 +139,7 @@ const ModCurrentModal = ({
           {/* CURRENT NAME */}
           <View className="flex flex-row justify-center items-center content-center mb-4 h-[60px] border-0.5 border-zinc500 bg-white rounded-md p-2 mx-2.5">
             <TextInput
-              className="text-center pb-1 text-[14px] leading-[17px]"
+              className="w-full text-center pb-1 text-[14px] leading-[17px]"
               placeholder="Custom Ingredient Name"
               placeholderTextColor={colors.zinc400}
               multiline={true}
@@ -164,7 +164,7 @@ const ModCurrentModal = ({
 
               {/* Size */}
               <TextInput
-                className="p-1 text-center text-[14px] leading-[17px]"
+                className="p-1 flex-auto text-right text-[14px] leading-[17px]"
                 placeholder="0 0/0"
                 placeholderTextColor={colors.zinc400}
                 value={servingSize}
@@ -173,7 +173,7 @@ const ModCurrentModal = ({
 
               {/* Units */}
               <TextInput
-                className="p-1 text-center text-[14px] leading-[17px]"
+                className="p-1 flex-auto text-left text-[14px] leading-[17px]"
                 placeholder="unit(s)"
                 placeholderTextColor={colors.zinc400}
                 value={unit}
@@ -192,7 +192,7 @@ const ModCurrentModal = ({
     
             {/* Input */}
             <TextInput
-              className="border-0.5 border-zinc500 bg-theme100 p-1 flex-1 text-center text-[14px] leading-[17px]"
+              className="w-full border-0.5 border-zinc500 bg-theme100 p-1 flex-1 text-center text-[14px] leading-[17px]"
               placeholder="0"
               placeholderTextColor={colors.zinc400}
               value={calServing}

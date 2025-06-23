@@ -113,6 +113,7 @@ const currentEdit = async ({
               prepData.currentData[index] = null;
               prepData.currentIds[index] = "";
               prepData.currentPrices[index] = "";
+              prepData.currentIncluded[index] = "";
             }
           }
         });
@@ -128,9 +129,9 @@ const currentEdit = async ({
           // loops over the 12 ingredients and performs calculations
           for (var i = 0; i < 12; i++) {
             // total calories
-            if (prepData.currentCals[i] !== "") { totalCal += prepData.currentCals[i]; }
+            if (prepData.currentCals[i] !== "" && prepData.currentIncluded[i]) { totalCal += prepData.currentCals[i]; }
             // total price
-            if (prepData.currentPrices[i] !== "") { totalPrice += prepData.currentPrices[i]; }
+            if (prepData.currentPrices[i] !== "" && prepData.currentIncluded[i]) { totalPrice += prepData.currentPrices[i]; }
           }
 
           // sets the calculated data
