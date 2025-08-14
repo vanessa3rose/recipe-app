@@ -5,7 +5,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useNavigationState } from '@react-navigation/native';
 
 // UI components
-import { View, Text, ScrollView, TextInput, TouchableOpacity, Linking, Keyboard, Image } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, FlatList, Linking, Keyboard, Image } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { Picker } from '@react-native-picker/picker';
 
@@ -15,6 +15,7 @@ import colors from '../../assets/colors';
 
 // store lists
 import storeKeys from '../../assets/storeKeys';
+import storeLabels from '../../assets/storeLabels';
 import storeImages from '../../assets/storeImages';
 
 // fractions
@@ -694,6 +695,7 @@ export default function Recipes ({ isSelectedTab }) {
 
   // closes other dropdowns when recipe dropdown is open
   useEffect(() => {
+    
 
     // only does so on opening, not closing
     if (recipeDropdownOpen) {
@@ -840,6 +842,7 @@ export default function Recipes ({ isSelectedTab }) {
 
   // for filtering
   const [filteredRecipeList, setFilteredRecipeList] = useState([]);
+  const [selectedRecipeErr, setSelectedRecipeErr] = useState(false);
 
   // to filter the recipe list based on the top section
   const filterRecipeList = async (recipeQuery, ingredientQuery, recipeTag) => {
@@ -883,15 +886,12 @@ export default function Recipes ({ isSelectedTab }) {
       setFilteredRecipeList(filteredRecipeList);
     }
     
-    // clears the recipe card if there are no matching recipes
+    // sets a warning if there are no matching recipes
     if (selectedRecipeData && !filtered.some(recipe => recipe.recipeName === selectedRecipeData.recipeName)) {
-      setSelectedRecipeId(null);
-      setSelectedRecipeData(null);
-      setTagDropdownOpen(false);
-
-      // stores the recipe data in the firebase
-      await updateDoc(doc(db, 'GLOBALS', 'recipe'), { id: null });
-    } 
+      setSelectedRecipeErr(true);
+    } else {
+      setSelectedRecipeErr(false);
+    }
   }
 
   // for when the data changes
@@ -1231,6 +1231,17 @@ export default function Recipes ({ isSelectedTab }) {
     setScrollY(contentOffsetY);
   };
 
+  const dropdownScrollRef = useRef(null);
+  const ITEM_HEIGHT = 40;
+
+  // when opening dropdown, skip to selected
+  useEffect(() => {
+    if (recipeDropdownOpen) {
+      const idx = filteredRecipeList.map(recipe => recipe.recipeName).indexOf(selectedRecipeData?.recipeName);
+      if (dropdownScrollRef.current) { dropdownScrollRef.current.scrollTo({ y: idx * ITEM_HEIGHT - 5, animated: false }); }
+    }
+  }, [recipeDropdownOpen])
+
 
   ///////////////////////////////// HTML /////////////////////////////////
 
@@ -1339,7 +1350,7 @@ export default function Recipes ({ isSelectedTab }) {
           </View>
 
           {/* numbers of recipes that match the filtering */}
-          <View className="flex justify-center items-center z-0 ml-[10px] h-[30px] bg-zinc700 border-0.5 border-zinc900">
+          <View className={`flex justify-center items-center z-0 ml-[10px] h-[30px] ${selectedRecipeErr ? "bg-mauve800 border-mauve900" : "bg-zinc700 border-zinc900"} border-0.5`}>
             <Text className="text-white font-bold text-[12px]">
               {filteredRecipeList.length} {filteredRecipeList.length === 1 ? "RECIPE" : "RECIPES"}
             </Text>
@@ -1349,7 +1360,7 @@ export default function Recipes ({ isSelectedTab }) {
 
 
       {/* RECIPE CARD SECTION */}
-      <View className={`w-11/12 ${selectedRecipeId ? "mr-[20px]" : ""} bg-zinc100 border-[1px] border-black ${isKeyboardOpen && keyboardType === "ingredient search" ? "z-0" : ""}`}>
+      <View className={`w-11/12 ${selectedRecipeId ? "mr-[20px]" : ""} bg-zinc100 border-[1px] border-black ${(isKeyboardOpen && keyboardType === "ingredient search") ? "z-0" : ""}`}>
 
         {/* TITLE ROW */}
         <View className="flex-row bg-theme800 border-b-[1px]">
@@ -1367,87 +1378,123 @@ export default function Recipes ({ isSelectedTab }) {
                 }}
               />
               {/* Edit/Delete the current recipe */}
-              {selectedRecipeData !== null &&
-              <Icon
-                size={15}
-                color="white"
-                name="ellipsis-horizontal-outline"
-                onPress={() => {
-                  setEditModalVisible(true);
-                  setTagDropdownOpen(false);
-                }}
-              />
-              }
+              {(selectedRecipeData !== null) && (
+                <Icon
+                  size={15}
+                  color="white"
+                  name="ellipsis-horizontal-outline"
+                  onPress={() => {
+                    setEditModalVisible(true);
+                    setTagDropdownOpen(false);
+                  }}
+                />
+              )}
           </View>
 
           {/* Recipe Dropdown */}
           <View className="flex ml-[-27.5px] pl-[27.5px] items-center justify-center w-full">
-            <DropDownPicker 
-              open={recipeDropdownOpen}
-              setOpen={setRecipeDropdownOpen}
-              value={selectedRecipeId}
-              setValue={setSelectedRecipeId}
-              items={[{label: "", value: null, key: "", labelStyle: { paddingVertical: 12.5, marginHorizontal: -50, backgroundColor: colors.zinc200 }},
-              ...filteredRecipeList.map((recipe) => ({
-                label: recipe.recipeName,
-                value: recipe.id,
-                key: recipe.id,
-                labelStyle: { color: 'black' }
-              }))]}
-              className="text-white font-bold text-[18px]"
-              placeholder={selectedRecipeData ? selectedRecipeData.recipeName : ""} // loads in the previously stored recipe
-              style={{ height: 50, backgroundColor: colors.theme800, borderWidth: 0, justifyContent: 'center', }}
-              dropDownContainerStyle={{ backgroundColor: 'white', }}
-              textStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
-              listItemContainerStyle={{ borderBottomWidth: 0.5, borderBottomColor: colors.theme100, }}
-              ArrowDownIconComponent={() => {
-                return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
-              }}
-              ArrowUpIconComponent={() => {
-                return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
-              }}
-            />
+            <View className="flex w-full z-50 items-center">
+
+              {/* current selection part */}
+              <TouchableOpacity 
+                className="flex flex-row w-full h-[50px] justify-center items-center"
+                onPress={() => setRecipeDropdownOpen(!recipeDropdownOpen)}
+              >
+                {/* text */}
+                <Text className="text-white font-bold text-[12px] pr-5">
+                  {selectedRecipeData?.recipeName}
+                </Text>
+
+                {/* arrow */}
+                <View className="absolute flex right-2.5">
+                  <Icon 
+                    name={recipeDropdownOpen ? "chevron-up" : "chevron-down"} 
+                    size={18} 
+                    color={colors.theme100}
+                  />
+                </View>
+              </TouchableOpacity>
+              
+              {/* mock DropDownPicker */}
+              {recipeDropdownOpen && (
+                <View className="absolute top-[100%] z-50 max-h-[200px] w-full pb-1 flex flex-col bg-white border rounded-b-md">
+                  {/* blank selector */}
+                  <TouchableOpacity
+                    className={`h-[${ITEM_HEIGHT}px] w-full bg-zinc200 border-b-0.5 border-zinc400`}
+                    onPress={() => {setSelectedRecipeId(null); setRecipeDropdownOpen(false)}}
+                  />
+                  {/* recipe selector */}
+                  <ScrollView ref={dropdownScrollRef}>
+                    {filteredRecipeList.map((recipe, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        className={`border-b-0.5 border-zinc350 justify-center items-center h-[${ITEM_HEIGHT}px] ${(recipe?.id === selectedRecipeId) && "bg-zinc100"}`}
+                        onPress={() => {
+                          setSelectedRecipeId(recipe.id);
+                          setRecipeDropdownOpen(false);
+                        }}
+                      >
+                        {/* label */}
+                        <Text className={`text-[12px] font-bold pr-5 ${(recipe?.id === selectedRecipeId) && "text-mauve800"}`}>
+                          {recipe?.recipeName || ""}
+                        </Text>
+
+                        {/* selected indicator */}
+                        {(recipe?.id === selectedRecipeId) && (
+                          <View className="absolute flex justify-center items-center h-[30px] right-2">
+                            <Icon
+                              name="checkmark"
+                              color="black"
+                              size={20}
+                            />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
           </View>
         </View>
 
         {/* HEADER ROW */}
         <View className="flex flex-row h-[30px] bg-theme900 border-b-[1px] z-20">
-          {selectedRecipeData !== null &&
-          <>
-            
-            {/* overall checkbox */}
-            <View className="flex items-center justify-center w-[7.5%]">
-              <Icon
-                name={(selectedRecipeData && selectedRecipeData.recipeCheck) ? "checkbox" : "square-outline"}
-                color="white"
-                size={18}
-                onPress={() => toggleAllIngredients()}
-              />
-            </View>
+          {(selectedRecipeData !== null) && (
+            <>
+              {/* overall checkbox */}
+              <View className="flex items-center justify-center w-[7.5%]">
+                <Icon
+                  name={(selectedRecipeData && selectedRecipeData.recipeCheck) ? "checkbox" : "square-outline"}
+                  color="white"
+                  size={18}
+                  onPress={() => toggleAllIngredients()}
+                />
+              </View>
 
-            {/* ingredient header */}
-            <View className="flex items-center justify-center w-[37.5%] border-r-0.5">
-              <Text className="text-white text-xs font-bold">
-                INGREDIENT
-              </Text>
-            </View>
+              {/* ingredient header */}
+              <View className="flex items-center justify-center w-[37.5%] border-r-0.5">
+                <Text className="text-white text-xs font-bold">
+                  INGREDIENT
+                </Text>
+              </View>
 
-            {/* amount header */}
-            <View className="flex items-center justify-center w-[30%] border-r-0.5">
-              <Text className="text-white text-xs font-bold">
-                AMOUNT
-              </Text>
-            </View>
+              {/* amount header */}
+              <View className="flex items-center justify-center w-[30%] border-r-0.5">
+                <Text className="text-white text-xs font-bold">
+                  AMOUNT
+                </Text>
+              </View>
 
-            {/* details */}
-            <View className="flex items-center justify-center w-[25%]">
-              <Text className="text-white text-xs font-bold">
-                DETAILS
-              </Text>
-            </View>
-            
-          </>
-          }
+              {/* details */}
+              <View className="flex items-center justify-center w-[25%]">
+                <Text className="text-white text-xs font-bold">
+                  DETAILS
+                </Text>
+              </View>
+              
+            </>
+          )}
         </View>
 
 
@@ -1464,24 +1511,24 @@ export default function Recipes ({ isSelectedTab }) {
                 
               {/* checkboxes */}
               <View className="flex items-center justify-center bg-theme500 w-[7.5%] border-b-0.5 border-b-theme900 z-10">
-                {selectedRecipeData !== null && 
-                <Icon
-                  name={(selectedRecipeData && selectedRecipeData.ingredientChecks[index]) ? "checkbox" : "square-outline"}
-                  color={selectedRecipeData.ingredientData[index] === null ? colors.zinc350 : "white"}
-                  size={18}
-                  onPress={() => toggleIngredient(index)}
-                />
-                }
+                {(selectedRecipeData !== null) && (
+                  <Icon
+                    name={(selectedRecipeData && selectedRecipeData.ingredientChecks[index]) ? "checkbox" : "square-outline"}
+                    color={selectedRecipeData.ingredientData[index] === null ? colors.zinc350 : "white"}
+                    size={18}
+                    onPress={() => toggleIngredient(index)}
+                  />
+                )}
               </View>
                 
               {/* ingredient names */}
-              <View className={`flex pl-1 items-start justify-center w-[37.5%] ${ingredientKeywordQuery.length !== 0 && ingredientKeywordQuery.split(' ').every(keyword => selectedRecipeData?.ingredientNames[index]?.toLowerCase().includes(keyword.toLowerCase())) ? "bg-zinc500" : "bg-theme600"} border-b-0.5 border-r-0.5 border-theme900 pr-[5px] z-20`}>
+              <View className={`flex pl-1 items-start justify-center w-[37.5%] ${(ingredientKeywordQuery.length !== 0 && ingredientKeywordQuery.split(' ').every(keyword => selectedRecipeData?.ingredientNames[index]?.toLowerCase().includes(keyword.toLowerCase()))) ? "bg-zinc500" : "bg-theme600"} border-b-0.5 border-r-0.5 border-theme900 pr-[5px] z-20`}>
                 <View className="flex flex-wrap flex-row">
                   <Text 
                     className={`text-white text-[10px] ${selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData.ingredientStores[index]].link ? 'underline' : 'none'}`}
                     onPress={selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData.ingredientStores[index]].link ? () => Linking.openURL(selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData.ingredientStores[index]].link) : undefined }
                   >
-                    {selectedRecipeData && selectedRecipeData.ingredientData[index] ? selectedRecipeData.ingredientNames[index] : ""}
+                    {(selectedRecipeData && selectedRecipeData.ingredientData[index]) ? selectedRecipeData.ingredientNames[index] : ""}
                   </Text>
                 </View>
               </View>
@@ -1490,7 +1537,7 @@ export default function Recipes ({ isSelectedTab }) {
               <View className="flex flex-row items-center justify-center w-[30%] bg-zinc100 border-r-0.5 border-r-zinc400 border-b-0.5 border-b-zinc400 z-10">
                 
                 {/* indicator of the current ingredient */}
-                {selectedRecipeData !== null && (selectedIngredientIndex - 1) === (index) &&
+                {(selectedRecipeData !== null && (selectedIngredientIndex - 1) === index) && (
                   <View className="absolute left-[-15px] mb-[1px] z-20 bg-zinc100 h-[28px]">
                     <Icon
                       name="reorder-four"
@@ -1498,7 +1545,7 @@ export default function Recipes ({ isSelectedTab }) {
                       color={colors.zinc350}
                     />
                   </View>
-                }
+                )}
 
                 {/* amount and units */}
                 {selectedRecipeData?.ingredientData?.[index] ?
@@ -1528,7 +1575,7 @@ export default function Recipes ({ isSelectedTab }) {
                 className="flex flex-col items-center justify-center w-[25%] border-b-0.5 border-b-zinc400 z-20"
               >
                 {/* calories and price */}
-                {selectedRecipeData?.ingredientCals?.[index] ?
+                {(selectedRecipeData?.ingredientCals?.[index] || selectedRecipeData?.ingredientPrices?.[index]) ?
                   <Text className="text-[10px] text-center px-1">
                     {`${selectedRecipeData?.ingredientCals?.[index] 
                         ? selectedRecipeData.ingredientCals[index].toFixed(0) 
@@ -1541,7 +1588,7 @@ export default function Recipes ({ isSelectedTab }) {
                   </Text>
                 : selectedRecipeData?.ingredientData?.[index] ?
                   <Text className="text-[10px] text-center">
-                    {"0 cal"}
+                    {"0 cal, $0.00"}
                   </Text> 
                 : null }
 
@@ -1560,13 +1607,13 @@ export default function Recipes ({ isSelectedTab }) {
           ))}
           
           {/* empty space at the bottom if the keyboard is open */}
-          {(keyboardType === "" && isKeyboardOpen) &&
+          {(keyboardType === "" && isKeyboardOpen) && (
             <View className="flex flex-row h-[120px]"/>
-          }
+          )}
         </ScrollView>
 
         {/* CALCULATION MODAL */}
-        {calcModalVisible &&
+        {calcModalVisible && (
           <CalcIngredientModal
             modalVisible={calcModalVisible}
             setModalVisible={setCalcModalVisible}
@@ -1582,7 +1629,7 @@ export default function Recipes ({ isSelectedTab }) {
             amountContainer={selectedRecipeData?.ingredientData[calcIndex][selectedRecipeData?.ingredientStores[calcIndex]].totalYield === "" ? 0 : new Fractional (selectedRecipeData?.ingredientData[calcIndex][selectedRecipeData?.ingredientStores[calcIndex]].totalYield).toString()}
             servingSize={null}
           />
-        }
+        )}
 
 
         {/* FROZEN STORE SECTION */}
@@ -1595,7 +1642,7 @@ export default function Recipes ({ isSelectedTab }) {
               <View key={`frozen-${index}`} className="flex flex-row h-[30px]">
                 
                 {/* logo section */}
-                {selectedRecipeData?.ingredientStores && selectedRecipeData?.ingredientData[index] !== null && 
+                {(selectedRecipeData?.ingredientStores && selectedRecipeData?.ingredientData[index] !== null) && (
                   <TouchableOpacity 
                     onPress={() => changeStore(index)} 
                     className="flex items-center justify-center w-[30px]"
@@ -1613,14 +1660,14 @@ export default function Recipes ({ isSelectedTab }) {
                       />
                     )}
                   </TouchableOpacity>
-                }
+                )}
             </View>
           ))}
         
           {/* empty space at the bottom if the keyboard is open */}
-          {(keyboardType === "" && isKeyboardOpen) &&
+          {(keyboardType === "" && isKeyboardOpen) && (
             <View className="flex flex-row h-[120px]"/>
-          }
+          )}
         </ScrollView>
 
 
@@ -1629,142 +1676,140 @@ export default function Recipes ({ isSelectedTab }) {
             
           {/* Tag Info */}
           <View className="flex items-center justify-center w-[27.5px] bg-theme900 z-20">
-            {selectedRecipeData !== null &&
-            <>
-              
-              {/* Button to open tag list */}
-              <Icon
-                name="information-circle-outline"
-                color="white"
-                size={20}
-                onPress={() => selectedRecipeId ? setTagDropdownOpen(!tagDropdownOpen) : null }
-              />
+            {(selectedRecipeData !== null) && (
+              <>
+                {/* Button to open tag list */}
+                <Icon
+                  name="information-circle-outline"
+                  color="white"
+                  size={20}
+                  onPress={() => selectedRecipeId ? setTagDropdownOpen(!tagDropdownOpen) : null }
+                />
 
-              {/* Tag List Dropdown */}
-              {tagDropdownOpen && (
-                <View className="absolute mb-[2px] left-0 right-0 bottom-[100%] bg-white z-80 w-[150px] rounded-[5px] max-h-[175px]">
-                  {/* Fixed "NEW TAG" Option */}
-                  <TouchableOpacity 
-                    className="flex flex-row w-full items-center border-0.5 border-black p-2.5 bg-zinc400 rounded-t"
-                    onPress={() => toggleTag('NEW TAG')}
-                  >
-                    <Text className="text-white font-bold">
-                      NEW TAG
-                    </Text>
-                  </TouchableOpacity>
+                {/* Tag List Dropdown */}
+                {tagDropdownOpen && (
+                  <View className="absolute mb-[2px] left-0 right-0 bottom-[100%] bg-white z-80 w-[150px] rounded-[5px] max-h-[175px]">
+                    {/* Fixed "NEW TAG" Option */}
+                    <TouchableOpacity 
+                      className="flex flex-row w-full items-center border-0.5 border-black p-2.5 bg-zinc400 rounded-t"
+                      onPress={() => toggleTag('NEW TAG')}
+                    >
+                      <Text className="text-white font-bold">
+                        NEW TAG
+                      </Text>
+                    </TouchableOpacity>
 
-                  {/* Scrollable Tag List */}
-                  <ScrollView>
-                    {recipeTagList.map((item, index) => (
-                      index !== 0 && ( // skips the "NEW TAG" item, already rendered above
-                        <View 
-                          key={index}
-                          className="flex flex-row w-full items-center border-0.5 border-zinc350 bg-white"
-                        >
-                          {/* selection button */}
-                          <TouchableOpacity
-                            className="w-4/5 p-2.5"
-                            onPress={() => toggleTag(item.value)}
+                    {/* Scrollable Tag List */}
+                    <ScrollView>
+                      {recipeTagList.map((item, index) => (
+                        index !== 0 && ( // skips the "NEW TAG" item, already rendered above
+                          <View 
+                            key={index}
+                            className="flex flex-row w-full items-center border-0.5 border-zinc350 bg-white"
                           >
-                            <Text className="text-zinc800">
-                              {item.label}
-                            </Text>
-                          </TouchableOpacity>
+                            {/* selection button */}
+                            <TouchableOpacity
+                              className="w-4/5 p-2.5"
+                              onPress={() => toggleTag(item.value)}
+                            >
+                              <Text className="text-zinc800">
+                                {item.label}
+                              </Text>
+                            </TouchableOpacity>
 
-                          {/* edit button */}
-                          <Icon 
-                            name="ellipsis-horizontal"
-                            color={colors.theme500}
-                            size={18}
-                            onPress={() => {
-                              setEditTagModalVisible(true);
-                              setSelectedEditTag(item.value);
-                            }}
-                          />
-                        </View>
-                      )
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
+                            {/* edit button */}
+                            <Icon 
+                              name="ellipsis-horizontal"
+                              color={colors.theme500}
+                              size={18}
+                              onPress={() => {
+                                setEditTagModalVisible(true);
+                                setSelectedEditTag(item.value);
+                              }}
+                            />
+                          </View>
+                        )
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
 
-              {/* Modal that appears to add a tag */}
-              {newTagModalVisible && (
-                <NewTagModal
-                  modalVisible={newTagModalVisible} 
-                  closeModal={closeNewTagModal} 
-                />
-              )}
+                {/* Modal that appears to add a tag */}
+                {newTagModalVisible && (
+                  <NewTagModal
+                    modalVisible={newTagModalVisible} 
+                    closeModal={closeNewTagModal} 
+                  />
+                )}
 
-              {/* Modal that appears to edit a tag */}
-              {editTagModalVisible && (
-                <ModTagModal
-                  modalVisible={editTagModalVisible} 
-                  closeModal={closeEditTagModal} 
-                  currTag={selectedEditTag}
-                />
-              )}
-            </>
-            }
+                {/* Modal that appears to edit a tag */}
+                {editTagModalVisible && (
+                  <ModTagModal
+                    modalVisible={editTagModalVisible} 
+                    closeModal={closeEditTagModal} 
+                    currTag={selectedEditTag}
+                  />
+                )}
+              </>
+            )}
           </View>
 
           {/* Recipe's Tag List */}
           <View className="flex items-start justify-center w-[145px] border-r-0.5 bg-theme900 z-10">
-            {selectedRecipeData !== null &&
-            <>
-              <Text className="text-white italic text-[10px]">
-                {selectedRecipeData?.recipeTags?.join(", ") || "no tags available"}
-              </Text>
-            </>
-            }
+            {(selectedRecipeData !== null) && (
+              <>
+                <Text className="text-white italic text-[10px]">
+                  {selectedRecipeData?.recipeTags?.join(", ") || "no tags available"}
+                </Text>
+              </>
+            )}
           </View>
 
 
           {/* Total Row */}
           <View className="flex flex-row justify-evenly items-center absolute w-full h-full pl-[167.5px] bg-theme800 z-0">
-            {selectedRecipeData !== null &&
-            <>
+            {(selectedRecipeData !== null) && (
+              <>
+                {/* calorie header */}
+                <View className="flex flex-row items-center justify-center">
+                  {selectedRecipeData?.recipeCal ?
+                    <Text className="text-white text-[11px] italic">
+                      {selectedRecipeData.recipeCal} {"cal"}
+                    </Text>
+                  : 
+                    <Text className="text-white text-[11px] italic">
+                      {"0 cal"}
+                    </Text> 
+                  }
+                </View>
 
-              {/* calorie header */}
-              <View className="flex flex-row items-center justify-center">
-                {selectedRecipeData?.recipeCal ?
-                  <Text className="text-white text-[11px] italic">
-                    {selectedRecipeData.recipeCal} {"cal"}
-                  </Text>
-                : 
-                  <Text className="text-white text-[11px] italic">
-                    {"0 cal"}
-                  </Text> 
-                }
-              </View>
+                {/* price header */}
+                <View className="flex items-center justify-center">
+                  {selectedRecipeData?.recipePrice ?
+                    <Text className="text-white text-[11px] italic">
+                      {"$"}{selectedRecipeData.recipePrice}
+                    </Text>
+                  : 
+                    <Text className="text-white text-[11px] italic">
+                      {"$0.00"}
+                    </Text> 
+                  }
+                </View>
 
-              {/* price header */}
-              <View className="flex items-center justify-center">
-                {selectedRecipeData?.recipePrice ?
-                  <Text className="text-white text-[11px] italic">
-                    {"$"}{selectedRecipeData.recipePrice}
-                  </Text>
-                : 
-                  <Text className="text-white text-[11px] italic">
-                    {"$0.00"}
-                  </Text> 
-                }
-              </View>
-
-              {/* servings header */}
-              <View className="flex items-center justify-center">
-                {selectedRecipeData?.recipeServing ?
-                  <Text className="text-white text-[11px] italic">
-                    {selectedRecipeData.recipeServing} {"servings"}
-                  </Text>
-                : 
-                  <Text className="text-white text-[11px] italic">
-                    {"0.00 servings"}
-                  </Text> 
-                }
-              </View>
-            </>
-            }
+                {/* servings header */}
+                <View className="flex items-center justify-center">
+                  {selectedRecipeData?.recipeServing ?
+                    <Text className="text-white text-[11px] italic">
+                      {selectedRecipeData.recipeServing} {"servings"}
+                    </Text>
+                  : 
+                    <Text className="text-white text-[11px] italic">
+                      {"0.00 servings"}
+                    </Text> 
+                  }
+                </View>
+              </>
+            )}
           </View>
         </View>
 
@@ -1799,236 +1844,274 @@ export default function Recipes ({ isSelectedTab }) {
 
 
       {/* INGREDIENT FILTERING SECTION */}
-      {selectedRecipeData !== null &&
-      <View className="flex flex-row mt-[20px] space-x-2 px-2">
+      {(selectedRecipeData !== null) && (
+        <View className="flex flex-row mt-[20px] space-x-2 px-2">
 
-        {/* Left Boxes */}
-        <View className="flex flex-col items-center justify-center pr-[5px] ml-[-5px]">
-          <View className="flex flex-row border-0.5 border-zinc900">
+          {/* Left Boxes */}
+          <View className="flex flex-col items-center justify-center pr-[5px] ml-[-5px]">
+            <View className="flex flex-row border-0.5 border-zinc900">
 
-            {/* Store Selection */}
-            <TouchableOpacity 
-              className="z-10 w-[30px] bg-zinc100 border-2 border-zinc700 justify-center items-center"
-              onPress={() => changeSelectedStore()}
-            >
-              {selectedIngredientStore === "-" 
-              ? // when no store is selected
-              <Icon
-                name="menu"
-                size={20}
-                color={colors.theme500}
-              />
-              : // when store is selected
-              <Image
-                source={storeImages[selectedIngredientStore]?.src || null}
-                alt="store"
-                style={{
-                  width: storeImages[selectedIngredientStore]?.width,
-                  height: storeImages[selectedIngredientStore]?.height,
-                }}
-              />
-              }
-            </TouchableOpacity>
-
-            {/* Index Picker */}
-            <View className="flex z-0 w-[120px] bg-zinc700">
-              <Picker
-                selectedValue={selectedIngredientIndex}
-                onValueChange={setSelectedIngredientIndex}
-                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -30, }}
-                itemStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
+              {/* Store Selection */}
+              <TouchableOpacity 
+                className="z-10 w-[30px] bg-zinc100 border-2 border-zinc700 justify-center items-center"
+                onPress={() => changeSelectedStore()}
               >
-                {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]).map((item) => (
+                {selectedIngredientStore === "-" 
+                ? // when no store is selected
+                <Icon
+                  name="menu"
+                  size={20}
+                  color={colors.theme500}
+                />
+                : // when store is selected
+                <Image
+                  source={storeImages[selectedIngredientStore]?.src || null}
+                  alt="store"
+                  style={{
+                    width: storeImages[selectedIngredientStore]?.width,
+                    height: storeImages[selectedIngredientStore]?.height,
+                  }}
+                />
+                }
+              </TouchableOpacity>
+
+              {/* Index Picker */}
+              <View className="flex z-0 w-[120px] bg-zinc700">
+                <Picker
+                  selectedValue={selectedIngredientIndex}
+                  onValueChange={setSelectedIngredientIndex}
+                  style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -30, }}
+                  itemStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
+                >
+                  {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]).map((item) => (
+                    <Picker.Item
+                      key={item}
+                      label={"INGREDIENT " + item}
+                      value={item}
+                    />
+                  ))}
+                </Picker>
+              </View>
+            </View> 
+
+            {/* Type Picker */}
+            <View className="flex w-[150px] z-0 bg-theme200 border-0.5 border-theme400">
+              <Picker
+                selectedValue={selectedIngredientType}
+                onValueChange={(itemValue) => {
+                  setSelectedIngredientType(itemValue);
+                  setIngredientDropdownOpen(true);
+                }}
+                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -30, }}
+                itemStyle={{ color:'black', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
+              >
+                {ingredientTypeList.length > 1 ? (
+                  ingredientTypeList.map((item) => (
+                    <Picker.Item
+                      key={item.value}
+                      label={item.label}
+                      value={item.value}
+                    />
+                  ))
+                ) : (
                   <Picker.Item
-                    key={item}
-                    label={"INGREDIENT " + item}
-                    value={item}
+                    label="ALL TYPES"
+                    value="none"
+                    color="black"
+                    enabled={false}
                   />
-                ))}
+                )}
               </Picker>
             </View>
-          </View> 
+          </View>
 
-          {/* Type Picker */}
-          <View className="flex w-[150px] z-0 bg-theme200 border-0.5 border-theme400">
-            <Picker
-              selectedValue={selectedIngredientType}
-              onValueChange={(itemValue) => {
-                setSelectedIngredientType(itemValue);
-                setIngredientDropdownOpen(true);
-              }}
-              style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -30, }}
-              itemStyle={{ color:'black', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
+          {/* Ingredient Search */}
+          <View className="flex flex-row w-[45%] h-[70px]">
+          
+            {/* MOCK text input */}
+            <TouchableOpacity 
+              className="flex w-full h-full"
+              onPress={() => { 
+                if (selectedRecipeId !== null) {
+                  filterIngredientData(searchIngredientQuery);
+                  setIngredientDropdownOpen(false);
+                  setKeyboardType("ingredient search");
+                  setIsKeyboardOpen(true);
+                  setTagDropdownOpen(false);
+                  setNewTagModalVisible(false);
+              }}}
             >
-              {ingredientTypeList.length > 1 ? (
-                ingredientTypeList.map((item) => (
-                  <Picker.Item
-                    key={item.value}
-                    label={item.label}
-                    value={item.value}
-                  />
-                ))
-              ) : (
-                <Picker.Item
-                  label="ALL TYPES"
-                  value="none"
-                  color="black"
-                  enabled={false}
+              <Text
+                multiline={true}
+                className={`${(searchIngredientQuery !== '' && searchIngredientQuery !== "") ? "text-black" : "text-zinc400"} ${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] py-[5px] text-[14px] leading-[17px]`}
+              >
+                {(searchIngredientQuery !== '' && searchIngredientQuery !== "") ? searchIngredientQuery : "search for ingredient"}
+              </Text>
+            </TouchableOpacity>
+
+            
+            {/* Ingredient Dropdown */}
+            {(ingredientDropdownOpen && selectedRecipeId && !isKeyboardOpen) && (
+              <View className="absolute w-full bottom-[100%] border-x-0.5 border-t-0.5 bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
+                <FlatList
+                  data={filteredIngredientData}
+                  keyExtractor={(_, index) => index.toString()}
+                  renderItem={({ item, index }) => {
+                    return (
+                      <TouchableOpacity
+                        onPress={() => pickIngredient(item)}
+                        className={`p-2.5 ${(index === 0) && "rounded-t-[5px]"} ${(item.ingredientName === selectedIngredientName) && "bg-zinc400"} ${(index < filteredIngredientData.length - 1) && "border-b-[1px] border-zinc400"}`}
+                      >
+                        {/* name */}
+                        <Text className="text-[13px] mr-4">
+                          {item.ingredientName}
+                        </Text>
+
+                        {/* price / cal */}
+                        <View className="flex flex-row pt-1 justify-between items-end">
+                          <Text className="text-[10.5px] text-mauve700 italic font-bold">
+                            {`${selectedIngredientStore === "-"
+                            ? // min price
+                              (Math.min(...storeKeys
+                                .map(store => item.ingredientData[store].priceContainer / (item.ingredientData[store].calContainer === "0" ? item.ingredientData[store].totalYield : item.ingredientData[store].calContainer))
+                                .filter(calc => !isNaN(calc))
+                              ) * 100).toFixed(4)
+                            : // current store price
+                              ((item.ingredientData[selectedIngredientStore].priceContainer / (item.ingredientData[selectedIngredientStore].calContainer === "0" ? item.ingredientData[store].totalYield : item.ingredientData[selectedIngredientStore].calContainer)) * 100).toFixed(4)
+                            }￠ / cal`}
+
+                          {/* the store, if one is not currently selected */}
+                          </Text>
+                          {(selectedIngredientStore === "-") && (
+                            <Text className="text-[10px] text-mauve900 font-bold">
+                              {`${storeLabels[
+                                storeKeys.indexOf(storeKeys.reduce(
+                                  (minStore, store) => {
+                                    const val = item.ingredientData[store].priceContainer / item.ingredientData[store].calContainer;
+                                    return (!isNaN(val) &&
+                                      (minStore === null ||
+                                        val < item.ingredientData[minStore].priceContainer / item.ingredientData[minStore].calContainer))
+                                      ? store
+                                      : minStore;
+                                  },
+                                  null
+                                ))
+                              ].toUpperCase()}`}
+                            </Text>
+                          )}
+                        </View>
+
+                        {/* selected indicator */}
+                        {(item.ingredientName === selectedIngredientName) && (
+                          <View className="flex-1 mt-2 mb-3 absolute right-1 items-center justify-center">
+                            <Icon
+                              name="checkmark"
+                              color="black"
+                              size={18}
+                            />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  }}
+                  style={{ maxHeight: 200 }}
+                />
+              </View>
+            )}
+
+            {/* INDICATOR */}
+            {(selectedIngredientName !== null && selectedIngredientName !== "") && (
+              <View className="absolute left-1 bottom-0">
+                <Icon
+                  name="link"
+                  size={20}
+                  color={colors.theme800}
+                  onPress={() => setIngredientModalVisible(true)}
+                />
+              </View>
+            )}
+
+            {ingredientModalVisible && (
+              <ViewIngredientModal
+                modalVisible={ingredientModalVisible}
+                setModalVisible={setIngredientModalVisible}
+                ingredient={selectedIngredient}
+              />
+            )}
+
+            {/* BUTTONS */}
+            <View className="flex flex-row space-x-[-2px] absolute right-0 bottom-0">
+
+              {/* Drop Up */}
+              <Icon
+                name="chevron-up-outline"
+                size={20}
+                color="black"              
+                onPress={() => {
+                  filterIngredientData(searchIngredientQuery);
+                  setIngredientDropdownOpen(true);
+                }}
+              />
+
+              {/* Clear */}
+              <Icon
+                name="close"
+                size={20}
+                color="black"
+                onPress={() => clearIngredientSearch()}
+              />
+            </View>
+          </View>
+
+          {/* Buttons */}
+          <View className="flex mr-[-5px] my-[-5px] justify-center">
+            <View className="flex flex-col space-y-[5px] items-center rounded bg-zinc300 py-1">
+              
+              {/* Submit */}
+              {(selectedIngredientId !== "" && selectedIngredientId !== null) && (
+                <Icon
+                  name="checkmark-circle"
+                  size={20}
+                  color={colors.theme900}
+                  onPress={() => submitIngredient()}
                 />
               )}
-            </Picker>
-          </View>
-        </View>
 
-        {/* Ingredient Search */}
-        <View className="flex flex-row w-[45%] h-[70px]">
-        
-          {/* MOCK text input */}
-          <TouchableOpacity 
-            className="flex w-full h-full"
-            onPress={() => { 
-              if (selectedRecipeId !== null) {
-                filterIngredientData(searchIngredientQuery);
-                setIngredientDropdownOpen(false);
-                setKeyboardType("ingredient search");
-                setIsKeyboardOpen(true);
-                setTagDropdownOpen(false);
-                setNewTagModalVisible(false);
-            }}}
-          >
-            <Text
-              multiline={true}
-              className={`${searchIngredientQuery !== '' && searchIngredientQuery !== "" ? "text-black" : "text-zinc400"} ${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] py-[5px] text-[14px] leading-[17px]`}
-            >
-              {searchIngredientQuery !== '' && searchIngredientQuery !== "" ? searchIngredientQuery : "search for ingredient"}
-            </Text>
-          </TouchableOpacity>
+              <View className="flex flex-row space-x-[-5px]">
+                {/* Compress */}
+                <Icon
+                  name="chevron-collapse"
+                  size={20}
+                  color={colors.theme900}
+                  onPress={() => collapseIngredients(true)}
+                />
+                  
+                {/* Add Space Between */}
+                <Icon
+                  name="chevron-expand"
+                  size={20}
+                  color={colors.theme900}
+                  onPress={() => collapseIngredients(false)}
+                />
+              </View>
 
-          
-          {/* Ingredient Dropdown */}
-          {ingredientDropdownOpen && selectedRecipeId && !isKeyboardOpen && (
-            <View className="absolute w-full bottom-[100%] border-x-0.5 border-t-0.5 bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
-              <ScrollView>
-                {filteredIngredientData.map((item, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    onPress={() => {pickIngredient(item)}}
-                    className={`p-2.5 ${index === 0 && "rounded-t-[5px]"} ${item.ingredientName === selectedIngredientName && "bg-zinc400"} ${index < filteredIngredientData.length - 1 && "border-b-[1px] border-zinc400"}`}
-                  >
-                    {/* name */}
-                    <Text className="text-[13px] mr-4">
-                      {item.ingredientName}
-                    </Text>
-
-                    {/* selected indicator */}
-                    {item.ingredientName === selectedIngredientName &&
-                      <View className="flex-1 mt-2 mb-3 absolute right-1 items-center justify-center">
-                        <Icon
-                          name="checkmark"
-                          color="black"
-                          size={18}
-                        />
-                      </View>
-                    }
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              {/* Delete */}
+              {(selectedRecipeData.ingredientData[selectedIngredientIndex - 1] !== null) && (
+                <Icon
+                  name="trash"
+                  size={20}
+                  color={colors.theme900}
+                  onPress={() => deleteIngredient()}
+                />
+              )}
             </View>
-          )}
-
-          {/* INDICATOR */}
-          {(selectedIngredientName !== null && selectedIngredientName !== "") &&
-          <View className="absolute left-1 bottom-0">
-            <Icon
-              name="link"
-              size={20}
-              color={colors.theme800}
-              onPress={() => setIngredientModalVisible(true)}
-            />
-          </View>
-          }
-
-          {ingredientModalVisible &&
-            <ViewIngredientModal
-              modalVisible={ingredientModalVisible}
-              setModalVisible={setIngredientModalVisible}
-              ingredient={selectedIngredient}
-            />
-          }
-
-          {/* BUTTONS */}
-          <View className="flex flex-row space-x-[-2px] absolute right-0 bottom-0">
-
-            {/* Drop Up */}
-            <Icon
-              name="chevron-up-outline"
-              size={20}
-              color="black"              
-              onPress={() => {
-                filterIngredientData(searchIngredientQuery);
-                setIngredientDropdownOpen(true);
-              }}
-            />
-
-            {/* Clear */}
-            <Icon
-              name="close"
-              size={20}
-              color="black"
-              onPress={() => clearIngredientSearch()}
-            />
           </View>
         </View>
-
-        {/* Buttons */}
-        <View className="flex mr-[-5px] my-[-5px] justify-center">
-          <View className="flex flex-col space-y-[5px] items-center rounded bg-zinc300 py-1">
-            
-            {/* Submit */}
-            {(selectedIngredientId !== "" && selectedIngredientId !== null) &&
-            <Icon
-              name="checkmark-circle"
-              size={20}
-              color={colors.theme900}
-              onPress={() => submitIngredient()}
-            />
-            }
-
-            <View className="flex flex-row space-x-[-5px]">
-              {/* Compress */}
-              <Icon
-                name="chevron-collapse"
-                size={20}
-                color={colors.theme900}
-                onPress={() => collapseIngredients(true)}
-              />
-                
-              {/* Add Space Between */}
-              <Icon
-                name="chevron-expand"
-                size={20}
-                color={colors.theme900}
-                onPress={() => collapseIngredients(false)}
-              />
-            </View>
-
-            {/* Delete */}
-            {selectedRecipeData.ingredientData[selectedIngredientIndex - 1] !== null &&
-            <Icon
-              name="trash"
-              size={20}
-              color={colors.theme900}
-              onPress={() => deleteIngredient()}
-            />
-            }
-          </View>
-        </View>
-      </View>
-      }
+      )}
       
       
       {/* KEYBOARD POPUP SECTION */}
-      {isKeyboardOpen && selectedRecipeId && keyboardType === "ingredient search" &&
+      {(isKeyboardOpen && selectedRecipeId && keyboardType === "ingredient search") && (
         <>
           {/* Grayed Out BG */}
           <View className="absolute bg-black bg opacity-40 w-full h-full z-10"/>
@@ -2054,35 +2137,74 @@ export default function Recipes ({ isSelectedTab }) {
                   setRecipeDropdownOpen(false);
                 }}
               />
+              
+
       
               {/* Ingredient Dropdown */}
               {ingredientDropdownOpen && (
                 <View className="absolute w-full bottom-[100%] border-x-0.5 border-t-0.5 bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
-                  <ScrollView>
-                    {filteredIngredientData.map((item, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        onPress={() => {pickIngredient(item)}}
-                        className={`p-2.5 ${index === 0 && "rounded-t-[5px]"} ${item.ingredientName === selectedIngredientName && "bg-zinc400"} ${index < filteredIngredientData.length - 1 && "border-b-[1px] border-zinc400"}`}
-                      >
-                        {/* name */}
-                        <Text className="text-[13px] mr-4">
-                          {item.ingredientName}
-                        </Text>
+                  <FlatList
+                    data={filteredIngredientData}
+                    keyExtractor={(_, index) => index.toString()}
+                    renderItem={({ item, index }) => {
+                      return (
+                        <TouchableOpacity
+                          onPress={() => {pickIngredient(item)}}
+                          className={`p-2.5 ${(index === 0) && "rounded-t-[5px]"} ${(item.ingredientName === selectedIngredientName) && "bg-zinc400"} ${(index < filteredIngredientData.length - 1) && "border-b-[1px] border-zinc400"}`}
+                        >
+                          {/* name */}
+                          <Text className="text-[13px] mr-4">
+                            {item.ingredientName}
+                          </Text>
 
-                        {/* selected indicator */}
-                        {item.ingredientName === selectedIngredientName &&
-                          <View className="flex-1 mt-2 mb-3 absolute right-1 items-center justify-center">
-                            <Icon
-                              name="checkmark"
-                              color="black"
-                              size={18}
-                            />
+                          {/* price / cal */}
+                          <View className="flex flex-row pt-1 justify-between items-end">
+                            <Text className="text-[10.5px] text-mauve700 italic font-bold">
+                              {`${selectedIngredientStore === "-"
+                              ? // min price
+                                (Math.min(...storeKeys
+                                  .map(store => item.ingredientData[store].priceContainer / (item.ingredientData[store].calContainer === "0" ? item.ingredientData[store].totalYield : item.ingredientData[store].calContainer))
+                                  .filter(calc => !isNaN(calc))
+                                ) * 100).toFixed(4)
+                              : // current store price
+                                ((item.ingredientData[selectedIngredientStore].priceContainer / item.ingredientData[selectedIngredientStore].calContainer) * 100).toFixed(4)
+                              }￠ / cal`}
+                            </Text>
+
+                            {/* the store, if one is not currently selected */}
+                            {(selectedIngredientStore === "-") && (
+                              <Text className="text-[10px] text-mauve900 font-bold">
+                                {`${storeLabels[
+                                  storeKeys.indexOf(storeKeys.reduce(
+                                    (minStore, store) => {
+                                      const val = item.ingredientData[store].priceContainer / item.ingredientData[store].calContainer;
+                                      return (!isNaN(val) &&
+                                        (minStore === null ||
+                                          val < item.ingredientData[minStore].priceContainer / item.ingredientData[minStore].calContainer))
+                                        ? store
+                                        : minStore;
+                                    },
+                                    null
+                                  ))
+                                ].toUpperCase()}`}
+                              </Text>
+                            )}
                           </View>
-                        }
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+
+                          {/* selected indicator */}
+                          {(item.ingredientName === selectedIngredientName) && (
+                            <View className="flex-1 mt-2 mb-3 absolute right-1 items-center justify-center">
+                              <Icon
+                                name="checkmark"
+                                color="black"
+                                size={18}
+                              />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      )
+                    }}
+                  />
                 </View>
               )}
               
@@ -2125,7 +2247,7 @@ export default function Recipes ({ isSelectedTab }) {
             </TouchableOpacity>
           </View>
         </>
-      }
+      )}
     </View>
   );
 };

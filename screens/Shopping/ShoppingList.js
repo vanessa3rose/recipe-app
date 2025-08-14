@@ -799,42 +799,42 @@ export default function ShoppingList ({ isSelectedTab }) {
       <View className="flex h-4/5 -mt-5 w-full justify-center items-center space-y-5">
 
         {/* HEADER */}
-        {allStoreLists[selectedStore].length > 0 && 
-        <View className="flex flex-row w-11/12 justify-evenly items-center h-[30px] border-[1px] border-black bg-zinc700">
-                  
-          {/* Store Swap */}
-          <View className="w-[20px] ml-[-25px]">
-            <Icon
-              name="sync-circle"
-              size={20}
-              color={colors.zinc200}
-              onPress={() => setSwapModalVisible(true)}
-            />
-          </View>
+        {(allStoreLists[selectedStore].length > 0) && (
+          <View className="flex flex-row w-11/12 justify-evenly items-center h-[30px] border-[1px] border-black bg-zinc700">
+                    
+            {/* Store Swap */}
+            <View className="w-[20px] ml-[-25px]">
+              <Icon
+                name="sync-circle"
+                size={20}
+                color={colors.zinc200}
+                onPress={() => setSwapModalVisible(true)}
+              />
+            </View>
 
-          {/* Selection */}
-          <View className="w-[45%] ml-[-25px] h-[30px] z-20">
-            <Picker
-              selectedValue={selectedStore}
-              onValueChange={setSelectedStore}
-              style={{ height: 30, justifyContent: 'center', overflow: 'hidden', backgroundColor: calcNumLeft() !== 0 ? colors.theme600 : colors.zinc500, borderWidth: 1, }}
-              itemStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 13, }}
-            >
-              {storeLabels.map((storeLabel, index) => {
-                if (storeListLengths[storeKeys[index]] > 0) {
-                  return <Picker.Item key={storeKeys[index]} label={storeLabel.toUpperCase()} value={storeKeys[index]} />;
-                }
-                return null;
-              })}
-            </Picker>
-          </View>
+            {/* Selection */}
+            <View className="w-[45%] ml-[-25px] h-[30px] z-20">
+              <Picker
+                selectedValue={selectedStore}
+                onValueChange={setSelectedStore}
+                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', backgroundColor: calcNumLeft() !== 0 ? colors.theme600 : colors.zinc500, borderWidth: 1, }}
+                itemStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 13, }}
+              >
+                {storeLabels.map((storeLabel, index) => {
+                  if (storeListLengths[storeKeys[index]] > 0) {
+                    return <Picker.Item key={storeKeys[index]} label={storeLabel.toUpperCase()} value={storeKeys[index]} />;
+                  }
+                  return null;
+                })}
+              </Picker>
+            </View>
 
-          {/* Calculates the cost of the current store */}
-          <Text className="text-white font-bold text-center">
-            {"LIST COST: $"}{allStoreCosts[selectedStore]?.toFixed(2)}
-          </Text>
-        </View>
-        }
+            {/* Calculates the cost of the current store */}
+            <Text className="text-white font-bold text-center">
+              {"LIST COST: $"}{allStoreCosts[selectedStore]?.toFixed(2)}
+            </Text>
+          </View>
+        )}
 
         {/* selects the store from the dropdown */}
         {storeKeys
@@ -848,7 +848,7 @@ export default function ShoppingList ({ isSelectedTab }) {
             >
               {/* DATA */}
               <View className="flex flex-col border-[1.5px] border-black w-full h-full">
-                {Array.isArray(allStoreLists[selectedStore]) && allStoreLists[selectedStore].length > 0
+                {(Array.isArray(allStoreLists[selectedStore]) && allStoreLists[selectedStore].length > 0)
                 ? (
                   <>
                     {/* SCROLLABLE INGREDIENT SECTION */}
@@ -861,20 +861,20 @@ export default function ShoppingList ({ isSelectedTab }) {
                               <View className="flex flex-row border-b-[1px] w-full h-[60px]">
 
                                 {/* Specifics */}
-                                <View className={`flex w-[30px] justify-center items-center ${Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index] ? "bg-zinc500" : "bg-theme700"} space-y-[4px] border-r-0.5`}>
+                                <View className={`flex w-[30px] justify-center items-center ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc500" : "bg-theme700"} space-y-[4px] border-r-0.5`}>
                                   
                                   {/* BUTTONS */}
                                   <View className="flex flex-col space-y-[3px]">
                                     {/* Included */}
                                     <Icon
-                                      name={Array.isArray(allStoreIncluded[selectedStore]) && allStoreIncluded[selectedStore][index] ? "close-outline" : "add"}
+                                      name={(Array.isArray(allStoreIncluded[selectedStore]) && allStoreIncluded[selectedStore][index]) ? "close-outline" : "add"}
                                       size={14}
                                       color="white"
                                       onPress={() => updateIncluded(index)}
                                     />
                                     {/* Check */}
                                     <Icon
-                                      name={Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index] ? "checkbox" : "square-outline"}
+                                      name={(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "checkbox" : "square-outline"}
                                       size={14}
                                       color="white"
                                       onPress={() => updateCheck(index)}
@@ -894,12 +894,12 @@ export default function ShoppingList ({ isSelectedTab }) {
                                 
                                 {/* INGREDIENT NAME */}
                                 <View
-                                  className={`flex w-[125px] justify-center items-center border-r-2 border-black ${Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index] ? "bg-zinc600" : "bg-theme800"}`}
+                                  className={`flex w-[125px] justify-center items-center border-r-2 border-black ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc600" : "bg-theme800"}`}
                                 >
                                   {/* Linking */}
                                   <Text 
-                                    className={`text-white text-[12px] font-bold text-center px-1 ${store.link !== "" && "underline"}`}
-                                    onPress={ store.link !== "" ? () => Linking.openURL(store.link) : undefined }
+                                    className={`text-white text-[12px] font-bold text-center px-1 ${(store.link !== "") && "underline"}`}
+                                    onPress={ (store.link !== "") ? () => Linking.openURL(store.link) : undefined }
                                   >
                                     {store.name}
                                   </Text>
@@ -913,7 +913,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                                   contentContainerStyle={{ flexDirection: 'column', minWidth: 500 }}
                                   showsHorizontalScrollIndicator={false}
                                 >
-                                  <View className={`flex flex-col border-b-[1px] h-[60px] space-y-1 ${index % 2 === 0 ? (Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index] ? "bg-zinc400" : "bg-theme400") : (Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index] ? "bg-zinc450" : "bg-theme500") } items-center justify-center`} key={`middle${index}`}>
+                                  <View className={`flex flex-col border-b-[1px] h-[60px] space-y-1 ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-theme400") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-theme500") } items-center justify-center`} key={`middle${index}`}>
                                     
                                     {/* to open the detailed recipe list */}
                                     <TouchableOpacity
@@ -971,7 +971,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                                         }}
                                       >
                                         <Text className="flex bg-zinc300 px-[5px] border-[1px] border-zinc300 rounded-[5px] text-[12px] leading-[14px]">
-                                          {Array.isArray(allStoreNotes[selectedStore]) && allStoreNotes[selectedStore][index] ? allStoreNotes[selectedStore][index] : ""}
+                                          {(Array.isArray(allStoreNotes[selectedStore]) && allStoreNotes[selectedStore][index]) ? allStoreNotes[selectedStore][index] : ""}
                                         </Text>      
                                       </TouchableOpacity>    
                                     </View>
@@ -986,7 +986,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                                 {/* Included Button ONLY */}
                                 <View className="w-[30px] bg-zinc300 border-r-0.5 justify-center items-center z-10">
                                   <Icon
-                                    name={Array.isArray(allStoreIncluded[selectedStore]) && allStoreIncluded[selectedStore][index] ? "close-outline" : "add"}
+                                    name={(Array.isArray(allStoreIncluded[selectedStore]) && allStoreIncluded[selectedStore][index]) ? "close-outline" : "add"}
                                     size={14}
                                     color="black"
                                     onPress={() => updateIncluded(index)}
@@ -996,8 +996,8 @@ export default function ShoppingList ({ isSelectedTab }) {
                                 {/* Ingredient Name */}
                                 <View className="w-full bg-zinc350 justify-center pl-[30px] ml-[-30px] z-0">
                                   <Text 
-                                    className={`text-zinc800 text-[12px] font-bold px-1 ${store.link !== "" && "underline"}`}
-                                    onPress={ store.link !== "" ? () => Linking.openURL(store.link) : undefined }
+                                    className={`text-zinc800 text-[12px] font-bold px-1 ${(store.link !== "") && "underline"}`}
+                                    onPress={ (store.link !== "") ? () => Linking.openURL(store.link) : undefined }
                                   >
                                     {store.name}
                                   </Text>
@@ -1026,7 +1026,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
 
       {/* Store Swap Modal */}
-      {swapModalVisible &&
+      {swapModalVisible && (
         <StoreSwapModal
           spotlightsSnapshot={spotlightsSnapshot}
           shoppingList={allStoreLists}
@@ -1034,11 +1034,11 @@ export default function ShoppingList ({ isSelectedTab }) {
           setModalVisible={setSwapModalVisible}
           submitModal={submitSwapModal}
         />
-      }
+      )}
 
 
       {/* Popup to show details if clicked */}
-      {recipeListModalVisible && 
+      {recipeListModalVisible && (
         <RecipeListModal
           ingredient={currIngredient}
           recipeList={currRecipeList}
@@ -1050,7 +1050,7 @@ export default function ShoppingList ({ isSelectedTab }) {
           setModalVisible={setRecipeListModalVisible}
           closeModal={closeRecipes}
         />
-      }
+      )}
 
 
       {/* Details */}
@@ -1071,7 +1071,7 @@ export default function ShoppingList ({ isSelectedTab }) {
           </TouchableOpacity>
 
           {/* SPOTLIGHT MODAL */}
-          {spotlightModalVisible &&
+          {spotlightModalVisible && (
             <SpotlightSelectorModal
               spotlightsSnapshot={spotlightsSnapshot}
               spotlightsSelected={spotlightsSelected}
@@ -1080,7 +1080,7 @@ export default function ShoppingList ({ isSelectedTab }) {
               setModalVisible={setSpotlightModalVisible}
               submitModal={submitSpotlightModal}
             />
-          }
+          )}
 
           {/* individual store prices */}
           {Object.entries(storeListLengths).filter(([key, value]) => key !== selectedStore && value !== 0).length
@@ -1088,7 +1088,7 @@ export default function ShoppingList ({ isSelectedTab }) {
             <ScrollView className="flex flex-col pt-1.5 mb-2">
               {storeKeys.map((storeKey, index) => (
                 <View key={index}>
-                {(selectedStore !== storeKey && storeListLengths[storeKey] > 0) && 
+                {(selectedStore !== storeKey && storeListLengths[storeKey] > 0) && (
                   <View className="flex flex-row justify-end space-x-1 mb-0.5">
                     {/* whether the shopping list is done */}
                     <Icon
@@ -1101,7 +1101,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                       {storeLabels[index].toUpperCase() + ": $"}{storeListCosts[storeKey].toFixed(2)}
                     </Text>
                   </View>
-                }
+                )}
                 </View>
               ))}
             </ScrollView>
@@ -1153,150 +1153,150 @@ export default function ShoppingList ({ isSelectedTab }) {
 
 
       {/* KEYBOARD POPUP SECTION */}
-      {isKeyboardOpen &&
-      <>
-        {/* Grayed Out BG */}
-        <TouchableOpacity 
-          className="absolute bg-black bg opacity-40 w-full h-full" 
-          onPress={() => {
-            keyboardType === "individual notes" && dbIndivNotes(allStoreNotes[selectedStore]);
-            keyboardType === "global notes" && dbNote(currNote);
-            Keyboard.dismiss();
-            setIsKeyboardOpen(false); 
-          }}
-          pointerEvents="box-none"
-        />
+      {isKeyboardOpen && (
+        <>
+          {/* Grayed Out BG */}
+          <TouchableOpacity 
+            className="absolute bg-black bg opacity-40 w-full h-full" 
+            onPress={() => {
+              (keyboardType === "individual notes") && dbIndivNotes(allStoreNotes[selectedStore]);
+              (keyboardType === "global notes") && dbNote(currNote);
+              Keyboard.dismiss();
+              setIsKeyboardOpen(false); 
+            }}
+            pointerEvents="box-none"
+          />
 
-        {/* Individual Notes */}
-        {keyboardType === "individual notes" &&
-        <View className="absolute bottom-[300px] w-5/6 border-2" key={`data-${keyboardIndex}`}>
-          <View className="flex flex-row border-b-2">
+          {/* Individual Notes */}
+          {(keyboardType === "individual notes") && (
+            <View className="absolute bottom-[300px] w-5/6 border-2" key={`data-${keyboardIndex}`}>
+              <View className="flex flex-row border-b-2">
 
-            {/* Buttons */}
-            <View className={`flex flex-row w-1/5 h-[30px] justify-center items-center space-x-1 ${Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex] ? "bg-zinc500" : "bg-theme700"}`}>
-                                  
-              {/* Included */}
-              <Icon
-                name={Array.isArray(allStoreIncluded[selectedStore]) && allStoreIncluded[selectedStore][keyboardIndex] ? "close-outline" : "add"}
-                size={14}
-                color="white"
-                onPress={() => updateIncluded(keyboardIndex)}
-              />
-              {/* Check */}
-              <Icon
-                name={Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex] ? "checkbox" : "square-outline"}
-                size={14}
-                color="white"
-                onPress={() => updateCheck(keyboardIndex)}
-              />
-              {/* Amount Needed */}
-              <Text className="text-white text-[12px]">{allStoreLists[selectedStore][keyboardIndex].amountNeeded}</Text>
+                {/* Buttons */}
+                <View className={`flex flex-row w-1/5 h-[30px] justify-center items-center space-x-1 ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "bg-zinc500" : "bg-theme700"}`}>
+                                      
+                  {/* Included */}
+                  <Icon
+                    name={(Array.isArray(allStoreIncluded[selectedStore]) && allStoreIncluded[selectedStore][keyboardIndex]) ? "close-outline" : "add"}
+                    size={14}
+                    color="white"
+                    onPress={() => updateIncluded(keyboardIndex)}
+                  />
+                  {/* Check */}
+                  <Icon
+                    name={(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "checkbox" : "square-outline"}
+                    size={14}
+                    color="white"
+                    onPress={() => updateCheck(keyboardIndex)}
+                  />
+                  {/* Amount Needed */}
+                  <Text className="text-white text-[12px]">{allStoreLists[selectedStore][keyboardIndex].amountNeeded}</Text>
+                </View>
+                                    
+                {/* INGREDIENT NAME */}
+                <View className={`flex w-4/5 justify-center items-center ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "bg-zinc600" : "bg-theme800"}`}>
+                  {/* Linking */}
+                  <Text 
+                    className={`text-white text-[12px] font-bold text-center px-1 ${(allStoreLists[selectedStore][keyboardIndex].link !== "") && "underline"}`}
+                    onPress={ allStoreLists[selectedStore][keyboardIndex].link !== "" ? () => Linking.openURL(allStoreLists[selectedStore][keyboardIndex].link) : undefined }
+                  >
+                    {allStoreLists[selectedStore][keyboardIndex].name}
+                  </Text>
+                </View>
+              </View>   
+
+              {/* DETAILS */}
+              <View className={`flex flex-col border-b-[1px] h-[60px] space-y-1 ${(keyboardIndex % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "bg-zinc400" : "bg-theme400") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "bg-zinc450" : "bg-theme500") } items-center justify-center`} key={`middle${keyboardIndex}`}>
+                
+                {/* List of details */}
+                <View className="flex flex-row">
+                  <Text className="w-1/5 text-right pr-2 font-bold text-[12px]">
+                    DETAILS:
+                  </Text>
+                  {/* brand, unit yield, and unit cost */}
+                  {allStoreLists[selectedStore][keyboardIndex].brand ? 
+                    <Text className="w-4/5 text-left text-[12px]">
+                      {allStoreLists[selectedStore][keyboardIndex].brand} {"—"} {allStoreLists[selectedStore][keyboardIndex].totalYield} {extractUnit(allStoreLists[selectedStore][keyboardIndex].unit, allStoreLists[selectedStore][keyboardIndex].totalYield)}{" for $"}{((new Fraction(allStoreLists[selectedStore][keyboardIndex].costUnit)) * 1)}
+                    </Text>
+                  : 
+                    <Text className="w-4/5 text-left text-[12px]">
+                      N/A
+                    </Text>
+                  }
+                </View>
+
+                {/* List of purchase details */}
+                <View className="flex flex-row">
+                  <Text className="w-1/5 text-right pr-2 font-bold text-[12px]">
+                    NEEDED:
+                  </Text>
+                  {/* yield needed, amount needed, cost expected */}
+                  {allStoreLists[selectedStore][keyboardIndex].brand ? 
+                    <Text className="w-4/5 text-left text-[12px]">
+                      {allStoreLists[selectedStore][keyboardIndex].yieldNeeded} {extractUnit(allStoreLists[selectedStore][keyboardIndex].unit, allStoreLists[selectedStore][keyboardIndex].yieldNeeded)} {"—"} {allStoreLists[selectedStore][keyboardIndex].amountNeeded}{"x for $"}{allStoreLists[selectedStore][keyboardIndex].costTotal.toFixed(2)}
+                    </Text>
+                  : 
+                    <Text className="w-4/5 text-left text-[12px]">
+                      N/A
+                    </Text>
+                  }
+                </View>
+
+                {/* Notes input */}
+                <View className="flex flex-row">
+                  {/* Text */}
+                  <Text className="w-1/5 text-right pr-2 font-bold text-[12px]">
+                    NOTES:
+                  </Text>
+                  {/* Text Input */}
+                  <View className="w-4/5 pr-[10px]">
+                    <TextInput
+                      value={(Array.isArray(allStoreNotes[selectedStore]) && allStoreNotes[selectedStore][keyboardIndex]) ? allStoreNotes[selectedStore][keyboardIndex] : ""}
+                      onFocus={() => {
+                        setKeyboardType("individual notes");
+                        setKeyboardIndex(keyboardIndex);
+                      }}
+                      onChangeText={(text) => updateIndivNotes(keyboardIndex, text)}
+                      placeholder={(Array.isArray(allStoreNotes[selectedStore]) && allStoreNotes[selectedStore][keyboardIndex]) ? allStoreNotes[selectedStore][keyboardIndex] : ""}
+                      placeholderTextColor={colors.zinc400}
+                      className="flex-1 text-[12px] leading-[15px] bg-zinc300 rounded-[5px] px-[5px]"
+                      onBlur={() => dbIndivNotes(allStoreNotes[selectedStore])}
+                    />
+                  </View>
+                </View>                       
+              </View> 
             </View>
-                                
-            {/* INGREDIENT NAME */}
-            <View className={`flex w-4/5 justify-center items-center ${Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex] ? "bg-zinc600" : "bg-theme800"}`}>
-              {/* Linking */}
-              <Text 
-                className={`text-white text-[12px] font-bold text-center px-1 ${allStoreLists[selectedStore][keyboardIndex].link !== "" && "underline"}`}
-                onPress={ allStoreLists[selectedStore][keyboardIndex].link !== "" ? () => Linking.openURL(allStoreLists[selectedStore][keyboardIndex].link) : undefined }
-              >
-                {allStoreLists[selectedStore][keyboardIndex].name}
-              </Text>
-            </View>
-          </View>   
+          )}
 
-          {/* DETAILS */}
-          <View className={`flex flex-col border-b-[1px] h-[60px] space-y-1 ${keyboardIndex % 2 === 0 ? (Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex] ? "bg-zinc400" : "bg-theme400") : (Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex] ? "bg-zinc450" : "bg-theme500") } items-center justify-center`} key={`middle${keyboardIndex}`}>
-            
-            {/* List of details */}
-            <View className="flex flex-row">
-              <Text className="w-1/5 text-right pr-2 font-bold text-[12px]">
-                DETAILS:
-              </Text>
-              {/* brand, unit yield, and unit cost */}
-              {allStoreLists[selectedStore][keyboardIndex].brand ? 
-                <Text className="w-4/5 text-left text-[12px]">
-                  {allStoreLists[selectedStore][keyboardIndex].brand} {"—"} {allStoreLists[selectedStore][keyboardIndex].totalYield} {extractUnit(allStoreLists[selectedStore][keyboardIndex].unit, allStoreLists[selectedStore][keyboardIndex].totalYield)}{" for $"}{((new Fraction(allStoreLists[selectedStore][keyboardIndex].costUnit)) * 1)}
-                </Text>
-              : 
-                <Text className="w-4/5 text-left text-[12px]">
-                  N/A
-                </Text>
-              }
-            </View>
-
-            {/* List of purchase details */}
-            <View className="flex flex-row">
-              <Text className="w-1/5 text-right pr-2 font-bold text-[12px]">
-                NEEDED:
-              </Text>
-              {/* yield needed, amount needed, cost expected */}
-              {allStoreLists[selectedStore][keyboardIndex].brand ? 
-                <Text className="w-4/5 text-left text-[12px]">
-                  {allStoreLists[selectedStore][keyboardIndex].yieldNeeded} {extractUnit(allStoreLists[selectedStore][keyboardIndex].unit, allStoreLists[selectedStore][keyboardIndex].yieldNeeded)} {"—"} {allStoreLists[selectedStore][keyboardIndex].amountNeeded}{"x for $"}{allStoreLists[selectedStore][keyboardIndex].costTotal.toFixed(2)}
-                </Text>
-              : 
-                <Text className="w-4/5 text-left text-[12px]">
-                  N/A
-                </Text>
-              }
-            </View>
-
-            {/* Notes input */}
-            <View className="flex flex-row">
-              {/* Text */}
-              <Text className="w-1/5 text-right pr-2 font-bold text-[12px]">
-                NOTES:
-              </Text>
-              {/* Text Input */}
-              <View className="w-4/5 pr-[10px]">
+          {/* Global Notes */}
+          {(keyboardType === "global notes") && (
+            <View className="absolute flex w-5/12 h-[15%] bottom-[300px]">
+              <View className="bg-transparent w-full h-full">
+      
+                {/* text input */}
                 <TextInput
-                  value={Array.isArray(allStoreNotes[selectedStore]) && allStoreNotes[selectedStore][keyboardIndex] ? allStoreNotes[selectedStore][keyboardIndex] : ""}
-                  onFocus={() => {
-                    setKeyboardType("individual notes");
-                    setKeyboardIndex(keyboardIndex);
-                  }}
-                  onChangeText={(text) => updateIndivNotes(keyboardIndex, text)}
-                  placeholder={Array.isArray(allStoreNotes[selectedStore]) && allStoreNotes[selectedStore][keyboardIndex] ? allStoreNotes[selectedStore][keyboardIndex] : ""}
+                  value={currNote}
+                  onChangeText={(value) => setCurrNote(value)}
+                  multiline={true}
+                  placeholder="notes"
                   placeholderTextColor={colors.zinc400}
-                  className="flex-1 text-[12px] leading-[15px] bg-zinc300 rounded-[5px] px-[5px]"
-                  onBlur={() => dbIndivNotes(allStoreNotes[selectedStore])}
+                  className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc400 px-2.5 text-[13px] leading-[16px]"
                 />
+      
+                {/* clear button */}
+                <View className="absolute right-0 justify-end h-full">
+                  <Icon
+                    name="close-outline"
+                    size={20}
+                    color="black"
+                    onPress={() => setCurrNote("")}
+                  />
+                </View>
               </View>
-            </View>                       
-          </View> 
-        </View>
-        }
-
-        {/* Global Notes */}
-        {keyboardType === "global notes" &&
-        <View className="absolute flex w-5/12 h-[15%] bottom-[300px]">
-          <View className="bg-transparent w-full h-full">
-  
-            {/* text input */}
-            <TextInput
-              value={currNote}
-              onChangeText={(value) => setCurrNote(value)}
-              multiline={true}
-              placeholder="notes"
-              placeholderTextColor={colors.zinc400}
-              className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc400 px-2.5 text-[13px] leading-[16px]"
-            />
-  
-            {/* clear button */}
-            <View className="absolute right-0 justify-end h-full">
-              <Icon
-                name="close-outline"
-                size={20}
-                color="black"
-                onPress={() => setCurrNote("")}
-              />
             </View>
-          </View>
-        </View>
-        }
-      </>
-      }
+          )}
+        </>
+      )}
     </View>
   );
 }

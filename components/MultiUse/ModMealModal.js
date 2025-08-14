@@ -185,7 +185,7 @@ const ModMealModal = ({
             </View>
             
             {/* if editing or not a recipe, delete option (trashcan) is available */}
-            {(editingId !== null || type !== "recipe") &&
+            {(editingId !== null || type !== "recipe") && (
               <View className="flex justify-center items-center">
                 <Icon 
                   size={24}
@@ -194,11 +194,11 @@ const ModMealModal = ({
                   onPress={deleteMeal}
                 />  
               </View>
-            }
+            )}
           </View>
                                 
           {/* warning that appears if no name is given */}
-          {!isNameValid &&
+          {!isNameValid && (
             <View className="flex flex-col items-center justify-center">
 
               {/* divider */}
@@ -209,7 +209,7 @@ const ModMealModal = ({
                 {type === "prep" ? "meal " : ""}{type}{" name is required"}
               </Text>
             </View>
-          }
+          )}
         </View>
       </View>
     </Modal>

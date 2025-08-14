@@ -114,7 +114,7 @@ const NewTagModal = ({
           
           
           {/* warning if there is no new tag name */}
-          {!isNameValid && 
+          {!isNameValid && (
             <View className="flex flex-col items-center justify-center">
             
               {/* divider */}
@@ -125,7 +125,7 @@ const NewTagModal = ({
                 tag name is required
               </Text>
             </View>
-          }
+          )}
         </View>
       </View>
     </Modal>

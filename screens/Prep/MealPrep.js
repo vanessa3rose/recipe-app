@@ -1287,6 +1287,17 @@ export default function MealPrep ({ isSelectedTab }) {
     const contentOffsetY = event.nativeEvent.contentOffset.y;
     setScrollY(contentOffsetY);
   };
+    
+  const dropdownScrollRef = useRef(null);
+  const ITEM_HEIGHT = 40;
+
+  // when opening dropdown, skip to selected
+  useEffect(() => {
+    if (prepDropdownOpen) {
+      const idx = prepList.map(prep => prep.prepName).indexOf(selectedPrepData?.prepName);
+      if (dropdownScrollRef.current) { dropdownScrollRef.current.scrollTo({ y: idx * ITEM_HEIGHT - 5, animated: false }); }
+    }
+  }, [prepDropdownOpen])
 
 
   ///////////////////////////////// HTML /////////////////////////////////
@@ -1297,56 +1308,56 @@ export default function MealPrep ({ isSelectedTab }) {
     <View className="flex-1 items-center justify-center bg-zinc200 border-0.5">
 
       {/* NOTES SECTION */}
-      {selectedPrepData !== null &&
-      <View className="flex flex-row w-5/6 justify-center items-center mb-[20px]">
-        <View className="bg-zinc200 w-full h-[50px]">
+      {(selectedPrepData !== null) && (
+        <View className="flex flex-row w-5/6 justify-center items-center mb-[20px]">
+          <View className="bg-zinc200 w-full h-[50px]">
 
-          {/* text input */}
-          <TextInput
-            value={selectedNote}
-            onChangeText={setSelectedNote}
-            onBlur={() => dbNote()}
-            multiline={true}
-            placeholder="notes"
-            placeholderTextColor={colors.zinc400}
-            className="flex-1 text-[14px] leading-[17px] pl-2.5 pr-10 bg-white rounded-[5px] border-[1px] border-zinc300"
-          />
-
-          {/* clear button */}
-          <View className="flex flex-row absolute right-0 top-0 h-[50px] pt-[5px] pr-[2px]">
-            <Icon
-              name="checkmark"
-              size={20}
-              color="black"
-              onPress={() => dbNote()}
+            {/* text input */}
+            <TextInput
+              value={selectedNote}
+              onChangeText={setSelectedNote}
+              onBlur={() => dbNote()}
+              multiline={true}
+              placeholder="notes"
+              placeholderTextColor={colors.zinc400}
+              className="flex-1 text-[14px] leading-[17px] pl-2.5 pr-10 bg-white rounded-[5px] border-[1px] border-zinc300"
             />
+
+            {/* clear button */}
+            <View className="flex flex-row absolute right-0 top-0 h-[50px] pt-[5px] pr-[2px]">
+              <Icon
+                name="checkmark"
+                size={20}
+                color="black"
+                onPress={() => dbNote()}
+              />
+              <Icon
+                name="close-outline"
+                size={20}
+                color="black"
+                onPress={() => clearNote()}
+              />
+            </View>
+          </View>
+
+          <View className="flex pl-2">
             <Icon
-              name="close-outline"
-              size={20}
-              color="black"
-              onPress={() => clearNote()}
+              name="bookmarks"
+              size={24}
+              color={colors.zinc800}
+              onPress={() => {
+                if (selectedPrepId !== null) {
+                  setDeleteAfterSave(false);
+                  setRecipeModalVisible(true);
+                }
+              }}
             />
           </View>
         </View>
-
-        <View className="flex pl-2">
-          <Icon
-            name="bookmarks"
-            size={24}
-            color={colors.zinc800}
-            onPress={() => {
-              if (selectedPrepId !== null) {
-                setDeleteAfterSave(false);
-                setRecipeModalVisible(true);
-              }
-            }}
-          />
-        </View>
-      </View>
-      }
+      )}
 
       {/* modal to save a prep as a recipe */}
-      {recipeModalVisible &&
+      {recipeModalVisible && (
         <PrepToRecipeModal
           prepData={selectedPrepData}
           ingredientsSnapshot={ingredientsSnapshot}
@@ -1354,7 +1365,7 @@ export default function MealPrep ({ isSelectedTab }) {
           modalVisible={recipeModalVisible}
           closeModal={closeRecipeModal}
         />
-      }
+      )}
 
       {/* PREP CARD SECTION */}
       <View className={`flex flex-row space-x-0.5 ${(selectedPrepData && selectedPrepData.currentData.indexOf(null) !== -1) ? "mx-1" : "justify-center items-center"}`}>
@@ -1377,14 +1388,14 @@ export default function MealPrep ({ isSelectedTab }) {
               />
 
               {/* Edit (three dots) - rename or delete current prep recipe */}
-              {selectedPrepData !== null &&
-              <Icon
-                size={15}
-                color="white"
-                name="ellipsis-horizontal-outline"
-                onPress={() => setModModalVisible(true)}
-              />
-              }
+              {(selectedPrepData !== null) && (
+                <Icon
+                  size={15}
+                  color="white"
+                  name="ellipsis-horizontal-outline"
+                  onPress={() => setModModalVisible(true)}
+                />
+              )}
 
               {/* Modal that appears to edit/delete a prep */}
               {(modModalVisible && selectedPrepId) && (
@@ -1402,7 +1413,7 @@ export default function MealPrep ({ isSelectedTab }) {
             </View>
 
             {/* ADD PREP MODAL */}
-            {newModalVisible &&
+            {newModalVisible && (
               <AddPrepModal
                 modalVisible={newModalVisible}
                 setModalVisible={setNewModalVisible}
@@ -1410,7 +1421,7 @@ export default function MealPrep ({ isSelectedTab }) {
                 numPreps={numPreps}
                 currentData={[null, ...currentData]}
               />
-            }
+            )}
 
             {/* Text */}
             <View className="flex flex-row ml-[-30px] mr-[20px] pl-[30px] items-center justify-center w-full">
@@ -1418,79 +1429,119 @@ export default function MealPrep ({ isSelectedTab }) {
               {/* Meal Prep Dropdown */}
               <View className="flex flex-row items-center justify-center w-4/5 h-[50px] z-30">
                 <View className="flex bg-theme800 items-center justify-center w-full">
-                  <DropDownPicker 
-                    open={prepDropdownOpen}
-                    setOpen={setPrepDropdownOpen}
-                    value={selectedPrepId}
-                    setValue={setSelectedPrepId}
-                    items={[{label: "", value: null, key: "", labelStyle: { paddingVertical: 12.5, marginHorizontal: -50, backgroundColor: colors.zinc200 }},
-                    ...prepList.map((prep) => ({
-                      label: prepDropdownOpen ? "(" + (selectedPrepId === prep.id ? currPrepMult : prep.prepMult) + ") " + prep.prepName : prep.prepName,
-                      value: prep.id,
-                      key: prep.id,
-                      labelStyle: { 
-                        color: prepsCompleted !== null && prepsCompleted[prepsIds.indexOf(prep.id)] ? 'black' : colors.zinc500,
-                        textDecorationLine: prepsCompleted !== null && prepsCompleted[prepsIds.indexOf(prep.id)] ? 'none' : 'line-through', 
-                      }
-                    }))]}
-                    placeholder=""
-                    style={{ height: 50, backgroundColor: colors.theme800, borderWidth: 0, justifyContent: 'center', }}
-                    dropDownContainerStyle={{ backgroundColor: 'white', }}
-                    textStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
-                    listItemContainerStyle={{ borderBottomWidth: 0.5, borderBottomColor: colors.theme100, }}
-                    ArrowDownIconComponent={() => {
-                      return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
-                    }}
-                    ArrowUpIconComponent={() => {
-                      return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
-                    }}
-                  />
+                              
+                  {/* current selection part */}
+                  <TouchableOpacity 
+                    className="flex flex-row w-full h-[50px] justify-center items-center"
+                    onPress={() => setPrepDropdownOpen(!prepDropdownOpen)}
+                  >
+                    {/* text */}
+                    <Text className="text-white font-bold text-[12px] pr-5">
+                      {selectedPrepData?.prepName}
+                    </Text>
+    
+                    {/* arrow */}
+                    <View className="absolute flex right-2.5">
+                      <Icon 
+                        name={prepDropdownOpen ? "chevron-up" : "chevron-down"} 
+                        size={18} 
+                        color={colors.theme100}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                  
+                  {/* mock DropDownPicker */}
+                  {prepDropdownOpen && (
+                    <View className="absolute top-[100%] z-50 max-h-[200px] w-full pb-1 flex flex-col bg-white border rounded-b-md">
+                      {/* blank selector */}
+                      <TouchableOpacity
+                        className={`h-[${ITEM_HEIGHT}px] w-full bg-zinc200 border-b-0.5 border-zinc400`}
+                        onPress={() => {setSelectedPrepId(null); setPrepDropdownOpen(false)}}
+                      />
+                      {/* prep selector */}
+                      <ScrollView ref={dropdownScrollRef}>
+                        {prepList.map((prep, index) => (
+                          <TouchableOpacity
+                            key={index}
+                            className={`border-b-0.5 border-zinc350 justify-center items-center h-[${ITEM_HEIGHT}px] ${(prep?.id === selectedPrepId) && "bg-zinc100"}`}
+                            onPress={() => {
+                              setSelectedPrepId(prep.id);
+                              setPrepDropdownOpen(false);
+                            }}
+                          >
+                            {/* (#) label */}
+                            <View className="w-full flex flex-row justify-center items-center pr-5 space-x-1.5">
+                              {prepDropdownOpen &&
+                                <Text className={`text-[12px] font-bold ${(prepsCompleted !== null && prepsCompleted[prepsIds.indexOf(prep.id)]) ? ((prep?.id === selectedPrepId) ? "text-mauve800" : "text-black") : ((prep?.id === selectedPrepId) ? "text-mauve500 line-through" : "text-zinc500 line-through")}`}>
+                                  {`(${(selectedPrepId === prep.id && selectedPrepData) ? currPrepMult : prep.prepMult})`}
+                                </Text>
+                              }
+                              <Text className={`text-[12px] font-bold ${(prepsCompleted !== null && prepsCompleted[prepsIds.indexOf(prep.id)]) ? ((prep?.id === selectedPrepId) ? "text-mauve800" : "text-black") : ((prep?.id === selectedPrepId) ? "text-mauve500 line-through" : "text-zinc500 line-through")}`}>
+                                {`${(selectedPrepId === prep.id && selectedPrepData) ? selectedPrepData.prepName : prep.prepName}`}
+                              </Text>
+                            </View>
+    
+                            {/* selected indicator */}
+                            {(prep?.id === selectedPrepId) && (
+                              <View className="absolute flex justify-center items-center h-[30px] right-2">
+                                <Icon
+                                  name="checkmark"
+                                  color="black"
+                                  size={20}
+                                />
+                              </View>
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
                 </View>
               </View>
 
               {/* Multiplicity */}
               <View className="flex flex-row bg-theme700 border-l-0.5 items-center justify-center w-1/5 h-[50px] pr-[5px] z-30">
                 
-                {selectedPrepData !== null &&
-                <>
-                  {/* Input */}
-                  <TextInput
-                    value={String(currPrepMult)}
-                    onChangeText={(text) => {
-                      updateMult(text);
-                      setCurrentDropdownOpen(false);
-                    }}
-                    placeholder={selectedPrepData ? String(selectedPrepData.prepMult) : "0"}
-                    placeholderTextColor={'white'}
-                    className="flex-1 text-center text-white font-bold text-[14px] leading-[17px]"
-                  />
+                {(selectedPrepData !== null) && (
+                  <>
+                    {/* Input */}
+                    <TextInput
+                      value={String(currPrepMult)}
+                      onChangeText={(text) => {
+                        updateMult(text);
+                        setCurrentDropdownOpen(false);
+                      }}
+                      placeholder={selectedPrepData ? String(selectedPrepData.prepMult) : "0"}
+                      placeholderTextColor={'white'}
+                      className="flex-1 text-center text-white font-bold text-[14px] leading-[17px]"
+                    />
 
-                  {/* Use up (decrement multiplicity)*/}
-                  {currPrepMult !== 0 &&
-                  <Icon
-                    size={20}
-                    color="white"
-                    name="checkmark-done"
-                    onPress={() => decreaseMult()}
-                  />
-                  }
-                </>
-                }
+                    {/* Use up (decrement multiplicity)*/}
+                    {(currPrepMult !== 0) && (
+                      <Icon
+                        size={20}
+                        color="white"
+                        name="checkmark-done"
+                        onPress={() => decreaseMult()}
+                      />
+                    )}
+                  </>
+                )}
               </View>
 
               {/* to add back a prep */}
-              {(selectedPrepData && selectedPrepData.currentData.filter(curr => curr !== null).length > 0) &&
-              <TouchableOpacity 
-                className="bg-zinc350 justify-center px-0.5 h-full items-center absolute right-[-25px] rounded-r-lg z-0"
-                onPress={() => addBackPrep()}
-              >
-                <Icon
-                  name="add-sharp"
-                  size={20}
-                  color={colors.zinc600}
-                />
-              </TouchableOpacity>
-              }
+              {(selectedPrepData && selectedPrepData.currentData.filter(curr => curr !== null).length > 0) && (
+                <TouchableOpacity 
+                  className="bg-zinc350 justify-center px-0.5 h-full items-center absolute right-[-25px] rounded-r-lg z-0"
+                  onPress={() => addBackPrep()}
+                >
+                  <Icon
+                    name="add-sharp"
+                    size={20}
+                    color={colors.zinc600}
+                  />
+                </TouchableOpacity>
+              )}
 
               {/* Modal that appears to delete a current prep */}
               {deleteModalVisible && (
@@ -1507,54 +1558,54 @@ export default function MealPrep ({ isSelectedTab }) {
           </View>
           
           {/* Selected Button */}
-          {prepsIds !== null && selectedPrepId !== null &&
-          <View className="absolute w-5/6 bg-zinc100">
-            {/* Signifier */}
-            <View className="absolute right-4 w-1/12 h-[50px] items-end justify-center z-40">
-              <Icon
-                name={prepsCompleted[prepsIds.indexOf(selectedPrepId)] ? "heart-circle" : "heart-dislike-circle"}
-                size={24}
-                color={colors.zinc900}
-                onPress={() => changeCompleted()}
-              />
+          {(prepsIds !== null && selectedPrepId !== null) && (
+            <View className="absolute w-5/6 bg-zinc100">
+              {/* Signifier */}
+              <View className="absolute right-4 w-1/12 h-[50px] items-end justify-center z-40">
+                <Icon
+                  name={prepsCompleted[prepsIds.indexOf(selectedPrepId)] ? "heart-circle" : "heart-dislike-circle"}
+                  size={24}
+                  color={colors.zinc900}
+                  onPress={() => changeCompleted()}
+                />
+              </View>
+              {/* Background */}
+              <View className="absolute right-4 w-1/12 h-[50px] items-end justify-center z-30">
+                <Icon
+                  name="ellipse"
+                  size={24}
+                  color={colors.zinc300}
+                />
+              </View>
             </View>
-            {/* Background */}
-            <View className="absolute right-4 w-1/12 h-[50px] items-end justify-center z-30">
-              <Icon
-                name="ellipse"
-                size={24}
-                color={colors.zinc300}
-              />
-            </View>
-          </View>
-          }
+          )}
         
           {/* HEADER ROW */}
           <View className="w-full flex flex-row h-[30px] bg-theme900 border-b-[1px] z-20">
-            {selectedPrepData !== null &&
-            <>
-              {/* ingredient header */}
-              <View className="flex items-center justify-center w-5/12 border-r-0.5">
-                  <Text className="text-white text-xs font-bold">
-                      INGREDIENT
-                  </Text>
-              </View>
+            {(selectedPrepData !== null) && (
+              <>
+                {/* ingredient header */}
+                <View className="flex items-center justify-center w-5/12 border-r-0.5">
+                    <Text className="text-white text-xs font-bold">
+                        INGREDIENT
+                    </Text>
+                </View>
 
-              {/* amount header */}
-              <View className="flex items-center justify-center w-1/3 border-r-0.5">
-                  <Text className="text-white text-xs font-bold">
-                      AMOUNT
-                  </Text>
-              </View>
+                {/* amount header */}
+                <View className="flex items-center justify-center w-1/3 border-r-0.5">
+                    <Text className="text-white text-xs font-bold">
+                        AMOUNT
+                    </Text>
+                </View>
 
-              {/* details header */}
-              <View className="flex items-center justify-center w-1/4">
-                  <Text className="text-white text-xs font-bold">
-                      DETAILS
-                  </Text>
-              </View>
-            </>
-            }
+                {/* details header */}
+                <View className="flex items-center justify-center w-1/4">
+                    <Text className="text-white text-xs font-bold">
+                        DETAILS
+                    </Text>
+                </View>
+              </>
+            )}
           </View>
 
 
@@ -1577,26 +1628,26 @@ export default function MealPrep ({ isSelectedTab }) {
                   >
                     <View className="flex flex-wrap flex-row">
                       <Text className="text-white font-semibold text-[10px] text-center px-2">
-                        {selectedPrepData && selectedPrepData.currentData[index] ? selectedPrepData.currentData[index].ingredientName : ""}
+                        {(selectedPrepData && selectedPrepData.currentData[index]) ? selectedPrepData.currentData[index].ingredientName : ""}
                       </Text>
                     </View>
                   </TouchableOpacity>
 
                   {/* Modal to Display Amounts */}
-                  {amountsModalVisible && 
+                  {amountsModalVisible && (
                     <AmountsDetailsModal
                       data={amountsModalData}
                       modalVisible={amountsModalVisible}
                       setModalVisible={setAmountsModalVisible}
                     />
-                  }
+                  )}
                 </View>
 
                 {/* amount */}
                 <View className={`flex flex-row items-center justify-center ${(!currEnoughLeft[index] &&  selectedPrepData !== null) ? "bg-zinc300" : (!currMoreLeft[index] &&  selectedPrepData !== null) ? "bg-theme100" : "bg-zinc100"} w-1/3 border-b-0.5 border-b-zinc400 border-r-[1px] border-r-zinc300 z-0`}>
                   
                   {/* indicator of the current ingredient */}
-                  {(selectedPrepData !== null && (selectedCurrentIndex - 1) === (index)) &&
+                  {(selectedPrepData !== null && (selectedCurrentIndex - 1) === index) && (
                     <View className={`absolute left-[-15px] mb-[1px] z-10 ${(!currEnoughLeft[index] &&  selectedPrepData !== null) ? "bg-zinc300" : (!currMoreLeft[index] &&  selectedPrepData !== null) ? "bg-theme100" : "bg-zinc100"} h-[28px]`}>
                       <Icon
                         name="reorder-four"
@@ -1604,7 +1655,7 @@ export default function MealPrep ({ isSelectedTab }) {
                         color={!currEnoughLeft[index] &&  selectedPrepData !== null ? colors.zinc400 : !currMoreLeft[index] &&  selectedPrepData !== null ? colors.zinc400 : colors.zinc350}
                       />
                     </View>
-                  }
+                  )}
 
                   {/* amount and units */}
                   {selectedPrepData?.currentData?.[index] ?
@@ -1613,7 +1664,7 @@ export default function MealPrep ({ isSelectedTab }) {
                       <TextInput
                         key={index}
                         className="text-[10px] leading-[12px] text-center"
-                        placeholder={selectedPrepData?.currentData[index] !== null && selectedPrepData?.currentAmounts[index] !== "" ? selectedPrepData?.currentAmounts[index] : "_"}
+                        placeholder={(selectedPrepData?.currentData[index] !== null && selectedPrepData?.currentAmounts[index] !== "") ? selectedPrepData?.currentAmounts[index] : "_"}
                         placeholderTextColor="black"
                         value={currCurrentAmounts[index]}
                         onChangeText={(value) => {
@@ -1632,7 +1683,7 @@ export default function MealPrep ({ isSelectedTab }) {
                 {/* details */}
                 <TouchableOpacity 
                   onPress={selectedPrepData?.currentData?.[index] ? () => showCalcModal(index) : undefined}
-                  className={`flex flex-row items-center justify-evenly ${currEnoughLeft[index] || selectedPrepData === null ? "bg-white" : "bg-zinc200"} w-1/4 border-b-0.5 border-b-zinc400`}
+                  className={`flex flex-row items-center justify-evenly ${(currEnoughLeft[index] || selectedPrepData === null) ? "bg-white" : "bg-zinc200"} w-1/4 border-b-0.5 border-b-zinc400`}
                 >
                   
                   {/* calories */}
@@ -1661,13 +1712,13 @@ export default function MealPrep ({ isSelectedTab }) {
             ))}
                                 
             {/* empty space at the bottom if the keyboard is open */}
-            {isKeyboardOpen &&
+            {isKeyboardOpen && (
               <View className="flex flex-row h-[120px]"/>
-            }
+            )}
           </ScrollView>
 
           {/* CALCULATION MODAL */}
-          {calcModalVisible &&
+          {calcModalVisible && (
             <CalcIngredientModal
               modalVisible={calcModalVisible}
               setModalVisible={setCalcModalVisible}
@@ -1695,53 +1746,53 @@ export default function MealPrep ({ isSelectedTab }) {
                   new Fraction (selectedPrepData?.currentData[calcIndex].ingredientData[selectedPrepData?.currentData[calcIndex].ingredientStore].servingSize) * 1
               }
             />
-          }
+          )}
 
 
           {/* TOTAL ROW */}
           <View className="flex flex-row h-[30px] border-t-[0.25px] border-b-[1px] z-20 bg-theme800 w-full">
             
-            {selectedPrepData !== null &&
-            <View className="flex flex-row items-center justify-center w-full border-r-0.5 bg-theme800">
-              
-              {/* details */}
-              <View className="flex w-5/12 items-center justify-center">
-                <Text className="text-white text-xs italic font-bold">
-                  TOTALS
-                </Text>
+            {(selectedPrepData !== null) && (
+              <View className="flex flex-row items-center justify-center w-full border-r-0.5 bg-theme800">
+                
+                {/* details */}
+                <View className="flex w-5/12 items-center justify-center">
+                  <Text className="text-white text-xs italic font-bold">
+                    TOTALS
+                  </Text>
+                </View>
+                
+                {/* amounts */}
+                <View className="flex flex-row w-7/12 items-center justify-center space-x-10">
+
+                  {/* calories */}
+                  <View>
+                    {selectedPrepData?.prepCal ?
+                      <Text className="text-white text-xs italic">
+                        {selectedPrepData.prepCal} {"cal"}
+                      </Text>
+                    : 
+                      <Text className="text-white text-xs italic">
+                        {"0 cal"}
+                      </Text> 
+                    }
+                  </View>
+
+                  {/* price */}
+                  <View>
+                    {selectedPrepData?.prepPrice ?
+                      <Text className="text-white text-xs italic">
+                        {"$"}{selectedPrepData.prepPrice}
+                      </Text>
+                    : 
+                      <Text className="text-white text-xs italic">
+                        {"$0.00"}
+                      </Text> 
+                    }
+                  </View>
+                </View>        
               </View>
-              
-              {/* amounts */}
-              <View className="flex flex-row w-7/12 items-center justify-center space-x-10">
-
-                {/* calories */}
-                <View>
-                  {selectedPrepData?.prepCal ?
-                    <Text className="text-white text-xs italic">
-                      {selectedPrepData.prepCal} {"cal"}
-                    </Text>
-                  : 
-                    <Text className="text-white text-xs italic">
-                      {"0 cal"}
-                    </Text> 
-                  }
-                </View>
-
-                {/* price */}
-                <View>
-                  {selectedPrepData?.prepPrice ?
-                    <Text className="text-white text-xs italic">
-                      {"$"}{selectedPrepData.prepPrice}
-                    </Text>
-                  : 
-                    <Text className="text-white text-xs italic">
-                      {"$0.00"}
-                    </Text> 
-                  }
-                </View>
-              </View>        
-            </View>
-            }
+            )}
           </View>
         </View>    
             
@@ -1770,160 +1821,160 @@ export default function MealPrep ({ isSelectedTab }) {
             ))}
 
             {/* empty space at the bottom if the keyboard is open */}
-            {isKeyboardOpen &&
+            {isKeyboardOpen && (
               <View className="flex flex-row h-[120px]"/>
-            }
+            )}
           </ScrollView>
         </View>  
       </View>
 
 
       {/* CURRENT INGREDIENT SELECTION SECTION */}
-      {selectedPrepData !== null &&
-      <View className="flex flex-row mt-[20px]">
+      {selectedPrepData !== null && (
+        <View className="flex flex-row mt-[20px]">
 
-        {/* Left Boxes */}
-        <View className="flex flex-col pr-[10px] items-center justify-center">
+          {/* Left Boxes */}
+          <View className="flex flex-col pr-[10px] items-center justify-center">
 
-          {/* Index Picker */}
-          <View className="flex z-0 w-[130px] bg-zinc700 border-0.5 border-zinc900">
-            <Picker
-              selectedValue={selectedCurrentIndex}
-              onValueChange={setSelectedCurrentIndex}
-              style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, }}
-              itemStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
-            >
-              {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]).map((item) => (
-                  <Picker.Item
-                    key={item}
-                    label={"INGREDIENT " + item}
-                    value={item}
-                  />
-                ))
-              }
-            </Picker>
+            {/* Index Picker */}
+            <View className="flex z-0 w-[130px] bg-zinc700 border-0.5 border-zinc900">
+              <Picker
+                selectedValue={selectedCurrentIndex}
+                onValueChange={setSelectedCurrentIndex}
+                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, }}
+                itemStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
+              >
+                {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]).map((item) => (
+                    <Picker.Item
+                      key={item}
+                      label={"INGREDIENT " + item}
+                      value={item}
+                    />
+                  ))
+                }
+              </Picker>
+            </View>
+            
+            {/* Option Picker */}
+            <View className="flex z-0 w-[130px] bg-theme200 border-0.5 border-theme400">
+              <Picker
+                selectedValue={selectedOption}
+                onValueChange={setSelectedOption}
+                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, }}
+                itemStyle={{ color: colors.zinc900, fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
+              >
+                {(["ALL", "REMAINING", "USED"]).map((item) => (
+                    <Picker.Item
+                      key={item}
+                      label={item}
+                      value={item}
+                    />
+                  ))
+                }
+              </Picker>
+            </View>
           </View>
           
-          {/* Option Picker */}
-          <View className="flex z-0 w-[130px] bg-theme200 border-0.5 border-theme400">
-            <Picker
-              selectedValue={selectedOption}
-              onValueChange={setSelectedOption}
-              style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, }}
-              itemStyle={{ color: colors.zinc900, fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
-            >
-              {(["ALL", "REMAINING", "USED"]).map((item) => (
-                  <Picker.Item
-                    key={item}
-                    label={item}
-                    value={item}
-                  />
-                ))
-              }
-            </Picker>
-          </View>
-        </View>
-        
-        {/* Current Ingredient Search */}
-        <View className="flex flex-row w-[45%] h-[70px] justify-center items-center">
-          {/* dropdown */}
-          <DropDownPicker 
-            open={currentDropdownOpen}
-            setOpen={setCurrentDropdownOpen}
-            value={selectedCurrentId}
-            setValue={setSelectedCurrentId}
+          {/* Current Ingredient Search */}
+          <View className="flex flex-row w-[45%] h-[70px] justify-center items-center">
+            {/* dropdown */}
+            <DropDownPicker 
+              open={currentDropdownOpen}
+              setOpen={setCurrentDropdownOpen}
+              value={selectedCurrentId}
+              setValue={setSelectedCurrentId}
 
-            items={filteredCurrentData.map((current, _, arr) => {
-              // counts occurrences of each ingredientId inline
-              const ingredientIdCounts = arr.reduce((counts, item) => {
-                counts[item.ingredientId] = (counts[item.ingredientId] || 0) + 1;
-                return counts;
-              }, {});
-              // checks if the current ingredientId appears more than once
-              const displayStoreBrand = ingredientIdCounts[current.ingredientId] > 1 && current.ingredientId !== ""
-                ? ` (${current.ingredientData[current.ingredientStore].brand !== "" ? current.ingredientData[current.ingredientStore].brand : "no brand" || ""})` 
-                : "";
-              // returns results
-              return {
-                label: current.ingredientName + displayStoreBrand,
-                value: current.id,
-                key: current.id,
-                labelStyle: { color: 'black' },
-                containerStyle: {
-                  borderBottomWidth: 0.5,
-                  borderBottomColor: colors.zinc450,
-                  backgroundColor: current.amountTotal === "" || current.amountLeft > "0" ? colors.theme200 : colors.zinc350,
-                },
-              };
-            })}
-            placeholder=""
-            style={{ height: 55, backgroundColor: colors.zinc400, borderWidth: 1, borderColor: colors.zinc500, justifyContent: 'center', }}
-            dropDownContainerStyle={{ borderLeftWidth: 1, borderRightWidth: 1, borderTopWidth: 1, borderColor: colors.zinc500, borderRadius: 0, backgroundColor: colors.zinc350 }}
-            textStyle={{ color: filteredCurrentData.length === 0 ? colors.theme200 : "black", fontWeight: 450, textAlign: 'center', fontSize: 12, }}
-            ArrowDownIconComponent={() => {
-              return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
-            }}
-            ArrowUpIconComponent={() => {
-              return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
-            }}
-          />
-        </View>
-        
-
-        {/* BUTTONS */}
-        <View className="flex ml-[10px] justify-center">
-          <View className="flex flex-col space-y-[3px] items-center rounded bg-zinc300 py-1">
-                            
-            {/* Submit */}
-            {(selectedCurrentId !== "" && selectedCurrentId !== null) &&
-            <View className="flex flex-row px-1">
-              <Icon
-                name="checkmark-circle"
-                size={18}
-                color={colors.theme900}
-                onPress={() => submitCurrent()}
-              />
-
-              <Icon
-                name="close-circle"
-                size={18}
-                color={colors.theme900}
-                onPress={() => setSelectedCurrentId(null)}
-              />
-            </View>
-            }
-
-            <View className="flex flex-row space-x-[-5px]">
-              {/* Compress */}
-              <Icon
-                name="chevron-collapse"
-                size={18}
-                color={colors.theme900}
-                onPress={() => collapseCurrents(true)}
-              />
-                
-              {/* Add Space Between */}
-              <Icon
-                name="chevron-expand"
-                size={18}
-                color={colors.theme900}
-                onPress={() => collapseCurrents(false)}
-              />
-            </View>
-
-            {/* Delete */}
-            {selectedPrepData.currentData[selectedCurrentIndex - 1] !== null &&
-            <Icon
-              name="trash"
-              size={18}
-              color={colors.theme900}
-              onPress={() => deleteCurrent()}
+              items={filteredCurrentData.map((current, _, arr) => {
+                // counts occurrences of each ingredientId inline
+                const ingredientIdCounts = arr.reduce((counts, item) => {
+                  counts[item.ingredientId] = (counts[item.ingredientId] || 0) + 1;
+                  return counts;
+                }, {});
+                // checks if the current ingredientId appears more than once
+                const displayStoreBrand = (ingredientIdCounts[current.ingredientId] > 1 && current.ingredientId !== "")
+                  ? ` (${current.ingredientData[current.ingredientStore].brand !== "" ? current.ingredientData[current.ingredientStore].brand : "no brand" || ""})` 
+                  : "";
+                // returns results
+                return {
+                  label: current.ingredientName + displayStoreBrand,
+                  value: current.id,
+                  key: current.id,
+                  labelStyle: { color: 'black' },
+                  containerStyle: {
+                    borderBottomWidth: 0.5,
+                    borderBottomColor: colors.zinc450,
+                    backgroundColor: current.amountTotal === "" || current.amountLeft > "0" ? colors.theme200 : colors.zinc350,
+                  },
+                };
+              })}
+              placeholder=""
+              style={{ height: 55, backgroundColor: colors.zinc400, borderWidth: 1, borderColor: colors.zinc500, justifyContent: 'center', }}
+              dropDownContainerStyle={{ borderLeftWidth: 1, borderRightWidth: 1, borderTopWidth: 1, borderColor: colors.zinc500, borderRadius: 0, backgroundColor: colors.zinc350 }}
+              textStyle={{ color: filteredCurrentData.length === 0 ? colors.theme200 : "black", fontWeight: 450, textAlign: 'center', fontSize: 12, }}
+              ArrowDownIconComponent={() => {
+                return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
+              }}
+              ArrowUpIconComponent={() => {
+                return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
+              }}
             />
-            }
+          </View>
+          
+
+          {/* BUTTONS */}
+          <View className="flex ml-[10px] justify-center">
+            <View className="flex flex-col space-y-[3px] items-center rounded bg-zinc300 py-1">
+                              
+              {/* Submit */}
+              {(selectedCurrentId !== "" && selectedCurrentId !== null) && (
+                <View className="flex flex-row px-1">
+                  <Icon
+                    name="checkmark-circle"
+                    size={18}
+                    color={colors.theme900}
+                    onPress={() => submitCurrent()}
+                  />
+
+                  <Icon
+                    name="close-circle"
+                    size={18}
+                    color={colors.theme900}
+                    onPress={() => setSelectedCurrentId(null)}
+                  />
+                </View>
+              )}
+
+              <View className="flex flex-row space-x-[-5px]">
+                {/* Compress */}
+                <Icon
+                  name="chevron-collapse"
+                  size={18}
+                  color={colors.theme900}
+                  onPress={() => collapseCurrents(true)}
+                />
+                  
+                {/* Add Space Between */}
+                <Icon
+                  name="chevron-expand"
+                  size={18}
+                  color={colors.theme900}
+                  onPress={() => collapseCurrents(false)}
+                />
+              </View>
+
+              {/* Delete */}
+              {(selectedPrepData.currentData[selectedCurrentIndex - 1] !== null) && (
+                <Icon
+                  name="trash"
+                  size={18}
+                  color={colors.theme900}
+                  onPress={() => deleteCurrent()}
+                />
+              )}
+            </View>
           </View>
         </View>
-      </View>
-      }
+      )}
     </View>
   );
 };

@@ -4,8 +4,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // UI components
-import { Modal, View, Text, TextInput, ScrollView, TouchableOpacity } from 'react-native';
-import DropDownPicker from 'react-native-dropdown-picker';
+import { Modal, View, Text, TextInput, ScrollView, FlatList, TouchableOpacity } from 'react-native';
 
 // visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -37,6 +36,7 @@ const ModIngredientModal = ({
   modalVisible, closeModal, cancelModal, 
   addingType, editingId, initialStore, 
   initialTypeList, initialBrandLists,
+  snapshot
 }) => {
 
   ///////////////////////////////// VARIABLES /////////////////////////////////
@@ -84,8 +84,6 @@ const ModIngredientModal = ({
 
     setStoreList(keys);
     setNameList(labels);
-
-    setCustomBrand("");
   };
 
 
@@ -174,36 +172,112 @@ const ModIngredientModal = ({
   const [brandDropdownOpen, setBrandDropdownOpen] = useState(Object.fromEntries(storeKeys.map(storeKey => [storeKey, false])));
   const [brandLists, setBrandLists] = useState(Object.fromEntries(storeKeys.map(storeKey => [storeKey, []])));
 
-  // for a custom brand
-  const [customBrand, setCustomBrand] = useState("");
+  // filtering
+  const [filteredBrandLists, setFilteredBrandLists] = useState(Object.fromEntries(storeKeys.map(storeKey => [storeKey, []])));
 
-  // when adding a custom brand
-  const addCustomBrand = () => {
+  // to filter a store's brand
+  const filterBrandList = (currStore, value) => {
+    let uniqueList = [];
     
-    if (customBrand !== "") {
-      if (!brandLists[selectedStore].some((brand) => brand.value.toLowerCase() === customBrand.toLowerCase())) {
+    // gets all of the current store's brands
+    brandLists[currStore].map(brand => {
+      uniqueList.push({
+        "value": brand.value, 
+        "bgColor": 'white', 
+        "textColor": 'black',
+        "textStyle": "font-semibold",
+      })
+    })
 
-        // new brand list
-        const updatedBrandList = [
-          ...brandLists[selectedStore],
-          { label: customBrand, value: customBrand },
-        ];
-
-        // sort, keeping "CUSTOM" at the top
-        updatedBrandList.sort((a, b) => {
-          if (a.label === "CUSTOM") return -1;
-          if (b.label === "CUSTOM") return 1;
-          return a.label.localeCompare(b.label);
-        });
-        
-        
-        setBrandLists(prev => ({ ...prev, [selectedStore]: updatedBrandList }));    // updates the items list with the new custom type
-        setBrand(prev => ({ ...prev, [selectedStore]: customBrand }));              // sets the value to the newly added custom type   
-        setCustomBrand("");                                                         // clears the custom type input field
+    // adds the unique values from the other stores
+    storeKeys.map(store => {
+      if (store !== currStore) {
+        brandLists[store].map(brand => {
+          if (!uniqueList.map(uniqueBrand => uniqueBrand.value).includes(brand.value)) {
+            uniqueList.push({
+              "value": brand.value, 
+              "bgColor": colors.zinc100,
+              "textColor": colors.zinc500,
+              "textStyle": "",
+            })
+          }
+        })
       }
-    }
-  };
+    })
 
+    // sorts the list, then filters for the keyword
+    const queryWords = value
+      .toLowerCase().split(" ").filter((word) => word.trim() !== "");
+      
+    uniqueList = uniqueList
+      .sort((a,b) => a.value.localeCompare(b.value))
+      .filter((brand) => queryWords.every((value) => brand.value.toLowerCase().includes(value)));
+      
+    // stores the values
+    setFilteredBrandLists(prev => ({ ...prev, [currStore]: uniqueList }))
+    setBrand(prev => ({ ...prev, [currStore]: value }));
+    setBrandDropdownOpen((prev) => ({ ...prev, [currStore]: true }));
+  }
+
+  // to choose a store's brand
+  const pickBrand = (currStore, value) => {
+    // sets the value and closes the dropdown
+    setBrand(prev => ({ ...prev, [currStore]: value }))
+    setBrandDropdownOpen((prev) => ({ ...prev, [currStore]: false }));
+  }
+
+
+  ///////////////////////////////// UNIT LIST /////////////////////////////////
+
+  const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
+  const [unitList, setUnitList] = useState(null);
+  const [filteredUnitList, setFilteredUnitList] = useState(null);
+
+  // to get the initial list of units
+  const fetchUnits = () => {
+    let units = [];
+
+    // maps over each ingredient and store
+    snapshot.docs.map(ingredient => {
+      storeKeys.map(store => {
+
+        // adds the unit if new
+        if (!units.includes(ingredient.data()?.ingredientData[store]?.unit) && ingredient.data()?.ingredientData[store]?.unit !== "") {
+          units.push(ingredient.data()?.ingredientData[store]?.unit);
+        }
+      })
+    })
+
+    // alphabetizes
+    units = units.sort((a,b) => a.localeCompare(b))
+
+    // stores units
+    setUnitList(units);
+    setFilteredUnitList(units);
+  }
+
+  // filters the list of units on keyword entry
+  const filterUnits = (value, store) => {
+
+    // stores the updated unit
+    setUnit((prev) => {
+      const updated = { ...prev }; 
+      updated[store] = value;
+      return updated;
+    })
+    
+    // filters by keyword
+    const queryWords = value
+      .toLowerCase().split(" ").filter((word) => word.trim() !== "");
+  
+    let units = unitList.filter((unit) =>
+      queryWords.every((word) => unit.toLowerCase().includes(word))
+    );
+
+    // stores filtering
+    setFilteredUnitList(units);
+    setUnitDropdownOpen(value !== "" && units.length !== 0);
+  }
 
   ///////////////////////////////// OPENING MODAL /////////////////////////////////
 
@@ -217,6 +291,9 @@ const ModIngredientModal = ({
   
       // dynamically sets initial brand lists
       storeKeys.forEach((storeKey) => setBrandLists(prev => ({ ...prev, [storeKey]: initialBrandLists[storeKey] })));
+
+      // sets initial unit list
+      fetchUnits();
     }
   }, [modalVisible]);
 
@@ -427,6 +504,7 @@ const ModIngredientModal = ({
           {/* Divider */}
           <View className="h-[1px] bg-zinc400 mb-4"/>
 
+          {/* header */}
           <View className="flex flex-row justify-evenly content-center mb-4 h-[100px]">
 
             {/* Ingredient Name */}
@@ -498,24 +576,24 @@ const ModIngredientModal = ({
                   >
                   {typeList.map((type, index) => (
                     <View key={type.label}>
-                    {/* maps each tag that isn't 'CUSTOM' */}
-                    {type.label !== "CUSTOM" &&
-                      <View className={`flex flex-row w-full items-center px-1 py-1 border-b-0.5 space-x-1
-                        ${index % 2 === 0 && ingredientTypes.includes(type.label) ? "bg-theme400" : ingredientTypes.includes(type.label) ? "bg-theme300" : index % 2 !== 0 ? "bg-zinc350" : "bg-zinc400"}`}
-                      >
-                        {/* add or remove button */}
-                        <Icon
-                          name={ingredientTypes.includes(type.label) ? "close-outline" : "add"}
-                          color="black"
-                          size={14}
-                          onPress={() => toggleType(type.label, typeList)}
-                        />
-                        {/* name */}
-                        <Text className="text-black w-full font-medium text-[12px] pr-4">
-                          {type.label}
-                        </Text>
-                      </View>
-                    }
+                      {/* maps each tag that isn't 'CUSTOM' */}
+                      {(type.label !== "CUSTOM") && (
+                        <View className={`flex flex-row w-full items-center px-1 py-1 border-b-0.5 space-x-1
+                          ${(index % 2 === 0 && ingredientTypes.includes(type.label)) ? "bg-theme400" : ingredientTypes.includes(type.label) ? "bg-theme300" : index % 2 !== 0 ? "bg-zinc350" : "bg-zinc400"}`}
+                        >
+                          {/* add or remove button */}
+                          <Icon
+                            name={ingredientTypes.includes(type.label) ? "close-outline" : "add"}
+                            color="black"
+                            size={14}
+                            onPress={() => toggleType(type.label, typeList)}
+                          />
+                          {/* name */}
+                          <Text className="text-black w-full font-medium text-[12px] pr-4">
+                            {type.label}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   ))}
                   </ScrollView>
@@ -533,7 +611,7 @@ const ModIngredientModal = ({
               <View className="flex flex-row h-[30px] w-full justify-center items-center mb-3">
 
                 {/* clear button for filled in stores */}
-                {(brand[store] !== "" || link[store] !== "" || servingSize[store] !== "" || unit[store] !== "" || servingContainer[store] !== "" || calServing[store] !== "" || priceContainer[store] !== "") &&
+                {(brand[store] !== "" || link[store] !== "" || servingSize[store] !== "" || unit[store] !== "" || servingContainer[store] !== "" || calServing[store] !== "" || priceContainer[store] !== "") && (
                   <View className="absolute left-3 flex justify-center items-center border-2 border-theme100 rounded-full">
                     <Icon
                       name="ban"
@@ -542,7 +620,7 @@ const ModIngredientModal = ({
                       onPress={() => clearStoreData(store)}
                     />
                   </View>
-                }
+                )}
 
                 {/* store name */}
                 <Text
@@ -566,120 +644,104 @@ const ModIngredientModal = ({
                       return updated;
                     })
                   }}
-                  onFocus={() => setLinkStore(store)}
+                  onFocus={() => {
+                    setLinkStore(store); 
+                    if (selectedStore !== store) { toggleStoreSection(store) }
+                  }}
                   onBlur={() => setLinkStore("")}
                 />
 
                 {/* Button to clear the current store's link */}
-                {linkStore === store &&
-                <View className="absolute -right-2.5">
-                  <Icon
-                    name="close"
-                    size={15}
-                    color={colors.zinc450}
-                    onPress={() => {
-                      setLink((prev) => {
-                        const updated = { ...prev }; 
-                        updated[store] = "";
-                        return updated;
-                      })
-                    }}
-                  />
-                </View>
-                }
+                {(linkStore === store) && (
+                  <View className="absolute -right-2.5">
+                    <Icon
+                      name="close"
+                      size={15}
+                      color={colors.zinc450}
+                      onPress={() => {
+                        setLink((prev) => {
+                          const updated = { ...prev }; 
+                          updated[store] = "";
+                          return updated;
+                        })
+                      }}
+                    />
+                  </View>
+                )}
               </View>
               
               {/* details */}
               <View className="z-40">
-                {selectedStore === store && (
+                {(selectedStore === store) && (
                   <>
-                    {/* BRAND DROPDOWN */}
-                    <View className={`${brand[store] !== 'CUSTOM' ? "flex justify-center mb-4" : "flex flex-row w-full justify-evenly mb-4"}`}>
-                      {/* Dropdown Picker */}
-                      <View className={`${brand[store] === 'CUSTOM' ? "w-1/2" : "w-full"} z-40`}>
-                        <DropDownPicker
-                          open={brandDropdownOpen[store]}
-                          setOpen={(open) => setBrandDropdownOpen((prev) => ({ ...prev, [store]: open }))}
+                    {/* BRAND INPUT */}
+                    <View className="flex flex-row mb-5">
+
+                      {/* Custom Input */}
+                      <View className="flex flex-row">
+                        <TextInput
                           value={brand[store]}
-                          setValue={(valueOrFn) => {
-                            const value = typeof valueOrFn === 'function' ? valueOrFn(brand[store]) : valueOrFn;
-                            setBrand(prev => ({ ...prev, [store]: value }));
-                          }}
-                          items={brandLists[store]?.length === 0 ? [{ label: "", value: "no_data", disabled: true }] : brandLists[store]}
-                          setItems={(items) => setBrandLists(prev => ({ ...prev, [store]: items }))}
-                          placeholder="Select Brand"
-                          style={{ backgroundColor: colors.theme200, borderWidth: 1, borderColor: colors.zinc400}}
-                          dropDownContainerStyle={{ backgroundColor: 'white', borderWidth: 0.5, borderColor: colors.zinc400}}
-                          listItemContainerStyle={{ borderBottomWidth: 1, borderBottomColor: colors.zinc200, }}
-                          textStyle={{ color: 'black', textAlign: 'center', }}
-                          TickIconComponent={() => brand[store] !== 'CUSTOM' && <Icon name="checkmark" size={18} color="black" /> }
+                          onChangeText={(value) => filterBrandList(store, value)}
+                          placeholder="brand"
+                          placeholderTextColor={colors.zinc500}
+                          className={`flex w-full h-[45px] bg-theme200 border-[1px] border-zinc400 text-[14px] text-center leading-[17px] ${filteredBrandLists[store].map(brand => brand.value).includes(brand[store]) ? "text-mauve800" : "text-black"} ${(brand[store] === "") && "italic"} ${brandDropdownOpen[store] ? "rounded-t-[5px] border-b-0" : "rounded-[5px]"}`}
+                          onFocus={() => setBrandDropdownOpen((prev) => ({ ...prev, [store]: true }))}
                         />
+                      </View>
+                                    
+                      {/* Toggle Dropdown Button */}
+                      <View className="absolute items-center right-2 h-[45px] justify-center">
+                        <Icon
+                          name={brandDropdownOpen[store] ? "chevron-up-outline" : "chevron-down-outline"}
+                          size={20}
+                          color={colors.zinc700}
+                          onPress={() => {
+                            if (brandDropdownOpen[store]) { setBrandDropdownOpen((prev) => ({ ...prev, [store]: false })); }
+                            else { filterBrandList(store, brand[store]) }
+                          }}
+                        />
+                      </View>
                         
-                        {/* Button to clear the current store's brand */}
-                        {brandDropdownOpen[store] &&
+                      {/* Clearing Brand */}
+                      {brandDropdownOpen[store] && (
                         <View className="absolute -right-4 justify-center h-full">
                           <Icon
                             name="close"
                             size={15}
                             color={colors.zinc450}
-                            onPress={() => setBrand(prev => ({ ...prev, [store]: "" })) }
+                            onPress={() => {setBrand(prev => ({ ...prev, [store]: "" })); setBrandDropdownOpen((prev) => ({ ...prev, [store]: false }))} }
                           />
                         </View>
-                        }
-                      </View>
+                      )}
+                    
+                      {/* Brand Dropdown */}
+                      {(brandDropdownOpen[store] && filteredBrandLists[store].length > 0) && (
+                        <View className="flex w-full absolute top-[100%] border border-zinc400 bg-white z-50">
+                          <ScrollView className="max-h-[170px]">
+                            {filteredBrandLists[store].map((item, index) => (
+                              <TouchableOpacity
+                                key={index}
+                                className="flex flex-row justify-center items-center p-2.5 border-b-[1px] border-zinc300"
+                                style={{ backgroundColor: item.bgColor }}
+                                onPress={() => pickBrand(store, item.value)}
+                              >
+                                <Text className="w-full text-center pl-[35px] mr-[35px]" style={{ color: item.textColor, fontWeight: item.textStyle }}>
+                                  {item.value}
+                                </Text>
 
-                      {/* Frozen Custom Selection */}
-                      {brandDropdownOpen[store] &&
-                        <TouchableOpacity
-                          className={`flex flex-row justify-center items-center absolute top-10 mt-[9.5px] border-x-[0.5px] border-x-zinc400 border-b-[1px] border-b-zinc200 ${brand[store] !== 'CUSTOM' ? "w-full" : "w-1/2"} h-[40px] z-50 bg-zinc100`}
-                          onPress={() => {
-                            setBrand(prev => ({ ...prev, [store]: 'CUSTOM' }));
-                            setBrandDropdownOpen(false);
-                          }}
-                        >
-                          <Text className="text-theme500 italic">
-                            CUSTOM
-                          </Text>
-                        </TouchableOpacity>
-                      }
-
-                      {/* Custom Brand Input */}
-                      {brand[store] === 'CUSTOM' && (
-                        <>
-                          <View className="flex flex-row justify-between w-full h-[50px]">
-
-                            {/* Inputing a new brand */}
-                            <View className="flex bg-white border-0.5 border-zinc500 rounded-md py-1 px-2 ml-2 w-2/5 h-full z-10 justify-center items-center">
-                              <TextInput
-                                className="w-full text-center pb-1 text-[14px] leading-[17px]"
-                                placeholder="Custom Brand"
-                                placeholderTextColor={colors.zinc400}
-                                value={customBrand}
-                                onChangeText={setCustomBrand}
-                                multiline={true}
-                                blurOnSubmit={true}
-                              />
-                            </View>
-
-                            {/* Buttons*/}
-                            <View className="w-1/2 absolute left-0 flex h-full justify-center items-end z-0">
-                              {/* submit custom */}
-                              <Icon
-                                size={18}
-                                name={'add'}
-                                color={colors.zinc700}
-                                onPress={addCustomBrand}
-                              />
-                              {/* cancel custom */}
-                              <Icon
-                                size={18}
-                                name={'close-outline'}
-                                color={colors.zinc700}
-                                onPress={() => setBrand(prev => ({ ...prev, [store]: "" }))}
-                              />
-                            </View>
-                          </View>
-                        </>
+                                {(item.value === brand[store]) && (
+                                  <View className="absolute right-2">
+                                    <Icon
+                                      name="checkmark"
+                                      size={20}
+                                      color={colors.theme700}
+                                    />
+                                  </View>
+                                )}
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                        </View>
                       )}
                     </View>
 
@@ -712,19 +774,57 @@ const ModIngredientModal = ({
                           />
 
                           {/* Units */}
-                          <TextInput
-                            className="p-1 flex-auto text-left text-[14px] leading-[17px]"
-                            placeholder="unit(s)"
-                            placeholderTextColor={colors.zinc400}
-                            value={unit[store]}
-                            onChangeText={(value) => {
-                              setUnit((prev) => {
-                                const updated = { ...prev }; 
-                                updated[store] = value;
-                                return updated;
-                              })
-                            }}
-                          />
+                          <View className="p-1 flex-auto relative mr-[-16.5px]">
+                            <TextInput
+                              className="text-left text-[14px] leading-[17px] mr-[16.5px]"
+                              placeholder="unit(s)"
+                              placeholderTextColor={colors.zinc400}
+                              value={unit[store]}
+                              onChangeText={(value) => filterUnits(value, store)}
+                              onBlur={() => setUnitDropdownOpen(false)}
+                            />
+
+                            {/* dropdown */}
+                            {unitDropdownOpen && (
+                              <FlatList
+                                className="absolute top-[100%] mt-2 max-h-[50px] w-full border bg-zinc100 border-zinc400 ml-[-0.5px] z-50"
+                                data={filteredUnitList}
+                                keyExtractor={(_, index) => index.toString()}
+                                renderItem={({ item: unit, index }) => (
+                                  <TouchableOpacity
+                                    className="bg-zinc100 border-b-0.5 border-zinc350 p-1"
+                                    onPress={() => {
+                                      setUnitDropdownOpen(false);
+                                      setUnit((prev) => {
+                                        const updated = { ...prev }; 
+                                        updated[store] = unit;
+                                        return updated;
+                                      })
+                                    }}
+                                  >
+                                    <Text 
+                                      className="text-[12px] italic text-zinc600"
+                                      numberOfLines={1}
+                                    >
+                                      {unit}
+                                    </Text>
+                                  </TouchableOpacity>
+                                )}
+                              />
+                            )}
+                          </View>
+
+                          {/* Button to close the dropdown */}
+                          {unitDropdownOpen && (
+                            <View className="absolute -right-5">
+                              <Icon
+                                name="chevron-up-outline"
+                                size={15}
+                                color={colors.zinc450}
+                                onPress={() => setUnitDropdownOpen(false)}
+                              />
+                            </View>
+                          )}
                         </View>
                       </View>
 

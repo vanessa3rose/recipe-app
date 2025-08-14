@@ -59,7 +59,7 @@ const MealOverviewModal = ({
             <View className="flex justify-center items-center border-2 border-theme500 mx-5">
               {Array.from({ length: 12 }, (_, index) => (
                 <View key={`frozen-${index}`}>
-                  {data?.currentData[index]?.ingredientId !== undefined && 
+                  {(data?.currentData[index]?.ingredientId !== undefined) && (
                     <View className="flex flex-row w-full min-h-[30px] bg-white border-b-[1px] border-zinc200">
                       {/* BULLET */}
                       <Text className="flex justify-center w-1/12 py-[7px] text-black font-semibold text-[12px] text-right">
@@ -80,7 +80,7 @@ const MealOverviewModal = ({
                         />
                       </View>
                     </View>
-                  }
+                  )}
                 </View>
               ))}
             </View>

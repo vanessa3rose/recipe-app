@@ -1132,10 +1132,18 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   const [gotoMealDate, setGotoMealDate] = useState(null);
 
   // to close the meal search modal
-  const closeSearchModal = (selectedMeal, selectedDate) => {
-    
+  const closeSearchModal = async (selectedMeal, selectedDate) => {
+
+    // reloads data
+    getCollectionPlans();
+      
+    // gets all weekly plan data
+    const snapshot = await getDocs(collection(db, 'PLANS'));
+    setPlansSnapshot(snapshot);
+
     // unshows the modal
     setMealSearchModalVisible(false);
+    setSnackSearchModalVisible(false);
     
     // if the selected date is valid
     if (selectedDate) {
@@ -1161,7 +1169,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     // creates a date string
     const date = formatDateShort(new Date(weekRange[index]));
     const dispDate = formatDateMed2(new Date(weekRange[index]));
-
+    
     // opens the modal and stores data if there is data
     setSnackModalDate(date);
     setSnackModalDispDate(dispDate);
@@ -1213,11 +1221,11 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         <View className="flex flex-row justify-center items-center bg-theme200 rounded-r-lg w-1/2 h-[35px] space-x-3">
           
           {/* Week Range Display */}
-          {weekRange.indexOf("") === -1 &&
-          <Text className="text-black text-[16px]">
-            {`${formatDateShort(new Date(weekRange[0]))} - ${formatDateShort(new Date(weekRange[6]))}`}
-          </Text>
-          }
+          {(weekRange.indexOf("") === -1) && (
+            <Text className="text-black text-[16px]">
+              {`${formatDateShort(new Date(weekRange[0]))} - ${formatDateShort(new Date(weekRange[6]))}`}
+            </Text>
+          )}
 
           {/* Calendar Button */}
           <TouchableOpacity
@@ -1320,24 +1328,24 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       </View>
 
       {/* SEARCH MODAL */}
-      {snackSearchModalVisible && 
+      {snackSearchModalVisible && (
         <SnackSearchModal
           snapshot={plansSnapshot}
           modalVisible={snackSearchModalVisible}
           setModalVisible={setSnackSearchModalVisible}
           closeModal={closeSearchModal}
         />
-      }
+      )}
 
       {/* SEARCH MODAL */}
-      {mealSearchModalVisible && 
+      {mealSearchModalVisible && (
         <MealSearchModal
           snapshot={plansSnapshot}
           modalVisible={mealSearchModalVisible}
           setModalVisible={setMealSearchModalVisible}
           closeModal={closeSearchModal}
         />
-      }
+      )}
 
 
       {/* GRID */}
@@ -1352,7 +1360,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
             >
 
               {/* Date Display */}
-              <View className={`flex flex-col justify-center items-center w-[24%] h-full ${weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA') ? "bg-zinc700" : "bg-theme900"}`}>
+              <View className={`flex flex-col justify-center items-center w-[24%] h-full ${(weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA')) ? "bg-zinc700" : "bg-theme900"}`}>
                 
                 {/* day of the week */}
                 <Text className="text-white text-[12px] font-bold">
@@ -1360,16 +1368,16 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                 </Text>
 
                 {/* date */}
-                {(weekRange.indexOf("") === -1) &&
-                <Text className="text-white text-[12px]">
-                  {formatDateLong(new Date(weekRange[index]))}
-                </Text>
-                }
+                {(weekRange.indexOf("") === -1) && (
+                  <Text className="text-white text-[12px]">
+                    {formatDateLong(new Date(weekRange[index]))}
+                  </Text>
+                )}
               </View>
 
 
               {/* Selection */}
-              <View className={`flex flex-col h-full w-[6%] justify-around items-center px-1 ${weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA') ? "bg-zinc600" : "bg-theme800"}`}>
+              <View className={`flex flex-col h-full w-[6%] justify-around items-center px-1 ${(weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA')) ? "bg-zinc600" : "bg-theme800"}`}>
                 {/* lunch */}
                 <Icon
                   name={selectedList.map(item => item.meal).includes("LUNCH " + weekRange[index]) ? "radio-button-on" : "radio-button-off"}
@@ -1398,7 +1406,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                   activeOpacity={0.6}
                   className="flex flex-row bg-zinc350 w-full justify-center items-center h-1/2 px-1"
                 >
-                  <Text className={`text-[11px] font-bold text-center ${(gotoMealDate?.meal === "LUNCH" && gotoMealDate?.date?.dateString === data?.date) ? "text-pink-800" : (data?.meals?.lunch?.prepId === selectedPrepId) ? "text-theme700" : "text-black"}`}>
+                  <Text className={`text-[11px] font-bold text-center ${(gotoMealDate?.meal === "LUNCH" && gotoMealDate?.date?.dateString === data?.date) ? "text-pink-800" : (data?.meals?.lunch?.prepId === selectedPrepId) ? "text-theme700" : (data?.meals?.lunch?.prepData?.prepPrice === "0.00" && data?.meals?.lunch?.prepData?.prepCal === "0") ? "text-zinc500 italic": "text-black"}`}>
                     {data?.meals?.lunch?.prepData?.prepName ?? ""}
                   </Text>
                 </TouchableOpacity>
@@ -1409,22 +1417,22 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                   activeOpacity={0.6}
                   className="bg-zinc400 w-full justify-center items-center h-1/2 px-1"
                 >
-                  <Text className={`text-[11px] font-bold text-center ${(gotoMealDate?.meal === "DINNER" && gotoMealDate?.date?.dateString === data?.date) ? "text-pink-800" : (data?.meals?.dinner?.prepId === selectedPrepId) ? "text-theme800" : "text-black"}`}>
+                  <Text className={`text-[11px] font-bold text-center ${(gotoMealDate?.meal === "DINNER" && gotoMealDate?.date?.dateString === data?.date) ? "text-pink-800" : (data?.meals?.dinner?.prepId === selectedPrepId) ? "text-theme800" : (data?.meals?.dinner?.prepData?.prepPrice === "0.00" && data?.meals?.dinner?.prepData?.prepCal === "0") ? "text-zinc600 italic": "text-black"}`}>
                     {data?.meals?.dinner?.prepData?.prepName ?? ""}
                   </Text>
                 </TouchableOpacity>
 
                 {/* Modal to Display a Prep Overview */}
-                {prepModalVisible && 
+                {prepModalVisible && (
                   <MealOverviewModal
                     data={prepModalData}
                     modalVisible={prepModalVisible}
                     setModalVisible={setPrepModalVisible}
                   />
-                }
+                )}
 
                 {/* Modal to Display a Specific Meal */}
-                {mealModalVisible && 
+                {mealModalVisible && (
                   <MealDetailsModal
                     date={mealModalDate}
                     dispDate={mealModalDispDate}
@@ -1436,7 +1444,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                     setModalVisible={setMealModalVisible}
                     closeModal={closeEditingModal}
                   />
-                }
+                )}
               </View>
 
               {/* Checkboxes */}
@@ -1466,79 +1474,57 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
               {/* Details */}
               <TouchableOpacity 
-                className={`w-1/6 justify-center items-center h-full space-y-1 border-l-0.5 border-black ${weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA') ? "bg-zinc500" : "bg-theme600"}`}
+                className={`w-1/6 justify-center items-center h-full space-y-1 border-l-0.5 border-black ${(weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA')) ? "bg-zinc500" : "bg-theme600"}`}
                 activeOpacity={0.8}
                 onPress={() => displaySnack(index, data?.snacks)}
               >
                 
                 {/* calories */}
                 <Text className="text-white text-[12px]">
-                  { // if both meals' prepCal and snackCal are valid (not NaN)
-                  !(isNaN((new Fractional(data?.meals?.lunch?.prepData?.prepCal)).numerator) && isNaN((new Fractional(data?.meals?.lunch?.prepData?.prepCal)).denominator)
-                  && isNaN((new Fractional(data?.meals?.dinner?.prepData?.prepCal)).numerator) && isNaN((new Fractional(data?.meals?.dinner?.prepData?.prepCal)).denominator)
-                  && isNaN((new Fractional(data?.snacks?.snackCal)).numerator) && isNaN((new Fractional(data?.snacks?.snackCal)).denominator))
-                  ? // case 1: only lunch prepCal is valid - only show lunch prepCal
-                    data?.meals?.lunch?.prepData?.prepCal && !data?.meals?.dinner?.prepData?.prepCal && !data?.snacks?.snackCal ? data?.meals?.lunch?.prepData?.prepCal
-                  : // case 2: only dinner prepCal is valid - only show dinner prepCal
-                    !data?.meals?.lunch?.prepData?.prepCal && data?.meals?.dinner?.prepData?.prepCal && !data?.snacks?.snackCal ? data?.meals?.dinner?.prepData?.prepCal
-                  : // case 3: only snackCal is valid - only show snackCal
-                    !data?.meals?.lunch?.prepData?.prepCal && !data?.meals?.dinner?.prepData?.prepCal && data?.snacks?.snackCal ? data?.snacks?.snackCal
-                  : // case 4: both prepCal are valid - add both
-                    data?.meals?.lunch?.prepData?.prepCal && data?.meals?.dinner?.prepData?.prepCal && !data?.snacks?.snackCal ?
-                    ((new Fractional(data?.meals?.lunch?.prepData?.prepCal).add(new Fractional(data?.meals?.dinner?.prepData?.prepCal))).numerator 
-                      / (new Fractional(data?.meals?.lunch?.prepData?.prepCal).add(new Fractional(data?.meals?.dinner?.prepData?.prepCal))).denominator)
-                      .toFixed(0)
-                  : // case 5: lunch prepCal and snackCal are valid - add both
-                    data?.meals?.lunch?.prepData?.prepCal && !data?.meals?.dinner?.prepData?.prepCal && data?.snacks?.snackCal ?
-                    ((new Fractional(data?.meals?.lunch?.prepData?.prepCal).add(new Fractional(data?.snacks?.snackCal))).numerator 
-                      / (new Fractional(data?.meals?.lunch?.prepData?.prepCal).add(new Fractional(data?.snacks?.snackCal))).denominator)
-                      .toFixed(0)
-                  : // case 6: dinner prepCal and snackCal are valid - add both
-                    !data?.meals?.lunch?.prepData?.prepCal && data?.meals?.dinner?.prepData?.prepCal && data?.snacks?.snackCal ?
-                    ((new Fractional(data?.snacks?.snackCal).add(new Fractional(data?.meals?.dinner?.prepData?.prepCal))).numerator 
-                      / (new Fractional(data?.snacks?.snackCal).add(new Fractional(data?.meals?.dinner?.prepData?.prepCal))).denominator)
-                      .toFixed(0)
-                  : // case 7: both prepCal and snackCal are valid - add both
-                    ((new Fractional(data?.meals?.lunch?.prepData?.prepCal).add(new Fractional(data?.meals?.dinner?.prepData?.prepCal)).add(new Fractional(data?.snacks?.snackCal))).numerator 
-                      / (new Fractional(data?.meals?.lunch?.prepData?.prepCal).add(new Fractional(data?.meals?.dinner?.prepData?.prepCal)).add(new Fractional(data?.snacks?.snackCal))).denominator)
-                      .toFixed(0)
-                  ?? // otherwise, 0
-                    "0" : "0"
-                  } {"cal"}
+                  {
+                    (() => {
+                      const lunch = new Fractional(data?.meals?.lunch?.prepData?.prepCal || 0);
+                      const dinner = new Fractional(data?.meals?.dinner?.prepData?.prepCal || 0);
+                      const snack = new Fractional(data?.snacks?.snackCal || 0);
+
+                      const total = lunch.add(dinner).add(snack);
+                      const value = (total).numerator / total.denominator;
+
+                      return isNaN(value) ? "0" : value.toFixed(0);
+                    })()
+                  }{" cal"}
                 </Text>
 
                 {/* price */}
                 <Text className="text-white text-[12px]">
-                  {"$"}
-                  { // if both meals' prepPrice are valid (not NaN)
-                    !(isNaN((new Fractional(data?.meals?.lunch?.prepData?.prepPrice)).numerator) && isNaN((new Fractional(data?.meals?.lunch?.prepData?.prepPrice)).denominator)
-                    && isNaN((new Fractional(data?.meals?.dinner?.prepData?.prepPrice)).numerator) && isNaN((new Fractional(data?.meals?.dinner?.prepData?.prepPrice)).denominator)) 
-                    ? // case 1: only lunch prepPrice is valid - only show lunch prepPrice
-                      data?.meals?.lunch?.prepData?.prepPrice && !data?.meals?.dinner?.prepData ? data?.meals?.lunch?.prepData?.prepPrice
-                    : // case 2: only dinner prepPrice is valid - only show dinner prepPrice
-                      !data?.meals?.lunch?.prepData?.prepPrice && data?.meals?.dinner?.prepData ? data?.meals?.dinner?.prepData?.prepPrice
-                    : // case 3: both prepCal are valid - add both
-                    ((new Fractional(data?.meals?.lunch?.prepData?.prepPrice).add(new Fractional(data?.meals?.dinner?.prepData?.prepPrice))).numerator 
-                      / (new Fractional(data?.meals?.lunch?.prepData?.prepPrice).add(new Fractional(data?.meals?.dinner?.prepData?.prepPrice))).denominator)
-                      .toFixed(2)
-                    ?? // otherwise, 0
-                      "0.00" : "0.00"}
+                  {"$"}{
+                    (() => {
+                      const lunch = new Fractional(data?.meals?.lunch?.prepData?.prepPrice || 0);
+                      const dinner = new Fractional(data?.meals?.dinner?.prepData?.prepPrice || 0);
+                      const snack = new Fractional(data?.snacks?.snackPrice || 0);
+
+                      const total = lunch.add(dinner).add(snack);
+                      const value = total.numerator / total.denominator;
+
+                      return isNaN(value) ? "0.00" : value.toFixed(2);
+                    })()
+                  }
                 </Text>
               </TouchableOpacity>
               
               {/* Snack Indicator */}
-              {weekData[index]?.snacks && weekData[index]?.snacks?.snackData !== null &&
-              <View className="absolute right-0.5 bottom-0.5">
-                <Icon
-                  name={"nutrition"}
-                  color={gotoMealDate?.date?.dateString === data?.date ? colors.mauve100 : weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA') ? colors.zinc350 : colors.theme300}
-                  size={12}
-                />
-              </View>
-              }
+              {(weekData[index]?.snacks && weekData[index]?.snacks?.snackData !== null) && (
+                <View className="absolute right-0.5 bottom-0.5">
+                  <Icon
+                    name={"nutrition"}
+                    color={(gotoMealDate?.date?.dateString === data?.date) ? colors.mauve100 : (weekRange[index] && today.dateString === weekRange[index].toLocaleDateString('en-CA')) ? colors.zinc350 : colors.theme300}
+                    size={12}
+                  />
+                </View>
+              )}
 
               {/* Modal to Display a Specific Snack */}
-              {snackListModalVisible && 
+              {snackListModalVisible && (
                 <SnackListModal
                   date={snackModalDate}
                   dispDate={snackModalDispDate}
@@ -1548,7 +1534,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                   setModalVisible={setSnackListModalVisible}
                   closeModal={closeSnackModal}
                 />
-              }
+              )}
             </View>
           ))}
         </View>
@@ -1556,7 +1542,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
 
       {/* WARNING MODAL */}
-      {warningModalVisible &&
+      {warningModalVisible && (
         <RadioWarningModal
           prepName={warningModalType === "LUNCH" ? warningModalDocSnap.data().meals.lunch.prepData.prepName : warningModalDocSnap.data().meals.dinner.prepData.prepName}
           prepDate={(warningModalType === "LUNCH" ? "Lunch " : "Dinner ") + formatDateShort(weekRange[warningModalIndex])}
@@ -1564,51 +1550,51 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           closeModal={closeWarningModal}
           submitModal={submitWarningModal}
         />
-      }
+      )}
 
 
       {/* MEAL PREP SELECTION SECTION */}
       <View className="flex flex-row justify-center items-center h-[50px]">
 
         {/* Buttons */}
-        {(isLunchChecked.indexOf(true) !== -1 || isDinnerChecked.indexOf(true) !== -1) &&
-        <View className="flex flex-col bg-zinc300 py-1 px-1 mr-2 rounded">    
+        {(isLunchChecked.indexOf(true) !== -1 || isDinnerChecked.indexOf(true) !== -1) && (
+          <View className="flex flex-col bg-zinc300 py-1 px-1 mr-2 rounded">    
 
-          {/* Submit */}
-          {(selectedPrepId !== null && selectedPrepId !== "") &&
-          <Icon
-            name="checkmark-circle"
-            size={20}
-            color={colors.theme600}
-            onPress={() => submitCheckedPrep()}
-          />
-          }
+            {/* Submit */}
+            {(selectedPrepId !== null && selectedPrepId !== "") && (
+              <Icon
+                name="checkmark-circle"
+                size={20}
+                color={colors.theme600}
+                onPress={() => submitCheckedPrep()}
+              />
+            )}
 
-          {/* Swap */}
-          {isLunchChecked.filter(value => value === true).length + isDinnerChecked.filter(value => value === true).length === 2 &&
+            {/* Swap */}
+            {(isLunchChecked.filter(value => value === true).length + isDinnerChecked.filter(value => value === true).length === 2) && (
+              <Icon
+                name="sync-circle"
+                size={20}
+                color={colors.theme600}
+                onPress={() => swapCheckedPrep()}
+              />
+            )}
+
+            {/* Clear */}
             <Icon
-              name="sync-circle"
+              name="close-circle"
               size={20}
               color={colors.theme600}
-              onPress={() => swapCheckedPrep()}
+              onPress={() => clearCheckedPrep()}
             />
-          }
-
-          {/* Clear */}
-          <Icon
-            name="close-circle"
-            size={20}
-            color={colors.theme600}
-            onPress={() => clearCheckedPrep()}
-          />
-        </View>
-        }
+          </View>
+        )}
 
         {/* Meal Prep Search */}
         <View className="flex flex-col w-1/2 h-[70px] space-y-1 justify-center items-center">
         
         {/* dropdown */}
-        {dropdownItems.length > 0 &&
+        {(dropdownItems.length > 0) && (
           <DropDownPicker 
             open={prepDropdownOpen}
             setOpen={setPrepDropdownOpen}
@@ -1640,47 +1626,47 @@ export default function WeeklyPlan ({ isSelectedTab }) {
               return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
             }}
           />
-        }
+        )}
         </View>
 
 
         {/* Amounts Section */}
-        {(selectedPrepId !== null && selectedPrepId !== "") &&
-        <TouchableOpacity
-          className="flex flex-col justify-evenly items-left pl-2 ml-3 w-[27.5%] h-[45px] bg-theme700 rounded border-[1.5px] border-theme900"
-          onPress={() => displayPrep(selectedPrepId)}
-        >
-          
-          {/* available */}
-          <Text className="text-white text-[11px] font-bold italic">
-            {"AVAILABLE: "}{selectedPrepId !== null ? currAvailable : "0"}
-          </Text>
+        {(selectedPrepId !== null && selectedPrepId !== "") && (
+          <TouchableOpacity
+            className="flex flex-col justify-evenly items-left pl-2 ml-3 w-[27.5%] h-[45px] bg-theme700 rounded border-[1.5px] border-theme900"
+            onPress={() => displayPrep(selectedPrepId)}
+          >
+            
+            {/* available */}
+            <Text className="text-white text-[11px] font-bold italic">
+              {"AVAILABLE: "}{selectedPrepId !== null ? currAvailable : "0"}
+            </Text>
 
-          {/* remaining */}
-          <Text className="text-white text-[11px] font-bold italic">
-            {"REMAINING: "}{selectedPrepId !== null ? currRemaining : "0"}
-          </Text>
+            {/* remaining */}
+            <Text className="text-white text-[11px] font-bold italic">
+              {"REMAINING: "}{selectedPrepId !== null ? currRemaining : "0"}
+            </Text>
 
-          {/* 'x' button - to clear selection */}
-          <View className="absolute top-0 right-0">
-            <Icon
-              name="close"
-              size={16}
-              color="white"
-              onPress={() => {
-                setSelectedPrepId("");
-                setCurrAvailable(0);
-                setCurrRemaining(0);
-              }}
-            />
-          </View>
-        </TouchableOpacity>
-        }
+            {/* 'x' button - to clear selection */}
+            <View className="absolute top-0 right-0">
+              <Icon
+                name="close"
+                size={16}
+                color="white"
+                onPress={() => {
+                  setSelectedPrepId("");
+                  setCurrAvailable(0);
+                  setCurrRemaining(0);
+                }}
+              />
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* Selected Checkbox */}
         {(selectedPrepId !== null && selectedPrepId !== "" 
           && weekData.filter(data => data?.meals?.lunch?.prepId === selectedPrepId).length + weekData.filter(data => data?.meals?.dinner?.prepId === selectedPrepId).length !== 0) 
-        &&
+        && (
           <View className="flex pl-1">
             <Icon
               name="checkbox"
@@ -1689,7 +1675,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
               onPress={() => checkCurrent()}
             />
           </View>
-        }
+        )}
       </View>
     </View>
   );

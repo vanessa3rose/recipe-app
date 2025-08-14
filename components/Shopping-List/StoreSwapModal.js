@@ -47,7 +47,7 @@ const StoreSwapModal = ({
     let ingredients = [];
 
     // loops over the spotlights to populate a current ingredient list
-    spotlightsSnapshot.docs.map((spotlight, index) => {
+    spotlightsSnapshot.docs.map((spotlight) => {
       spotlight.data().ingredientIds.map((id, idx) => {
 
         const ingredientIndex = ingredients.map((ingredient) => ingredient.id).indexOf(id);
@@ -234,11 +234,11 @@ const StoreSwapModal = ({
                   className={`flex flex-col w-full bg-white`}
                 >
                   {/* separation for selected */}
-                  {(showSpotlightIndex === index && index !== 0) &&
+                  {(showSpotlightIndex === index && index !== 0) && (
                     <View className="w-full h-[14px] bg-zinc200"/>
-                  }
+                  )}
 
-                  <View className={`flex flex-row justify-around items-center border-zinc700 border-x-2 ${showSpotlightIndex - 1 === index && "border-b-2"} ${index !== -0 && "border-t-[1.5px]"}`}>
+                  <View className={`flex flex-row justify-around items-center border-zinc700 border-x-2 ${(showSpotlightIndex - 1 === index) && "border-b-2"} ${(index !== -0) && "border-t-[1.5px]"}`}>
 
                     {/* Store Selector */}
                     <View className={`justify-center items-center w-[30px] h-[45px] z-10 ${ingredient.list.length === 1 ? "bg-zinc350" : ingredient.store !== originalList[index].store ? "bg-mauve200" : "bg-theme300"}`}>
@@ -269,8 +269,8 @@ const StoreSwapModal = ({
                   </View>
 
                   {/* Spotlight List */}
-                  {showSpotlightIndex === index &&
-                    <View className={`bg-zinc450 space-y-1 py-2 border-zinc700 border-t-[1px] border-x-2 ${index !== ingredientList.length - 1 && "border-b-2"}`}>
+                  {(showSpotlightIndex === index) && (
+                    <View className={`bg-zinc450 space-y-1 py-2 border-zinc700 border-t-[1px] border-x-2 ${(index !== ingredientList.length - 1) && "border-b-2"}`}>
                       {spotlightLists[index].map((spotlight, idx) => (
                         <View 
                           key={idx}
@@ -287,12 +287,12 @@ const StoreSwapModal = ({
                         </View>
                       ))}
                     </View>
-                  }
+                  )}
 
                   {/* separation for selected */}
-                  {(showSpotlightIndex === index && index !== ingredientList.length - 1) &&
+                  {(showSpotlightIndex === index && index !== ingredientList.length - 1) && (
                     <View className="w-full bg-zinc200 h-[15px]"/>
-                  }
+                  )}
                 </View>
               ))}
             </ScrollView>

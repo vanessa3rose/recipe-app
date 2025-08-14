@@ -1,10 +1,10 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
 // react hooks
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // UI components
-import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, Keyboard } from 'react-native';
 
 // visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -12,7 +12,15 @@ import colors from '../../assets/colors';
 
 // validation
 import extractUnit from '../../components/Validation/extractUnit';
-import { deepPrepIndexOf } from '../Validation/deepPrepSearch';
+import { deepPrepEqual, deepPrepIndexOf } from '../Validation/deepPrepSearch';
+import validateFractionInput from '../Validation/validateFractionInput';
+import validateDecimalInput from '../Validation/validateDecimalInput';
+import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
+
+// initialize firebase app
+import { getFirestore, doc, writeBatch, collection } from 'firebase/firestore';
+import { app } from '../../firebase.config';
+const db = getFirestore(app);
 
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
@@ -22,12 +30,40 @@ const MealSearchModal = ({
 }) => {
 
 
+///////////////////////////////// KEYBOARD /////////////////////////////////
+
+const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+const [keyboardType, setKeyboardType] = useState("");
+
+// keyboard listener
+useEffect(() => {
+
+  // listens for keyboard show event
+  const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+    setIsKeyboardOpen(true);
+  });
+
+  // listens for keyboard hide event
+  const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+    setIsKeyboardOpen(false);
+  });
+
+  // cleans up listeners on unmount
+  return () => {
+    keyboardDidShowListener.remove();
+    keyboardDidHideListener.remove();
+  };
+}, [keyboardType]);
+
+
   ///////////////////////////////// ON OPEN /////////////////////////////////
+  
+  const [plansSnapshot, setPlansSnapshot] = useState(null);
 
   // loads data on open
   useEffect(() => {
     if (modalVisible) {
-      loadPreps();
+      loadPreps( snapshot?.docs.map(doc => ({ id: doc.id, data: doc.data()})), "" );
     }
   }, [modalVisible]);
 
@@ -40,7 +76,9 @@ const MealSearchModal = ({
 
 
   // gets the collection of meal preps
-  const loadPreps = async () => {
+  const loadPreps = async (currSnapshot, name) => {
+    setScrollName(name);
+    setPlansSnapshot(currSnapshot);
 
     // to get the unique list of preps
     let prepNames = [];
@@ -51,30 +89,30 @@ const MealSearchModal = ({
 
 
     // loops through all the plans
-    snapshot.docs.map((plan) => {
+    currSnapshot.map((plan) => {
       
 
       // LUNCH PREPS
-      if (plan.data().meals.lunch.prepData) {
-        const lunchNameIndex = prepNames.indexOf(plan.data().meals.lunch.prepData.prepName);
+      if (plan.data.meals.lunch.prepData) {
+        const lunchNameIndex = prepNames.indexOf(plan.data.meals.lunch.prepData.prepName);
 
         // completely new
         if (lunchNameIndex === -1) {
-          prepNames.push(plan.data().meals.lunch.prepData.prepName); 
-          prepIds.push([plan.data().meals.lunch.prepId]);
-          prepData.push([plan.data().meals.lunch.prepData]); 
+          prepNames.push(plan.data.meals.lunch.prepData.prepName); 
+          prepIds.push([plan.data.meals.lunch.prepId]);
+          prepData.push([plan.data.meals.lunch.prepData]); 
           prepDates.push([[plan.id]]);
           prepMeals.push([["LUNCH"]]);
 
         // otherwise - exact match or alternate found
         } else {
           
-          const lunchDataIndex = deepPrepIndexOf(prepData[lunchNameIndex], plan.data().meals.lunch.prepData);
+          const lunchDataIndex = deepPrepIndexOf(prepData[lunchNameIndex], plan.data.meals.lunch.prepData);
 
           // alternative found
           if (lunchDataIndex === -1) {
-            prepIds[lunchNameIndex].push(plan.data().meals.lunch.prepId);
-            prepData[lunchNameIndex].push(plan.data().meals.lunch.prepData);
+            prepIds[lunchNameIndex].push(plan.data.meals.lunch.prepId);
+            prepData[lunchNameIndex].push(plan.data.meals.lunch.prepData);
             prepDates[lunchNameIndex].push([plan.id]);
             prepMeals[lunchNameIndex].push(["LUNCH"]);
           
@@ -87,25 +125,25 @@ const MealSearchModal = ({
       }
 
       // DINNER PREPS
-      if (plan.data().meals.dinner.prepData) {
-        const dinnerNameIndex = prepNames.indexOf(plan.data().meals.dinner.prepData.prepName);
+      if (plan.data.meals.dinner.prepData) {
+        const dinnerNameIndex = prepNames.indexOf(plan.data.meals.dinner.prepData.prepName);
 
         // completely new
         if (dinnerNameIndex === -1) {
-          prepNames.push(plan.data().meals.dinner.prepData.prepName); 
-          prepIds.push([plan.data().meals.dinner.prepId]);
-          prepData.push([plan.data().meals.dinner.prepData]); 
+          prepNames.push(plan.data.meals.dinner.prepData.prepName); 
+          prepIds.push([plan.data.meals.dinner.prepId]);
+          prepData.push([plan.data.meals.dinner.prepData]); 
           prepDates.push([[plan.id]]);
           prepMeals.push([["DINNER"]]);
 
         // otherwise - exact match or alternate found
         } else {
-          const dinnerDataIndex = deepPrepIndexOf(prepData[dinnerNameIndex], plan.data().meals.dinner.prepData);
+          const dinnerDataIndex = deepPrepIndexOf(prepData[dinnerNameIndex], plan.data.meals.dinner.prepData);
 
           // alternative found
           if (dinnerDataIndex === -1) {
-            prepIds[dinnerNameIndex].push(plan.data().meals.dinner.prepId);
-            prepData[dinnerNameIndex].push(plan.data().meals.dinner.prepData);
+            prepIds[dinnerNameIndex].push(plan.data.meals.dinner.prepId);
+            prepData[dinnerNameIndex].push(plan.data.meals.dinner.prepData);
             prepDates[dinnerNameIndex].push([plan.id]);
             prepMeals[dinnerNameIndex].push(["DINNER"]);
           
@@ -140,6 +178,19 @@ const MealSearchModal = ({
     setFilteredPrepData(combined.map(item => item.data));
     setFilteredPrepDates(combined.map(item => item.date));
     setFilteredPrepMeals(combined.map(item => item.meal));
+
+    // filters based on given argument
+    const filtered = filterPreps(keywordType, prepKeywordQuery, prepTypeFilter, prepRestaurantFilter,
+      combined.map(item => item.name), combined.map(item => item.id), combined.map(item => item.data), combined.map(item => item.date), combined.map(item => item.meal)
+    );
+
+    // scrolls to change if applicable
+    const idx = filtered.indexOf(name);
+    if (idx !== -1) { 
+      setTimeout(() => {
+        verticalScrollRef.current?.scrollToIndex({ index: idx, animated: false }); 
+      }, 1000);
+    }
   }
 
 
@@ -169,6 +220,7 @@ const MealSearchModal = ({
   const [prepKeywordQuery, setPrepKeywordQuery] = useState("");
   const [prepTypeFilter, setPrepTypeFilter] = useState("");
   const [keywordType, setKeywordType] = useState("meal prep");
+  const [prepRestaurantFilter, setPrepRestaurantFilter] = useState("bag-outline");
 
   const [filteredPrepNames, setFilteredPrepNames] = useState(null);
   const [filteredPrepIds, setFilteredPrepIds] = useState(null);
@@ -177,9 +229,12 @@ const MealSearchModal = ({
   const [filteredPrepMeals, setFilteredPrepMeals] = useState(null);
   
   // to filter the list of preps in the search section
-  const filterPreps = (keyword, searchQuery, typeFilter) => {
+  const filterPreps = (keyword, searchQuery, typeFilter, restaurantFilter, uniqueNames, uniqueIds, uniqueData, uniqueDates, uniqueMeals) => {
+    setEditNameIndex(-1);
+    setEditVariantIndices({"prep": -1, "variant": -1})
     setPrepKeywordQuery(searchQuery);
     setPrepTypeFilter(typeFilter);
+    setPrepRestaurantFilter(restaurantFilter);
     setOpenPrepIndex(-1);
     setOpenSimpleIndex(-1);
     setOpenComplexIndex(-1);
@@ -193,19 +248,27 @@ const MealSearchModal = ({
     let prepDates = [];
     let prepMeals = [];
 
-    // helper function for keyword filtering
+    // helper function for keyword & restaurant filtering
     const matchesKeywordFilter = (i, index) => {
       // meal prep keyword - checks the meal prep name
       if (keyword === "meal prep") {
-        return searchQuery.split(" ").every((word) => 
-          uniquePrepNames[index].toLowerCase().includes(word.toLowerCase()
-        ));
+        return (
+          // restaurant
+          restaurantFilter === "bag-add" ? uniqueNames[index].includes(":") : restaurantFilter === "bag-remove" ? !uniqueNames[index].includes(":") : true
+          &&
+          // keyword
+          searchQuery.split(" ").every((word) =>  uniqueNames[index].toLowerCase().includes(word.toLowerCase() ))
+        );
       }
       // ingredient keyword - checks each ingredient's name
       if (keyword === "ingredient") {
-        return uniquePrepData[index][i]?.currentData?.some(current =>
-          searchQuery.split(" ").every(word =>
-            current?.ingredientName?.toLowerCase().includes(word.toLowerCase())
+        return (
+          // restaurant
+          restaurantFilter === "bag-add" ? uniqueNames[index].includes(":") : restaurantFilter === "bag-remove" ? !uniqueNames[index].includes(":") : true
+          &&
+          // keyword
+          uniqueData[index][i]?.currentData?.some(current =>
+            searchQuery.split(" ").every(word => current?.ingredientName?.toLowerCase().includes(word.toLowerCase()) )
           )
         );
       }
@@ -224,23 +287,23 @@ const MealSearchModal = ({
     };
 
     // adds the data to the prep lists that matches the filtering
-    uniquePrepNames.map((name, index) => {
+    uniqueNames.map((name, index) => {
       
       // if the type and keywords match
-      if (uniquePrepIds[index].some((id, i) => matchesTypeFilter(id) && matchesKeywordFilter(i, index))) {
+      if (uniqueIds[index].some((id, i) => matchesTypeFilter(id) && matchesKeywordFilter(i, index))) {
         // adds the name to the filtered names
         prepNames.push(name); 
 
         // uses type and keyword filtering for specific indices
-        const keepIndices = uniquePrepIds[index]
+        const keepIndices = uniqueIds[index]
           .map((id, i) => (matchesTypeFilter(id) && matchesKeywordFilter(i, index)) ? i : -1)
           .filter(i => i !== -1);
 
         // adds the data after filtering
-        prepIds.push(keepIndices.map((i) => uniquePrepIds[index][i]));
-        prepData.push(keepIndices.map((i) => uniquePrepData[index][i]));
-        prepDates.push(keepIndices.map((i) => uniquePrepDates[index][i]));
-        prepMeals.push(keepIndices.map((i) => uniquePrepMeals[index][i]));
+        prepIds.push(keepIndices.map((i) => uniqueIds[index][i]));
+        prepData.push(keepIndices.map((i) => uniqueData[index][i]));
+        prepDates.push(keepIndices.map((i) => uniqueDates[index][i]));
+        prepMeals.push(keepIndices.map((i) => uniqueMeals[index][i]));
       }
     })
 
@@ -250,7 +313,223 @@ const MealSearchModal = ({
     setFilteredPrepData(prepData);
     setFilteredPrepDates(prepDates);
     setFilteredPrepMeals(prepMeals);
+
+    return prepNames;
   }
+  
+  
+  ///////////////////////////////// CHANGING NAMES /////////////////////////////////
+
+  const [isEditing, setIsEditing] = useState(false);
+
+  const [editNameIndex, setEditNameIndex] = useState(-1);
+  const [editedName, setEditedName] = useState("");
+
+  // to change the name
+  const changeName = async () => {
+
+    // maps over all of the old plans
+    const newSnapshot = plansSnapshot.map((plan) => {
+      const newPlan = { ...plan };
+      const newData = { ...newPlan.data };
+
+      // updates the name of the lunch prep if it matches the old one
+      if (newData?.meals?.lunch?.prepData?.prepName === filteredPrepNames[editNameIndex]) {
+        newData.meals = {
+          ...newData.meals,
+          lunch: {
+            ...newData.meals.lunch,
+            prepData: {
+              ...newData.meals.lunch.prepData,
+              prepName: editedName,
+            }
+          }
+        };
+      }
+      
+      //updates the name of the dinner prep if it matches the old one
+      if (newData?.meals?.dinner?.prepData?.prepName === filteredPrepNames[editNameIndex]) {
+        newData.meals = {
+          ...newData.meals,
+          dinner: {
+            ...newData.meals.dinner,
+            prepData: {
+              ...newData.meals.dinner.prepData,
+              prepName: editedName,
+            }
+          }
+        };
+      }
+
+      newPlan.data = newData;
+      return newPlan;
+    });
+
+    setEditedName("");
+    setEditedVariant(null);
+
+    // reloads data
+    loadPreps(newSnapshot, editedName);
+
+    // closes the editor
+    setEditNameIndex(-1);
+  }
+  
+
+  ///////////////////////////////// CHANGING VARIANTS /////////////////////////////////
+
+  const [editVariantIndices, setEditVariantIndices] = useState({"prep": -1, "variant": -1});
+  const [editedVariant, setEditedVariant] = useState(null);
+
+  const [editedVariantType, setEditedVariantType] = useState("");
+  const [ogVariantType, setOgVariantType] = useState("");
+  
+  // to change the data of a variant
+  const changeVariant = async () => {
+
+    // maps over all of the old plans
+    const newSnapshot = plansSnapshot.map((plan) => {
+      const newPlan = { ...plan };
+      const newData = { ...newPlan.data };
+      
+      // current date info
+      const [year, month, day] = newData.date.split("-");
+      const formattedDate = `${month * 1}/${day * 1}/${year.substring(2,4)}`;
+
+      // updates the data of the lunch prep if it matches the old one
+      if (deepPrepEqual(newData?.meals?.lunch?.prepData, filteredPrepData[editVariantIndices.prep][editVariantIndices.variant])) {
+        newData.meals = {
+          ...newData.meals,
+          lunch: {
+            ...newData.meals.lunch,
+            prepData: editedVariant,
+            prepId: editedVariantType === "simple" ? `LUNCH ${formattedDate}` : "." + doc(collection(db, 'PREPS')).id, 
+          }
+        };
+      }
+      
+      //updates the data of the dinner prep if it matches the old one
+      if (deepPrepEqual(newData?.meals?.dinner?.prepData, filteredPrepData[editVariantIndices.prep][editVariantIndices.variant])) {
+        newData.meals = {
+          ...newData.meals,
+          dinner: {
+            ...newData.meals.dinner,
+            prepData: editedVariant,
+            prepId: editedVariantType === "simple" ? `DINNER ${formattedDate}` : "." + doc(collection(db, 'PREPS')).id, 
+          }
+        };
+      }
+
+      newPlan.data = newData;
+      return newPlan;
+    });
+
+    setEditedName("");
+    setEditedVariant(null);
+
+    // reloads data
+    loadPreps(newSnapshot, editedVariant.prepName);
+
+    // closes the editor
+    setEditVariantIndices({"prep": -1, "variant": -1});
+  }
+
+
+  ///////////////////////////////// EDITING VARIANTS /////////////////////////////////
+    
+  // for shifting
+  const [showNewIndex, setShowNewIndex] = useState(false);
+  const [numIngredients, setNumIngredients] = useState(0);
+
+  // to add an ingredient
+  const addPrepIngredient = (index) => {
+
+    // null new data to set
+    let newData = Array(numIngredients + 1).fill(null);
+    let newAmounts = Array(numIngredients + 1).fill("");
+    let newCals = Array(numIngredients + 1).fill("");
+
+    // loops over and shifts the ingredients accordingly
+    for (let i = 0; i < numIngredients; i++) {
+      if (i < index) {
+        newData[i] = editedVariant.currentData[i];
+        newAmounts[i] = editedVariant.currentAmounts[i];
+        newCals[i] = editedVariant.currentCals[i];
+      
+      } else if (i >= index) {
+        newData[i + 1] = editedVariant.currentData[i];
+        newAmounts[i + 1] = editedVariant.currentAmounts[i];
+        newCals[i + 1] = editedVariant.currentCals[i];
+      }
+    }
+
+    // stores shifts
+    setEditedVariant({
+      ...editedVariant,
+      currentData: newData,
+      currentAmounts: newAmounts,
+      currentCals: newCals,
+    })
+
+    // increments the number of ingredients
+    setNumIngredients(numIngredients + 1);
+    setShowNewIndex(false);
+  }
+
+  // to delete or clear the pressed ingredient
+  const deletePrepIngredient = (index) => {
+
+    // filters out the selected index and updates total cal
+    setEditedVariant({
+      ...editedVariant,
+      currentData: editedVariant.currentData.filter((_, i) => i !== index),
+      currentAmounts: editedVariant.currentAmounts.filter((_, i) => i !== index),
+      currentCals: editedVariant.currentCals.filter((_, i) => i !== index),
+      prepCal: editedVariant.currentCals.filter((_, i) => i !== index).reduce((sum, curr) => sum + Number(curr || 0), 0).toFixed(0),
+    });
+
+    // decrements the number of ingredients
+    setNumIngredients(numIngredients - 1);
+  }
+      
+    
+  ///////////////////////////////// SUBMITTING /////////////////////////////////
+
+  // submits changes
+  const submitChanges = async () => {
+  
+    // creates a batch to update plans
+    const batch = writeBatch(db);
+
+    const oldSnapshot = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+
+    // maps over all of the updated plans to find changes
+    plansSnapshot.map((plan) => {
+      if (plan.data.meals !== undefined) {
+
+        let newData = plan.data.meals;
+        const oldData = oldSnapshot.find(doc => doc.id === plan.data.date).data.meals;
+        
+        // if the data has changed, adds update to the batch
+        if (!deepPrepEqual(newData, oldData)) {
+          batch.update(doc(db, 'PLANS', plan.id), { meals: newData });
+        }
+      }
+    });
+
+    // commits the batch
+    await batch.commit();
+    
+    // closes the modal
+    closeModal(null, null);
+  }
+      
+    
+  ///////////////////////////////// SCROLLING /////////////////////////////////
+  
+  // vertical scroll syncing
+  const verticalScrollRef = useRef(null);
+  const [scrollName, setScrollName] = useState("");
 
 
   ///////////////////////////////// HTML /////////////////////////////////
@@ -266,7 +545,7 @@ const MealSearchModal = ({
       <View className="flex-1 justify-center items-center">
 
         {/* Background Overlay */}
-        <TouchableOpacity onPress={() => setModalVisible(false)} className="absolute bg-black opacity-50 w-full h-full"/>
+        <TouchableOpacity onPress={() => {!isEditing && setModalVisible(false)}} activeOpacity={isEditing && 0.5} className="absolute bg-black opacity-50 w-full h-full"/>
         
         {/* Modal Content */}
         <View className="flex w-5/6 py-5 px-5 bg-zinc200 rounded-2xl z-50">
@@ -274,8 +553,55 @@ const MealSearchModal = ({
           {/* TITLE */}
           <View className="flex flex-row justify-between items-center px-2">
             <Text className="text-[20px] font-bold">
-              MEAL PREP SEARCH
+              {`MEAL PREP ${isEditing ? "EDIT" : "SEARCH"}`}
             </Text>
+                        
+            {/* Set Editing */}
+            {!(editVariantIndices.prep !== -1)
+            ? 
+              <Icon
+                name={isEditing ? "backspace" : "create"}
+                size={20}
+                color={colors.zinc800}
+                onPress={() => {
+                  if (isEditing) {
+                    setEditNameIndex(-1);
+                    setEditedName("");
+                    setEditVariantIndices({"prep": -1, "variant": -1});
+                    setEditedVariant(null);
+                  }
+                  setIsEditing(!isEditing);
+                }}
+              />
+            :
+              // dealing with editing variants
+              <View className="flex-1 ml-2 flex-row justify-between">
+                {/* switch type */}
+                <Icon
+                  name={editedVariantType === "simple" ? "information-circle-outline" : "information-circle"}
+                  size={20}
+                  color={colors.theme800}
+                  onPress={() => setEditedVariantType(editedVariantType === "simple" ? "complex" : "simple")}
+                />
+
+                <View className="flex flex-row">
+                  {/* change */}
+                  <Icon
+                    name="checkmark-circle"
+                    size={20}
+                    color={colors.zinc800}
+                    onPress={() => changeVariant()}
+                  />
+                  {/* close */}
+                  <Icon
+                    name="close-circle"
+                    size={20}
+                    color={colors.zinc800}
+                    onPress={() => setEditVariantIndices({"prep": -1, "variant": -1})}
+                  />
+                </View>
+              </View>
+            }
           </View>
 
           {/* Divider */}
@@ -284,405 +610,962 @@ const MealSearchModal = ({
           <View className="flex flex-col items-center justify-center">
 
             {/* RECIPE FILTERING SECTION */}
-            <View className="flex flex-row w-full px-3 justify-center items-center mb-[20px] space-x-2">
+            {(editNameIndex === -1 && editVariantIndices.prep === -1 && editVariantIndices.variant === -1) && (
+              <View className="flex flex-row w-full px-3 justify-between items-center mb-[20px]">
+                <View className="flex flex-row w-[85%] justify-center items-center">
 
-              {/* Keyword Type Selector */}
-              <Icon
-                name={keywordType === "meal prep" ? "code-working" : keywordType === "ingredient" && "list"}
-                color={colors.zinc900}
-                size={20}
-                onPress={() => {
-                  const keyword = keywordType === "meal prep" ? "ingredient" : "meal prep";
-                  setKeywordType(keyword)
-                  filterPreps(keyword, "", prepTypeFilter)
-                }}
-              />
-
-              {/* text input */}
-              <TextInput
-                value={prepKeywordQuery}
-                onChangeText={(value) => filterPreps(keywordType, value, prepTypeFilter)}
-                placeholder={`${keywordType} keyword(s)`}
-                placeholderTextColor={colors.zinc400}
-                className="flex-1 w-5/6 bg-white radius-[5px] border-[1px] border-zinc300 pl-2.5 pr-10 py-1.5 rounded-md text-[14px] leading-[17px]"
-              />
-  
-              {/* BUTTONS */}
-              <View className="flex flex-row absolute right-5 h-[30px] items-center justify-center">
-
-                {/* type filtering */}
-                <Icon
-                  name={prepTypeFilter === "prep" ? "information-circle" : prepTypeFilter === "complex" ? "stop-circle" : prepTypeFilter === "simple" ? "ellipse" : "ellipse-outline"}
-                  color={colors.zinc700}
-                  size={18}
-                  onPress={() => filterPreps(keywordType, prepKeywordQuery, prepTypeFilter === "prep" ? "complex" : prepTypeFilter === "complex" ? "simple" : prepTypeFilter === "simple" ? "" : "prep")}
-                />
-
-                {/* clear */}
-                <Icon
-                  name="close-outline"
-                  size={20}
-                  color="black"
-                  onPress={() => {
-                    setPrepKeywordQuery("");
-                    setOpenPrepIndex(-1);
-                    setOpenComplexIndex(-1);
-                    setOpenSimpleIndex(-1);
-                    setOpenDatesIndex(-1);
-                    setShowSpecifics(false);
-                    filterPreps(keywordType, "", prepTypeFilter);
-                  }}
-                />
-              </View>
-            </View>
-            
-            {/* Filtered List of Preps */}
-            {filteredPrepData?.length > 0 
-            ?
-            <ScrollView
-              vertical
-              scrollEventThrottle={16}
-              contentContainerStyle={{ flexDirection: 'column' }}
-              className="max-h-[200px] bg-zinc500 border-2 border-zinc600 space-y-2 mb-3"
-            >
-              {filteredPrepData?.map((prep, index) =>
-                <View
-                  key={index}
-                  className="flex flex-col items-center justify-center"
-                >
-                  {/* GENERAL DETAILS */}
-                  <View className="flex flex-row border-y-[1px] border-zinc600">
-                    
-                    {/* Overall Name Display */}
-                    <View className="flex flex-row w-3/4 bg-theme300 py-2 pl-2 pr-1 space-x-2 items-center justify-between">
-                      {/* name */}
-                      <View className="flex-1">
-                        <Text className="text-left text-[13px] italic">
-                          {filteredPrepNames?.[index]}
-                        </Text>
-                      </View>
-
-                      {/* indicator of selected option */}
-                      <TouchableOpacity 
-                        className="" 
-                        onPress={(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? () => setCurrIndex((currIndex + 1) % prep.length) : undefined}
-                        activeOpacity={!(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) && 1}
-                      >
-                        <Text className="text-[12px] font-semibold text-theme900">
-                          {
-                          (openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index)
-                          ? `${currIndex + 1}/${prep.length}`
-                          : `(${prep.length})`
-                          }
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* dates */}
-                    <View className="flex flex-col w-1/6 bg-theme400 py-2 justify-center items-center">
-                      <Icon
-                        name="calendar"
-                        size={18}
-                        color={colors.zinc700}
-                        onPress={() => {
-                          setCurrIndex((openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0)
-                          setOpenDatesIndex(openDatesIndex === index ? -1 : index)
-                          setOpenPrepIndex(-1)
-                          setOpenComplexIndex(-1)
-                          setOpenSimpleIndex(-1)
-                          setShowSpecifics(false)
-                        }}
-                      />
-                    </View>
-
-                    {/* open ingredients button */}
-                    {(filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("LUNCH") 
-                      || filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("DINNER")) 
-                    ? // if simple custom
-                    <View className="flex w-1/12 py-2 justify-center items-center bg-zinc350">
-                      <Icon
-                        name="ellipse"
-                        color={colors.zinc400}
-                        size={18}
-                        onPress={() => {
-                          setCurrIndex((openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0)
-                          setOpenSimpleIndex(openSimpleIndex === index ? -1 : index)
-                          setOpenComplexIndex(-1)
-                          setOpenPrepIndex(-1)
-                          setOpenDatesIndex(-1)
-                          setShowSpecifics(false)
-                        }}
-                      />
-                    </View>
-                    : (filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("."))
-                    ? // if complex custom
-                    <View className="flex w-1/12 py-2 justify-center items-center bg-zinc350">
-                      <Icon
-                        name="stop-circle"
-                        color={colors.zinc450}
-                        size={20}
-                        onPress={() => {
-                          setCurrIndex((openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0)
-                          setOpenComplexIndex(openComplexIndex === index ? -1 : index)
-                          setOpenSimpleIndex(-1)
-                          setOpenPrepIndex(-1)
-                          setOpenDatesIndex(-1)
-                          setShowSpecifics(false)
-                        }}
-                      />
-                    </View>
-                    : // if original
-                    <View className="flex w-1/12 py-2 justify-center items-center bg-zinc350">
-                      <Icon
-                        name="information-circle"
-                        color={colors.zinc800}
-                        size={20}
-                        onPress={() => {
-                          setCurrIndex((openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0)
-                          setOpenPrepIndex(openPrepIndex === index ? -1 : index)
-                          setOpenComplexIndex(-1)
-                          setOpenSimpleIndex(-1)
-                          setOpenDatesIndex(-1)
-                          setShowSpecifics(false)
-                        }}
-                      />
-                    </View>
-                    }
+                  {/* Keyword Type Selector */}
+                  <View className="bg-zinc300 px-1 py-1 rounded-l-md h-[30px] items-center justify-center">
+                    <Icon
+                      name={keywordType === "meal prep" ? "code-working" : keywordType === "ingredient" && "list"}
+                      color={colors.zinc900}
+                      size={20}
+                      onPress={() => {
+                        const keyword = keywordType === "meal prep" ? "ingredient" : "meal prep";
+                        setKeywordType(keyword)
+                        filterPreps(keyword, "", prepTypeFilter, prepRestaurantFilter, uniquePrepNames, uniquePrepIds, uniquePrepData, uniquePrepDates, uniquePrepMeals)
+                      }}
+                    />
                   </View>
 
-                  {/* PREP DATES */}
-                  {openDatesIndex === index && (
-                    <View className="flex flex-row max-h-[50px] overflow-hidden justify-center items-center bg-zinc300 px-2">
+                  {/* text input */}
+                  <TextInput
+                    value={prepKeywordQuery}
+                    onChangeText={(value) => filterPreps(keywordType, value, prepTypeFilter, prepRestaurantFilter, uniquePrepNames, uniquePrepIds, uniquePrepData, uniquePrepDates, uniquePrepMeals)}
+                    placeholder={`${keywordType} keyword(s)`}
+                    placeholderTextColor={colors.zinc400}
+                    className="flex-1 w-5/6 bg-white rounded-r-md border-[1px] border-zinc300 pl-2.5 pr-10 py-1.5 text-[14px] leading-[17px]"
+                  />
+      
+                  {/* BUTTONS */}
+                  <View className="flex flex-row absolute right-1 h-[30px] items-center justify-center">
 
-                      {/* Lunch Dates */}
-                      <View className="flex w-1/5 pr-1">
-                        <Text className="text-[12px] text-right font-medium">
-                          LUNCH
-                        </Text>
-                      </View>
+                    {/* type filtering */}
+                    <Icon
+                      name={prepTypeFilter === "prep" ? "information-circle" : prepTypeFilter === "complex" ? "stop-circle" : prepTypeFilter === "simple" ? "ellipse" : "ellipse-outline"}
+                      color={colors.zinc700}
+                      size={18}
+                      onPress={() => filterPreps(keywordType, prepKeywordQuery, 
+                        prepTypeFilter === "prep" ? "complex" : prepTypeFilter === "complex" ? "simple" : prepTypeFilter === "simple" ? "" : "prep", 
+                        prepRestaurantFilter, uniquePrepNames, uniquePrepIds, uniquePrepData, uniquePrepDates, uniquePrepMeals
+                      )}
+                    />
 
-                      {/* list */}
-                      <ScrollView
-                        vertical
-                        scrollEventThrottle={16}
-                        contentContainerStyle={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
-                        className="flex flex-col w-[27.5%] py-1"
-                      >
-                        {filteredPrepMeals[index]?.[currIndex].indexOf("LUNCH") !== -1
-                        ?
-                        <>
-                          {filteredPrepMeals[index]?.[currIndex].map((meal, i) => 
-                            <View key={i}>
-                              {meal === "LUNCH" &&
-                                <View className={`flex flex-row ${i !== filteredPrepMeals[index]?.[currIndex].indexOf("LUNCH") && "border-t-0.5 border-theme500"} justify-center items-center space-x-2 py-0.5`}>
-                                  {/* current date */}
-                                  <View className="flex">
-                                    <Text className="text-zinc800 text-[12px] text-center">
-                                      {formatDateShort(filteredPrepDates[index]?.[currIndex][i])}
-                                    </Text>
-                                  </View>
+                    {/* clear */}
+                    <Icon
+                      name="close-outline"
+                      size={20}
+                      color="black"
+                      onPress={() => {
+                        setPrepKeywordQuery("");
+                        setOpenPrepIndex(-1);
+                        setOpenComplexIndex(-1);
+                        setOpenSimpleIndex(-1);
+                        setOpenDatesIndex(-1);
+                        setShowSpecifics(false);
+                        filterPreps(keywordType, "", prepTypeFilter, prepRestaurantFilter, uniquePrepNames, uniquePrepIds, uniquePrepData, uniquePrepDates, uniquePrepMeals);
+                      }}
+                    />
+                  </View>
+                </View>
 
-                                  {/* goto arrow */}
-                                  <Icon
-                                    name="arrow-forward"
-                                    size={14}
-                                    color={colors.theme700}
-                                    onPress={() => {
-                                      const [year, month, day] = filteredPrepDates[index]?.[currIndex][i].split("-");
-                                      closeModal("LUNCH", {
-                                        dateString: filteredPrepDates[index]?.[currIndex][i],
-                                        day: parseInt(day, 10).toString(),
-                                        month: parseInt(month, 10).toString(),
-                                        year: parseInt(year, 10).toString(),
-                                        timestamp: new Date(year, month, day).getTime(),
-                                      });
-                                    }}
-                                  />
-                                </View>
-                              }
-                            </View>
-                          )}
-                        </>
-                        : // if empty list
-                          <Text className="font-medium text-theme800 w-full text-left pl-5">X</Text>
-                        }
-                      </ScrollView>
-
-
-                      {/* separator */}
-                      <View className="flex w-[5%] bg-zinc300 z-20"/>
+                {/* Restaurant Indicator */}
+                <View className="p-1 absolute right-2">
+                  <Icon
+                    name={prepRestaurantFilter}
+                    size={20}
+                    color={colors.theme800}
+                    onPress={() => filterPreps(keywordType, prepKeywordQuery, prepTypeFilter, 
+                      prepRestaurantFilter === "bag-outline" ? "bag-add" : prepRestaurantFilter === "bag-add" ? "bag-remove" : prepRestaurantFilter === "bag-remove" && "bag-outline", 
+                      uniquePrepNames, uniquePrepIds, uniquePrepData, uniquePrepDates, uniquePrepMeals
+                    )}
+                  />
+                </View>
+              </View>
+            )}
+            
+            {/* Filtered List of Preps */}
+            {(filteredPrepData?.length > 0 && !(editVariantIndices.prep !== -1))
+            ?
+              <FlatList
+                className="max-h-[200px] bg-zinc500 border-2 border-zinc600 mb-3"
+                ref={verticalScrollRef}
+                data={filteredPrepData}
+                keyExtractor={(_, index) => index.toString()}
+                renderItem={({ item: prep, index }) => (
+                  <View className="flex flex-col items-center justify-center pb-2">
+                    {/* GENERAL DETAILS */}
+                    <View className="flex flex-row border-y-[1px] border-zinc600 w-full">
                       
+                      {/* edit name button */}
+                      {(isEditing && editNameIndex === -1 && !(openPrepIndex === index || openSimpleIndex === index || openComplexIndex === index)) && (
+                        <View className="flex w-1/12 bg-zinc100 px-1 justify-center items-center">
+                          <Icon
+                            name="pencil"
+                            size={15}
+                            color="black"
+                            onPress={() => {
+                              setEditNameIndex(index);
+                              setEditedName(filteredPrepNames[index]);
+                            }}
+                          />
+                        </View>
+                      )}
+                      
+                      {/* Overall Name Display */}
+                      <View className={`flex flex-row bg-theme300 p-2 space-x-2 h-full items-center justify-between ${!(isEditing && editNameIndex === -1 && !(openPrepIndex === index || openSimpleIndex === index || openComplexIndex === index)) ? "w-3/4" : "w-2/3"} ${(editNameIndex === index || filteredPrepNames[index] === editedName || filteredPrepNames[index] === editedVariant?.prepName || filteredPrepNames[index] === scrollName) ? "bg-mauve200" : "bg-theme300"}`}>
+                        
+                        {/* name */}
+                        <View className="flex-1">
+                          {(editNameIndex !== index)
+                          ? // viewing
+                            <Text className="text-left text-[13px] italic">
+                              {filteredPrepNames[index]}
+                            </Text>
+                          : // editing
+                          <View className="flex flex-row justify-between space-x-2 ">
+                            <TextInput
+                              value={editedName}
+                              onChangeText={setEditedName}
+                              placeholder={filteredPrepNames[index]}
+                              placeholderTextColor={colors.zinc500}
+                              className="flex-1 text-left text-[13px] italic bg-zinc200 ml-[-5px] pl-[5px] pr-1 py-0.5 border border-zinc300 rounded-md"
+                              multiline={true}
+                              blurOnSubmit={true}
+                            />
 
-                      {/* Dinner Dates */}
-                      <View className="flex w-1/5 pr-1">
-                        <Text className="text-[12px] text-right font-medium">
-                          DINNER
-                        </Text>
-                      </View>
-
-                      {/* list */}
-                      <ScrollView
-                        vertical
-                        scrollEventThrottle={16}
-                        contentContainerStyle={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
-                        className="flex flex-col w-[27.5%] py-1"
-                      >
-                        {filteredPrepMeals[index]?.[currIndex].indexOf("DINNER") !== -1
-                        ?
-                        <>
-                          {filteredPrepMeals[index]?.[currIndex].map((meal, i) => 
-                            <View key={i}>
-                              {meal === "DINNER" &&
-                                <View className={`flex flex-row ${i !== filteredPrepMeals[index]?.[currIndex].indexOf("DINNER") && "border-t-0.5 border-theme500"} justify-center items-center space-x-2 py-0.5`}>
-                                  {/* current date */}
-                                  <View className="flex">
-                                    <Text className="text-zinc800 text-[12px] text-center">
-                                      {formatDateShort(filteredPrepDates[index]?.[currIndex][i])}
-                                    </Text>
-                                  </View>
-
-                                  {/* goto arrow */}
-                                  <Icon
-                                    name="arrow-forward"
-                                    size={14}
-                                    color={colors.theme700}
-                                    onPress={() => {
-                                      const [year, month, day] = filteredPrepDates[index]?.[currIndex][i].split("-");
-                                      closeModal("DINNER", {
-                                        dateString: filteredPrepDates[index]?.[currIndex][i],
-                                        day: parseInt(day, 10).toString(),
-                                        month: parseInt(month, 10).toString(),
-                                        year: parseInt(year, 10).toString(),
-                                        timestamp: new Date(year, month, day).getTime(),
-                                      });
-                                    }}
-                                  />
-                                </View>
-                              }
+                            {/* BUTTONS */}
+                            <View className="flex flex-row justify-center items-center mr-[-5px]">
+                              {/* Submit */}
+                              <Icon
+                                name="checkmark"
+                                size={20}
+                                color="black"
+                                onPress={() => changeName()}
+                              />
+                              {/* Close */}
+                              <Icon
+                                name="close-outline"
+                                size={20}
+                                color="black"
+                                onPress={() => {
+                                  setEditNameIndex(-1);
+                                  setEditedName("");
+                                }}
+                              />
                             </View>
-                          )}
-                        </>
-                        : // if empty list
-                          <Text className="font-medium text-theme800 w-full text-left pl-5">X</Text>
-                        }
-                      </ScrollView>
-                    </View>
-                  )}
+                          </View>
+                          }
+                        </View>
 
-                  {/* COMPLEX DETAILS */}
-                  {(openPrepIndex === index || openComplexIndex === index) && (
-                    <View className="flex flex-row w-full">
-                    {/* Ingredient List */}
+                        {/* indicator of selected option */}
+                        <TouchableOpacity 
+                          onPress={() => {
+                            setCurrIndex((openPrepIndex === index || openSimpleIndex === index || openComplexIndex === index || openDatesIndex === index) ? (currIndex + 1) % prep.length : currIndex); 
+                            if ((openPrepIndex === index || openSimpleIndex === index || openComplexIndex === index)) {
+                              setOpenSimpleIndex(
+                                filteredPrepIds[index]?.[(currIndex + 1) % prep.length]?.includes("LUNCH") || filteredPrepIds[index]?.[(currIndex + 1) % prep.length]?.includes("DINNER") ? index : -1);
+                              setOpenPrepIndex(
+                                (filteredPrepIds[index]?.[(currIndex + 1) % prep.length]?.includes(".")) ? index : -1); 
+                              setOpenComplexIndex(
+                                !(filteredPrepIds[index]?.[(currIndex + 1) % prep.length]?.includes("LUNCH") || filteredPrepIds[index]?.[(currIndex + 1) % prep.length]?.includes("DINNER"))
+                                  && !(filteredPrepIds[index]?.[(currIndex + 1) % prep.length]?.includes("."))
+                                ? index : -1
+                              );
+                            } else if (openDatesIndex === index) {
+                              setOpenDatesIndex(index);
+                            }
+                          }}
+                          activeOpacity={!(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) && 1}
+                        >
+                          <Text className="text-[12px] font-semibold text-theme900">
+                            {(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index)
+                            ? `${currIndex + 1}/${prep.length}`
+                            : `(${prep.length})`}
+                          </Text>
+                        </TouchableOpacity>
 
-                      {!showSpecifics
-                      ? // not showing specific amounts
-                      <View className="flex flex-col w-3/4 bg-zinc300 py-1 items-start justify-center">
-                        {prep[currIndex].currentData.map((current, i) => 
-                          current !== null && (
-                            <View key={i} className="flex flex-row w-full pl-2 pr-5 space-x-1">
-                              {/* current ingredient name */}
-                              <Text className="text-zinc800 text-[11px] text-center">
-                                {"⁃"}
-                              </Text>
-                              <Text className="text-zinc800 text-[11px] text-left pr-2">
-                                {current.ingredientName}
-                              </Text>
-                            </View>
-                          )
+                        {/* edit variant button */}
+                        {(isEditing && (openPrepIndex === index || openSimpleIndex === index || openComplexIndex === index) && editNameIndex !== index) && (
+                          <View className={`flex justify-center items-center`}>
+                            <Icon
+                              name="pencil"
+                              size={15}
+                              color="black"
+                              onPress={() => {
+                                setEditVariantIndices({"prep": index, "variant": currIndex});
+                                setEditedVariant(filteredPrepData[index][currIndex]);
+                                setNumIngredients(filteredPrepData[index][currIndex].currentData.length);
+                                setEditedVariantType(openSimpleIndex === index ? "simple" : (openComplexIndex === index || openPrepIndex === index) && "complex");
+                                setOgVariantType(openSimpleIndex === index ? "simple" : openComplexIndex === index ? "complex" : openPrepIndex === index && "prep");
+                              }}
+                            />
+                          </View>
                         )}
                       </View>
-                      : 
-                      // showing specific amounts
-                      <View className="flex w-full bg-zinc300 items-start justify-center">
-                        <>
-                        {prep[currIndex].currentData.map((current, i) => 
-                          current !== null && (
-                            <View key={i} className="flex flex-row">
 
-                              {/* INGREDIENT NAME */}
-                              <View className={`${i === 0 && "pt-1"} ${i === prep[currIndex].currentData.filter(curr => curr !== null).length - 1 && "pb-1"} w-3/4 flex flex-row pl-2 pr-5 space-x-1`}>
+                      {/* dates */}
+                      <View className={`flex flex-col w-1/6 py-2 justify-center items-center ${(editNameIndex === index || filteredPrepNames[index] === editedName || filteredPrepNames[index] === editedVariant?.prepName || filteredPrepNames[index] === scrollName) ? "bg-mauve400" : "bg-theme400"}`}>
+                        <Icon
+                          name="calendar"
+                          size={18}
+                          color={colors.zinc700}
+                          onPress={() => {
+                            setCurrIndex((openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0)
+                            setOpenDatesIndex(openDatesIndex === index ? -1 : index)
+                            setOpenPrepIndex(-1)
+                            setOpenComplexIndex(-1)
+                            setOpenSimpleIndex(-1)
+                            setShowSpecifics(false)
+                          }}
+                        />
+                      </View>
+
+                      {/* open ingredients button */}
+                      {(filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("LUNCH") 
+                        || filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("DINNER")) 
+                      ? // if simple custom
+                      <View className="flex w-1/12 py-2 justify-center items-center bg-zinc350">
+                        <Icon
+                          name="ellipse"
+                          color={colors.zinc400}
+                          size={18}
+                          onPress={() => {
+                            setCurrIndex((openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0)
+                            setOpenSimpleIndex(openSimpleIndex === index ? -1 : index)
+                            setOpenComplexIndex(-1)
+                            setOpenPrepIndex(-1)
+                            setOpenDatesIndex(-1)
+                            setShowSpecifics(false)
+                          }}
+                        />
+                      </View>
+                      : (filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("."))
+                      ? // if complex custom
+                      <View className="flex w-1/12 py-2 justify-center items-center bg-zinc350">
+                        <Icon
+                          name="stop-circle"
+                          color={colors.zinc450}
+                          size={20}
+                          onPress={() => {
+                            setCurrIndex((openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0)
+                            setOpenComplexIndex(openComplexIndex === index ? -1 : index)
+                            setOpenSimpleIndex(-1)
+                            setOpenPrepIndex(-1)
+                            setOpenDatesIndex(-1)
+                            setShowSpecifics(false)
+                          }}
+                        />
+                      </View>
+                      : // if original
+                      <View className="flex w-1/12 py-2 justify-center items-center bg-zinc350">
+                        <Icon
+                          name="information-circle"
+                          color={colors.zinc800}
+                          size={20}
+                          onPress={() => {
+                            setCurrIndex((openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0)
+                            setOpenPrepIndex(openPrepIndex === index ? -1 : index)
+                            setOpenComplexIndex(-1)
+                            setOpenSimpleIndex(-1)
+                            setOpenDatesIndex(-1)
+                            setShowSpecifics(false)
+                          }}
+                        />
+                      </View>
+                      }
+                    </View>
+
+                    {/* PREP DATES */}
+                    {(openDatesIndex === index) && (
+                      <View className="flex flex-row max-h-[50px] overflow-hidden justify-center items-center bg-zinc300 px-2">
+
+                        {/* Lunch Dates */}
+                        <View className="flex w-1/5 pr-1">
+                          <Text className="text-[12px] text-right font-medium">
+                            LUNCH
+                          </Text>
+                        </View>
+
+                        {/* list */}
+                        <ScrollView
+                          vertical
+                          scrollEventThrottle={16}
+                          contentContainerStyle={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+                          className="flex flex-col w-[27.5%] py-1"
+                        >
+                          {filteredPrepMeals[index]?.[currIndex].indexOf("LUNCH") !== -1
+                          ?
+                          <>
+                            {filteredPrepMeals[index]?.[currIndex].map((meal, i) => 
+                              <View key={i}>
+                                {(meal === "LUNCH") && (
+                                  <View className={`flex flex-row ${(i !== filteredPrepMeals[index]?.[currIndex].indexOf("LUNCH")) && "border-t-0.5 border-theme500"} justify-center items-center space-x-2 py-0.5`}>
+                                    {/* current date */}
+                                    <View className="flex">
+                                      <Text className="text-zinc800 text-[12px] text-center">
+                                        {formatDateShort(filteredPrepDates[index]?.[currIndex][i])}
+                                      </Text>
+                                    </View>
+
+                                    {/* goto arrow */}
+                                      {!isEditing && (
+                                        <Icon
+                                          name="arrow-forward"
+                                          size={14}
+                                          color={colors.theme700}
+                                          onPress={() => {
+                                            const [year, month, day] = filteredPrepDates[index]?.[currIndex][i].split("-");
+                                            closeModal("LUNCH", {
+                                              dateString: filteredPrepDates[index]?.[currIndex][i],
+                                              day: parseInt(day, 10).toString(),
+                                              month: parseInt(month, 10).toString(),
+                                              year: parseInt(year, 10).toString(),
+                                              timestamp: new Date(year, month, day).getTime(),
+                                            });
+                                          }}
+                                        />
+                                      )}
+                                  </View>
+                                )}
+                              </View>
+                            )}
+                          </>
+                          : // if empty list
+                            <Text className="font-medium text-theme800 w-full text-left pl-5">X</Text>
+                          }
+                        </ScrollView>
+
+
+                        {/* separator */}
+                        <View className="flex w-[5%] bg-zinc300 z-20"/>
+                        
+
+                        {/* Dinner Dates */}
+                        <View className="flex w-1/5 pr-1">
+                          <Text className="text-[12px] text-right font-medium">
+                            DINNER
+                          </Text>
+                        </View>
+
+                        {/* list */}
+                        <ScrollView
+                          vertical
+                          scrollEventThrottle={16}
+                          contentContainerStyle={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+                          className="flex flex-col w-[27.5%] py-1"
+                        >
+                          {filteredPrepMeals[index]?.[currIndex].indexOf("DINNER") !== -1
+                          ?
+                          <>
+                            {filteredPrepMeals[index]?.[currIndex].map((meal, i) => 
+                              <View key={i}>
+                                {(meal === "DINNER") && (
+                                  <View className={`flex flex-row ${(i !== filteredPrepMeals[index]?.[currIndex].indexOf("DINNER")) && "border-t-0.5 border-theme500"} justify-center items-center space-x-2 py-0.5`}>
+                                    {/* current date */}
+                                    <View className="flex">
+                                      <Text className="text-zinc800 text-[12px] text-center">
+                                        {formatDateShort(filteredPrepDates[index]?.[currIndex][i])}
+                                      </Text>
+                                    </View>
+
+                                    {/* goto arrow */}
+                                    {!isEditing && (
+                                      <Icon
+                                        name="arrow-forward"
+                                        size={14}
+                                        color={colors.theme700}
+                                        onPress={() => {
+                                          const [year, month, day] = filteredPrepDates[index]?.[currIndex][i].split("-");
+                                          closeModal("DINNER", {
+                                            dateString: filteredPrepDates[index]?.[currIndex][i],
+                                            day: parseInt(day, 10).toString(),
+                                            month: parseInt(month, 10).toString(),
+                                            year: parseInt(year, 10).toString(),
+                                            timestamp: new Date(year, month, day).getTime(),
+                                          });
+                                        }}
+                                      />
+                                    )}
+                                  </View>
+                                )}
+                              </View>
+                            )}
+                          </>
+                          : // if empty list
+                            <Text className="font-medium text-theme800 w-full text-left pl-5">X</Text>
+                          }
+                        </ScrollView>
+                      </View>
+                    )}
+
+                    {/* COMPLEX DETAILS */}
+                    {(openPrepIndex === index || openComplexIndex === index) && (
+                      <View className="flex flex-row w-full">
+                      {/* Ingredient List */}
+
+                        {!showSpecifics
+                        ? // not showing specific amounts
+                        <View className="flex flex-col w-3/4 bg-zinc300 py-1 items-start justify-center">
+                          {prep[currIndex]?.currentData?.map((current, i) => 
+                            current !== null && (
+                              <View key={i} className="flex flex-row w-full pl-2 pr-5 space-x-1">
+                                {/* current ingredient name */}
                                 <Text className="text-zinc800 text-[11px] text-center">
                                   {"⁃"}
                                 </Text>
                                 <Text className="text-zinc800 text-[11px] text-left pr-2">
-                                  {`${current.ingredientName}`}
+                                  {current.ingredientName}
                                 </Text>
                               </View>
+                            )
+                          )}
+                        </View>
+                        : 
+                        // showing specific amounts
+                        <View className="flex w-full bg-zinc300 items-start justify-center">
+                          <>
+                          {prep[currIndex].currentData.map((current, i) => 
+                            current !== null && (
+                              <View key={i} className="flex flex-row">
 
-                              {/* INGREDIENT AMOUNT */}
-                              <View className={`${i === 0 && "pt-1"} ${i === prep[currIndex].currentData.filter(curr => curr !== null).length - 1 && "pb-1"} w-1/4 justify-center items-center bg-zinc350`}>
-                                <Text className="text-theme900 font-medium text-[9px] text-center">
-                                  {`${prep[currIndex].currentAmounts[i]} ${extractUnit(current.ingredientData[current.ingredientStore].unit, prep[currIndex].currentAmounts[i])}`}
+                                {/* INGREDIENT NAME */}
+                                <View className={`${(i === 0) && "pt-1"} ${(i === prep[currIndex].currentData.filter(curr => curr !== null).length - 1) && "pb-1"} w-3/4 flex flex-row pl-2 pr-5 space-x-1`}>
+                                  <Text className="text-zinc800 text-[11px] text-center">
+                                    {"⁃"}
+                                  </Text>
+                                  <Text className="text-zinc800 text-[11px] text-left pr-2">
+                                    {`${current.ingredientName}`}
+                                  </Text>
+                                </View>
+
+                                {/* INGREDIENT AMOUNT */}
+                                <View className={`${(i === 0) && "pt-1"} ${(i === prep[currIndex].currentData.filter(curr => curr !== null).length - 1) && "pb-1"} w-1/4 justify-center items-center bg-zinc350`}>
+                                  <Text className="text-theme900 font-medium text-[9px] text-center">
+                                    {`${prep[currIndex].currentAmounts[i]} ${extractUnit(current.ingredientData[current.ingredientStore].unit, prep[currIndex].currentAmounts[i])}`}
+                                  </Text>
+                                </View>
+                              </View>
+                            )
+                          )}
+                          </>
+
+                          {/* collapse specifics */}
+                          <View className="absolute w-1/4 right-0 mr-[20px] z-20 h-full items-start justify-center">
+                            <Icon
+                              name="chevron-collapse"
+                              color={colors.zinc900}
+                              size={16}
+                              onPress={() => setShowSpecifics(false)}
+                            />
+                          </View>
+                        </View>
+                        }
+                        
+                        {/* Details */}
+                        {!showSpecifics && (
+                          <View className="flex flex-col w-1/4 bg-zinc350 justify-center space-y-0.5 py-1">
+
+                            {/* expand specifics */}
+                            <View className="absolute left-[-20px] h-full items-center justify-center">
+                              <Icon
+                                name="resize"
+                                color={colors.zinc900}
+                                size={16}
+                                onPress={() => setShowSpecifics(true)}
+                              />
+                            </View>
+                            
+                            {/* total calories */}
+                            <Text className="text-theme900 font-medium text-[11px] text-center">
+                              {prep[currIndex].prepCal} {"cal"}
+                            </Text>
+                            {/* total price */}
+                            <Text className="text-theme900 font-medium text-[11px] text-center">
+                              {"$"}{prep[currIndex].prepPrice}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+
+                    {/* SIMPLE DETAILS */}
+                    {(openSimpleIndex === index) && (
+                      <View className={`flex flex-row w-full justify-center ${prep[currIndex]?.prepNote !== "" ? "bg-zinc200" : "bg-zinc300"}`}>
+
+                        {/* Notes, if available */}
+                        {(prep[currIndex]?.prepNote !== "") && (
+                          <View className="flex w-2/3 py-1 bg-zinc200">
+                            <Text className="text-zinc800 font-medium text-[11px] text-center">
+                              {prep[currIndex]?.prepNote}
+                            </Text>
+                          </View>
+                        )}
+                        
+                        {/* Details, if not empty */}
+                        {(prep[currIndex]?.prepCal !== "0" || prep[currIndex]?.prepPrice !== "0.00") && (
+                          <View className={`flex flex-row py-1 bg-zinc300 items-center ${prep[currIndex]?.prepNote !== "" ? "w-1/3 justify-evenly" : "space-x-5"}`}>
+                            {/* total calories */}
+                            <Text className="text-theme900 font-medium text-[11px] text-center">
+                              {prep[currIndex]?.prepCal} {"cal"}
+                            </Text>
+                            {/* total price */}
+                            <Text className="text-theme900 font-medium text-[11px] text-center">
+                              {"$"}{prep[currIndex]?.prepPrice}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                )}
+              />
+            : (editVariantIndices.prep === -1)
+            &&
+              <View className="py-1 px-3 bg-zinc500 border-2 border-zinc600">
+                <Text className="italic text-center text-white font-medium">
+                  no meal preps match the current filter
+                </Text>
+              </View>
+            }
+          </View>
+                              
+
+          {/* VARIANTS */}
+          {(isEditing && editVariantIndices.prep !== -1) && (
+            <View>
+              {/* SIMPLE EDIT */}
+              { editedVariantType === "simple"
+              ?
+                <>
+                  {/* simple create without ingredients */}
+                  <View className="flex flex-col w-full justify-center items-center">
+                    <View className="flex flex-row justify-evenly content-center mb-4 w-full h-[65px] px-5">
+                      
+                      {/* Prep Name Input */}
+                      <View className="flex justify-center items-center h-full w-1/2 bg-white rounded-md py-1 px-2 border-0.5 border-zinc500">
+                        <TextInput
+                          className="w-full text-center mb-1 text-[14px] leading-[17px]"
+                          placeholder={editedVariant.prepName === "" ? "meal prep name" : editedVariant.prepName}
+                          placeholderTextColor={colors.zinc400}
+                          multiline={true}
+                          blurOnSubmit={true}
+                          value={editedVariant.prepName}
+                          onChangeText={(value) => {
+                            setEditedVariant((prev) => {
+                              const updated = { ...prev }; 
+                              updated["prepName"] = value;
+                              return updated;
+                            })
+                          }}
+                        />
+                      </View>
+                      
+                      
+                      {/* DETAILS */}
+                      <View className="flex flex-col justify-center items-center w-1/2 h-full space-y-2 pl-5">
+            
+                        {/* Calories */}
+                        <View className="flex flex-row h-[25px] w-full space-x-1 px-2 justify-center items-center border-[1px] border-zinc450 bg-zinc400">
+                          {/* amount input */}
+                          <TextInput
+                            className="flex-auto text-right bg-transparent italic text-[12px] leading-[15px]"
+                            placeholder={editedVariant.prepCal === "" ? "0" : editedVariant.prepCal}
+                            placeholderTextColor='black'
+                            value={editedVariant.prepCal}
+                            onChangeText={(value) => {
+                              setEditedVariant((prev) => {
+                                const updated = { ...prev }; 
+                                updated["prepCal"] = validateWholeNumberInput(value);
+                                return updated;
+                              })
+                            }}
+                          />
+                          {/* label */}
+                          <Text className="flex-auto text-left italic text-[12px]">
+                            calories
+                          </Text>
+                        </View>
+            
+                        {/* Price */}
+                        <View className="flex flex-row w-full h-[25px] justify-center items-center border-[1px] border-zinc450 bg-zinc400">
+                          {/* label */}
+                          <Text className="flex-auto text-right justify-center pl-1 italic text-[12px]">
+                            $
+                          </Text>
+                          
+                          {/* price input */}
+                          <TextInput
+                            className="flex-auto bg-transparent text-left pr-1 italic text-[12px] leading-[15px]"
+                            placeholder={editedVariant.prepPrice === "" ? "0.00" : editedVariant.prepPrice}
+                            placeholderTextColor='black'
+                            value={editedVariant.prepPrice}
+                            onChangeText={(value) => {
+                              setEditedVariant((prev) => {
+                                const updated = { ...prev }; 
+                                updated["prepPrice"] = validateDecimalInput(value);
+                                return updated;
+                              })
+                            }}
+                            onBlur={() => {
+                              setEditedVariant((prev) => {
+                                const updated = { ...prev }; 
+                                updated["prepPrice"] = (updated["prepPrice"] * 1).toFixed(2);
+                                return updated;
+                              })
+                            }}
+                          />
+                        </View>
+                      </View>
+                    </View>
+                      
+                    {/* Prep Note Input */}
+                    <View className="flex w-11/12 mb-4 bg-theme100 rounded-md py-0 px-2 border-[1px] border-theme200">
+                      <TextInput
+                        className="w-full text-center mb-1 italic text-[12px] text-zinc900"
+                        placeholder={editedVariant.prepNotes === "meal prep notes" ? "0.00" : editedVariant.prepNotes}
+                        placeholderTextColor={colors.theme600}
+                        multiline={true}
+                        onFocus={() => setKeyboardType("note")}
+                        onBlur={() => setKeyboardType("")}
+                        value={editedVariant.prepNote}
+                        onChangeText={(value) => {
+                          setEditedVariant((prev) => {
+                            const updated = { ...prev }; 
+                            updated["prepNote"] = value;
+                            return updated;
+                          })
+                        }}
+                      />
+  
+                      {(keyboardType === "note") && (
+                        <View className="absolute right-1.5 bottom-0.5">
+                          <Icon
+                            name="chevron-down"
+                            size={14}
+                            color={colors.zinc900}
+                            onPress={() => {
+                              Keyboard.dismiss()
+                              setIsKeyboardOpen(false)
+                              setKeyboardType("")
+                            }}
+                          />
+                        </View>
+                      )}
+                    </View>
+  
+                    {/* WARNING FOR PREP */}
+                    {(ogVariantType === "prep") && (
+                      <View className="w-full px-2 mb-2">
+                        {/* divider */}
+                        <View className="h-[1px] bg-zinc350 mb-4"/>
+                        {/* text */}
+                        <Text className="text-mauve600 italic text-center text-[12px]">
+                          {'modifying this meal prep is not recommended\nand may lead to inaccurate calculations'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </>
+
+              // COMPLEX EDIT
+              : editedVariantType === "complex"
+              &&              
+                <>
+                  {/* create with ingredients */}
+                  <View className="flex flex-col justify-center items-center w-full mb-2 ml-[-5px]">
+
+                    {/* TOP ROW */}
+                    <View className="flex flex-row items-center justify-center border-0.5 mb-1 ml-[15px] mr-[10px] bg-zinc600">
+                      
+                      {/* Meal Name Input */}
+                      <View className="flex justify-center items-center px-1.5 w-7/12 border-r-0.5 bg-zinc700">
+                        <TextInput
+                          className="w-full text-[13px] font-semibold text-white text-center py-2 leading-[16px]"
+                          placeholder={editedVariant.prepName === "" ? "meal prep name" : editedVariant.prepName}
+                          placeholderTextColor={colors.zinc400}
+                          multiline={true}
+                          blurOnSubmit={true}
+                          value={editedVariant.prepName}
+                          onChangeText={(value) => {
+                            setEditedVariant((prev) => {
+                              const updated = { ...prev }; 
+                              updated["prepName"] = value;
+                              return updated;
+                            })
+                          }}
+                        />
+                      </View>
+      
+                      {/* Meal Details */}
+                      <View className="flex flex-row px-1 space-x-3 justify-center items-center w-5/12">
+
+                        {/* calories */}
+                        <View className="flex-auto items-end pl-2">
+                          <Text className="text-center text-[11px] text-white">
+                              {editedVariant.prepCal === "" ? "0" : editedVariant.prepCal || "0"}{" cal"}
+                          </Text>
+                        </View>
+
+                        {/* price */}
+                        <View className="flex flex-auto flex-row pr-2">
+                          <Text className={`flex text-right text-[11px] ${editedVariant.prepPrice === "" ? "text-zinc400" : "text-white"}`}>
+                            $
+                          </Text>
+                          <TextInput
+                            className="flex text-left text-[11px] text-white leading-[13px]"
+                            placeholder={editedVariant.prepPrice === "" ? "0.00" : editedVariant.prepPrice}
+                            placeholderTextColor={colors.zinc400}
+                            value={editedVariant.prepPrice}
+                            onChangeText={(value) => {
+                              setEditedVariant((prev) => {
+                                const updated = { ...prev }; 
+                                updated["prepPrice"] = validateDecimalInput(value);
+                                return updated;
+                              })
+                            }}
+                            onBlur={() => {
+                              setEditedVariant((prev) => {
+                                const updated = { ...prev }; 
+                                updated["prepPrice"] = (editedVariant.prepPrice * 1).toFixed(2);
+                                return updated;
+                              })
+                            }}
+                          />
+                        </View>
+                      </View>
+
+                      {/* First Index Add Indicator */}
+                      <View className="absolute w-[20px] left-[-15px] top-[32.5px] pr-1 z-50 justify-end items-center">
+                        {(showNewIndex && numIngredients !== 0) && (
+                          <Icon
+                            name="send"
+                            size={10}
+                            color={colors.zinc600}
+                            onPress={() => addPrepIngredient(0)}
+                          />
+                        )}
+                      </View>   
+                    </View> 
+      
+                    {/* GRID */}
+                    {(numIngredients !== 0) && (
+                      <ScrollView className={`flex flex-col w-full mr-[-10px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) ? "max-h-[100px]" : "max-h-[430px]"}`}>
+                        {/* Frozen Columns */}
+                        {Array.from({ length: numIngredients }, (_, index) => index < numIngredients && (
+                          <View key={`frozen-${index}`} className="flex flex-row min-h-[30px]">
+
+                            {/* Add Indicator */}
+                            <View className="w-[20px] h-[10px] mt-[-5px] mx-[-5px] pr-1 z-50 justify-end items-center">
+                              {(index !== 0 && showNewIndex) && (
+                                <Icon
+                                  name="send"
+                                  size={10}
+                                  color={colors.zinc600}
+                                  onPress={() => addPrepIngredient(index)}
+                                />
+                              )}
+                            </View>      
+
+                            {/* current */}
+                            <View className={`flex-1 flex-row bg-zinc500 border-x-[1px] ${(index === 0) && "border-t-[1px]"} ${(index === numIngredients - 1) && "border-b-[1px]"} border-zinc700`}>
+        
+                              {/* ingredient names */}
+                              <View className="flex items-center justify-center w-7/12 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">     
+                                <View className="flex flex-wrap flex-row">
+                                  {/* Input */}
+                                  <TextInput
+                                    className="w-full text-white font-semibold text-[10px] text-center px-2 py-2"
+                                    placeholder="ingredient name"
+                                    placeholderTextColor={colors.zinc350} 
+                                    value={editedVariant?.currentData?.[index]?.ingredientName}
+                                    onChangeText={(value) => {
+                                      setEditedVariant((prev) => {
+                                        const updated = { ...prev };
+                                        const currentData = [ ...updated.currentData ];
+                                        currentData[index] = {
+                                          ...currentData[index],
+                                          ingredientName: value,
+                                        };
+                                        updated["currentData"] = currentData;
+                                        return updated;
+                                      });
+                                    }}
+                                    multiline={true}
+                                    blurOnSubmit={true}
+                                    onFocus={() => setKeyboardType("grid")}
+                                    onBlur={() => setKeyboardType("")}
+                                  />
+                                </View>
+                              </View>
+                              
+                              {/* amount */}
+                              <View className="flex flex-row px-1 space-x-0.5 items-center justify-center bg-zinc100 w-1/4 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc400">
+                                {/* Amount Input */}
+                                <TextInput
+                                  className="text-[9px] flex text-center h-full pl-4"
+                                  placeholder="_"
+                                  placeholderTextColor={colors.zinc450}
+                                  value={editedVariant?.currentAmounts?.[index]}
+                                  onChangeText={(value) => {
+                                    setEditedVariant((prev) => {
+                                      const updatedAmounts = [...prev.currentAmounts];
+                                      updatedAmounts[index] = validateFractionInput(value);
+                                      return {
+                                        ...prev,
+                                        currentAmounts: updatedAmounts,
+                                      };
+                                    });
+                                  }}
+                                  onFocus={() => setKeyboardType("grid")}
+                                  onBlur={() => setKeyboardType("")}
+                                />
+                                
+                                {/* Unit Input */}
+                                <TextInput
+                                  className="text-[9px] leading-[12px] flex text-center pr-4 py-1"
+                                  placeholder="unit(s)"
+                                  placeholderTextColor={colors.zinc450}
+                                  value={editedVariant?.currentData?.[index]?.ingredientData[editedVariant?.currentData?.[index]?.ingredientStore]?.unit}
+                                  onChangeText={(value) => {
+                                    setEditedVariant((prev) => {
+                                      const updated = { ...prev };
+                                      const currentData = [...(updated.currentData || [])];
+                                      currentData[index] = {
+                                        ...currentData[index],
+                                        ingredientData: {
+                                          ...currentData[index].ingredientData,
+                                          [currentData[index]?.ingredientStore]: {
+                                            ...currentData[index].ingredientData?.[currentData[index]?.ingredientStore],
+                                            unit: value,
+                                          },
+                                        },
+                                      };
+                                      updated.currentData = currentData;
+                                      return updated;
+                                    });
+                                  }}
+                                  multiline={true}
+                                  blurOnSubmit={true}
+                                  onFocus={() => setKeyboardType("grid")}
+                                  onBlur={() => setKeyboardType("")}
+                                />
+                              </View>
+        
+                              {/* calories */}
+                              <View className="flex flex-row px-1 space-x-0.5 items-center justify-center bg-white w-1/6 border-b-0.5 border-b-zinc400">
+                                
+                                {/* Amount Input */}
+                                <TextInput
+                                  className="text-[9px] flex-auto text-right"
+                                  placeholder="_"
+                                  placeholderTextColor={colors.zinc400}
+                                  value={editedVariant?.currentCals?.[index].toString()}
+                                  onChangeText={(value) => {
+                                    setEditedVariant((prev) => {
+                                      const updatedCals = [...prev.currentCals];
+                                      updatedCals[index] = validateWholeNumberInput(value);
+                                      return {
+                                        ...prev,
+                                        currentCals: updatedCals,
+                                        prepCal: updatedCals.reduce((sum, curr) => sum + Number(curr || 0), 0).toFixed(0),
+                                      };
+                                    });
+                                  }}
+                                  onFocus={() => setKeyboardType("grid")}
+                                  onBlur={() => setKeyboardType("")}
+                                />
+
+                                {/* Label */}
+                                <Text className="text-[9px] flex-auto text-left">
+                                  {"cal"}
                                 </Text>
                               </View>
                             </View>
-                          )
-                        )}
-                        </>
 
-                        {/* collapse specifics */}
-                        <View className="absolute w-1/4 right-0 mr-[20px] z-20 h-full items-start justify-center">
+                            {/* Delete Button */}
+                            <View className="flex w-[20px] mx-[-2.5px] pl-1 z-50 justify-center items-center">
+                              <Icon
+                                name="close"
+                                size={15}
+                                color={colors.zinc600}
+                                onPress={() => deletePrepIngredient(index)}
+                              />
+                            </View>
+                          </View>
+                        ))}
+                      </ScrollView>
+                    )}
+
+                    {/* Add Another Ingredient Row */}
+                    {(ogVariantType !== "prep") && (
+                      <View className="flex flex-row items-center justify-center ml-[15px] mr-[10px]">
+
+                        {/* Last Index Add Indicator */}
+                        <View className="absolute w-[20px] left-[-15px] pr-1 top-[-5px] z-50 justify-end items-center">
+                          {showNewIndex && (
+                            <Icon
+                              name="send"
+                              size={10}
+                              color={colors.zinc600}
+                              onPress={() => addPrepIngredient(numIngredients)}
+                            />
+                          )}
+                        </View>   
+
+                        <TouchableOpacity 
+                          className="flex justify-center items-center bg-zinc350 w-full py-0.5 border-b-[1px] border-x-[1px] border-zinc400"
+                          onPress={() => setShowNewIndex(!showNewIndex)}
+                        >
                           <Icon
-                            name="chevron-collapse"
+                            name={!showNewIndex ? "add" : "close-outline"}
+                            size={14}
                             color={colors.zinc900}
-                            size={16}
-                            onPress={() => setShowSpecifics(false)}
                           />
-                        </View>
+                        </TouchableOpacity>
                       </View>
-                      }
-                      
-                      {/* Details */}
-                      {!showSpecifics &&
-                      <View className="flex flex-col w-1/4 bg-zinc350 justify-center space-y-0.5 py-1">
+                    )}
 
-                        {/* expand specifics */}
-                        <View className="absolute left-[-20px] h-full items-center justify-center">
-                          <Icon
-                            name="resize"
-                            color={colors.zinc900}
-                            size={16}
-                            onPress={() => setShowSpecifics(true)}
-                          />
-                        </View>
-                        
-                        {/* total calories */}
-                        <Text className="text-theme900 font-medium text-[11px] text-center">
-                          {prep[currIndex].prepCal} {"cal"}
-                        </Text>
-                        {/* total price */}
-                        <Text className="text-theme900 font-medium text-[11px] text-center">
-                          {"$"}{prep[currIndex].prepPrice}
+                    {/* WARNING FOR PREP */}
+                    {(ogVariantType === "prep") && (
+                      <View className="w-full mt-2 ml-[20px] px-2">
+                        {/* divider */}
+                        <View className="h-[1px] bg-zinc350 m-4"/>
+                        {/* text */}
+                        <Text className="text-mauve600 italic text-center text-[12px]">
+                          {'modifying this meal prep is not recommended\nand may lead to inaccurate calculations'}
                         </Text>
                       </View>
-                      }
-                    </View>
-                  )}
-
-                  {/* SIMPLE DETAILS */}
-                  {openSimpleIndex === index && (
-                    <View className="flex flex-row w-full bg-zinc300 justify-center items-center space-x-5 py-1">
-                      {/* total calories */}
-                      <Text className="text-theme900 font-medium text-[11px] text-center">
-                        {prep[currIndex].prepCal} {"cal"}
-                      </Text>
-                      {/* total price */}
-                      <Text className="text-theme900 font-medium text-[11px] text-center">
-                        {"$"}{prep[currIndex].prepPrice}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
-            </ScrollView>
-            :
-            <View className="py-1 px-3 bg-zinc500 border-2 border-zinc600">
-              <Text className="italic text-center text-white font-medium">
-                no meal preps match the current filter
-              </Text>
+                    )}
+                  </View>
+                </>
+              }
             </View>
-            }
-          </View>
+          )}
+                                            
+                    
+          {(isEditing && editVariantIndices.prep === -1) && (
+            <>
+              {/* Divider */}
+              <View className="h-[1px] bg-zinc400 w-full my-2"/>
+
+              {/* BOTTOM ROW */}
+              <View className="flex flex-row items-center justify-between w-full">
+
+                {/* Buttons */}
+                <View className="flex flex-row w-full justify-end items-center ml-auto">
+
+                  {/* submit */}
+                  <Icon 
+                    size={24}
+                    color="black"
+                    name="checkmark-done"
+                    onPress={() => submitChanges()}
+                  />
+                </View>
+              </View>
+            </>
+          )}
         </View>
       </View>
     </Modal>

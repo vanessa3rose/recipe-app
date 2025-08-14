@@ -14,6 +14,7 @@ import colors from '../../assets/colors';
 var Fractional = require('fractional').Fraction;
 
 // validation
+import extractUnit from '../Validation/extractUnit';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 import validateDecimalInput from '../../components/Validation/validateDecimalInput';
 import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
@@ -78,6 +79,7 @@ const SnackListModal = ({
 
   ///////////////////////////////// SETUP /////////////////////////////////
 
+  const [snackTitle, setSnackTitle] = useState("SNACKS");
   const [snackData, setSnackData] = useState(null);
   const [snackCal, setSnackCal] = useState("");
   const [snackPrice, setSnackPrice] = useState("");
@@ -85,6 +87,7 @@ const SnackListModal = ({
   // stores data on open
   useEffect(() => {
     if (modalVisible) {
+      setSnackTitle(data?.snackTitle || "SNACKS");
       setSnackData(data?.snackData || null);
       setIsEditing(data === null || data.snackData === null || data?.snackData?.length === 0);
     }
@@ -172,6 +175,14 @@ const SnackListModal = ({
     }
   }
 
+  // to clear everything
+  const clearData = () => {
+    setSnackTitle("SNACKS");
+    setSnackData(null);
+    setSnackCal("");
+    setSnackPrice("");
+  }
+
 
   ///////////////////////////////// SUBMIT /////////////////////////////////
 
@@ -183,19 +194,27 @@ const SnackListModal = ({
     const formattedDate = `20${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
     
     // figures out if snack data is empty and should be null
-    const isEmpty = JSON.stringify(sortObjectKeys(snackData)) === JSON.stringify(sortObjectKeys([{"amount":"","price":"","name":"","cal":"","unit":""}]));
+    const isEmpty = JSON.stringify(sortObjectKeys(snackData)) === JSON.stringify(sortObjectKeys([{"amount":"","price":"","name":"","cal":"","unit":""}])) || JSON.stringify(sortObjectKeys(snackData)) === null;
 
     // refactored snackData
-    const newSnackData = snackData.map((snack) => ({
+    const newSnackData = snackData?.map((snack) => ({
       ...snack,
+      amount: snack.amount === ""
+        ? "1" : snack.amount,
+      cal: (isNaN(snack.cal) || snack.cal === "")
+        ? "0" : snack.cal,
       price: (isNaN(snack.price) || snack.price === "")
         ? "0.00"
         : ((new Fractional(snack.price)).numerator / (new Fractional(snack.price)).denominator).toFixed(2),
-    }));
+      unit: snack.unit === "" 
+        ? extractUnit("serving(s)", snack.amount === "" ? "1" : snack.amount)
+        : snack.unit
+    })).filter((snack => snack.name !== ""));
     
     // compiled data
     const compiledData = {
-      snackData: isEmpty ? null : newSnackData,
+      snackTitle: snackTitle === "" ? "SNACKS" : snackTitle,
+      snackData: isEmpty ? null : newSnackData || null,
       snackCal: snackCal === "" ? "0" : snackCal,
       snackPrice: snackPrice === "" ? "0.00" : snackPrice,
     };
@@ -233,6 +252,10 @@ const SnackListModal = ({
   
   
   ///////////////////////////////// SNACK SEARCH /////////////////////////////////
+  
+  const [openIndex, setOpenIndex] = useState(-1);
+  const [showSpecifics, setShowSpecifics] = useState(false);
+  const [currIndex, setCurrIndex] = useState(0);
 
   const [showSnackSearch, setShowSnackSearch] = useState(false);
   
@@ -243,9 +266,13 @@ const SnackListModal = ({
     }
   }, [snapshot])
   
-  // getting DB data
+  // getting DB data - SNACKS
   const [uniqueSnackNames, setUniqueSnackNames] = useState(null);
   const [uniqueSnackData, setUniqueSnackData] = useState(null);
+
+  // getting DB data - TITLE
+  const [uniqueTitleNames, setUniqueTitleNames] = useState(null);
+  const [uniqueTitleData, setUniqueTitleData] = useState(null);
   
 
   // gets the collection of snacks
@@ -254,6 +281,12 @@ const SnackListModal = ({
     // to get the unique list of snacks
     let snackNames = [];
     let snackData = [];
+    let snackDates = [];
+
+    let titleNames = [];
+    let titleData = [];
+    let titleDates = [];
+
 
     // loops through all the plans
     snapshot.docs.map((plan) => {
@@ -268,62 +301,171 @@ const SnackListModal = ({
           if (snackNameIndex === -1) {
             snackNames.push(snack.name); 
             snackData.push([snack]); 
+            snackDates.push([[plan.id]]);
             
           // otherwise - exact match or alternate found
           } else {
             const snackDataIndex = deepSnackIndexOf(snackData[snackNameIndex], snack);
-
+  
             // alternative found
             if (snackDataIndex === -1) {
               snackData[snackNameIndex].push(snack);
+              snackDates[snackNameIndex].push([plan.id]);
+            
+            // exact match found
+            } else {
+              snackDates[snackNameIndex][snackDataIndex].push(plan.id);
             }
           }
         })
+      
+        // TITLES
+        if (plan.data().snacks?.snackTitle !== "SNACKS") {
+          const titleNameIndex = titleNames.indexOf(plan.data().snacks?.snackTitle);
+          
+          // completely new
+          if (titleNameIndex === -1) {
+            titleNames.push(plan.data().snacks?.snackTitle); 
+            titleData.push([plan.data().snacks]); 
+            titleDates.push([[plan.id]]);
+            
+          // otherwise - exact match or alternate found
+          } else {
+            const titleDataIndex = deepSnackIndexOf(titleData[titleNameIndex], plan.data().snacks);
+  
+            // alternative found
+            if (titleDataIndex === -1) {
+              titleData[titleNameIndex].push(plan.data().snacks);
+              titleDates[titleNameIndex].push([plan.id]);
+            
+            // exact match found
+            } else {
+              titleDates[titleNameIndex][titleDataIndex].push(plan.id);
+            }
+          }
+        }
       }
     })
     
-    // combined data to sort
-    let combined = snackNames.map((name, index) => ({
+    // SNACKS: combined data to sort
+    let combinedSnacks = snackNames.map((name, index) => ({
       name: name,
       data: snackData[index],
+      date: snackDates[index],
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
     
     // stores extracted, sorted values
-    setUniqueSnackNames(combined.map(item => item.name));
-    setUniqueSnackData(combined.map(item => item.data));
+    setUniqueSnackNames(combinedSnacks.map(item => item.name));
+    setUniqueSnackData(combinedSnacks.map(item => item.data));
     
-    setFilteredSnackNames(combined.map(item => item.name));
-    setFilteredSnackData(combined.map(item => item.data));
+    // TITLES: combined data to sort
+    let combinedTitles = titleNames.map((name, index) => ({
+      name: name,
+      data: titleData[index],
+      date: titleDates[index],
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+    
+    // stores extracted, sorted values
+    setUniqueTitleNames(combinedTitles.map(item => item.name));
+    setUniqueTitleData(combinedTitles.map(item => item.data));
+    
+    // initial filtered values are based on snacks, not titles
+    setFilteredNames(combinedSnacks.map(item => item.name));
+    setFilteredData(combinedSnacks.map(item => item.data));
   }
   
   // for filtering
   const [snackKeywordQuery, setSnackKeywordQuery] = useState("");
-  const [filteredSnackNames, setFilteredSnackNames] = useState(null);
-  const [filteredSnackData, setFilteredSnackData] = useState(null);
+  
+  const [filteredNames, setFilteredNames] = useState(null);
+  const [filteredData, setFilteredData] = useState(null);
+
+  const [keywordType, setKeywordType] = useState("snack");
   
   // to filter the list of snacks in the search section
-  const filterSnacks = (searchQuery) => {
+  const filterSnacks = (searchQuery, type) => {
+    setKeywordType(type);
     setSnackKeywordQuery(searchQuery);
+    setOpenIndex(-1);
 
     // to get the unique list of snacks
-    let snackNames = [];
-    let snackData = [];
+    let names = [];
+    let data = [];
 
-    // adds the data to the snack lists that matches the filtering
-    uniqueSnackNames.map((name, index) => {
-      
-      // if the keywords match, push the data
-      if (searchQuery.split(" ").every((word) => name.toLowerCase().includes(word.toLowerCase()))) {
-        // adds the name to the filtered names
-        snackNames.push(uniqueSnackNames[index]);
-        snackData.push(uniqueSnackData[index]);
-      }
-    })
+    if (type === "snack") {
+
+      // adds the data to the snack lists that matches the filtering
+      uniqueSnackNames.map((name, index) => {
+        
+        // if the keywords match, push the data
+        if (searchQuery.split(" ").every((word) => name.toLowerCase().includes(word.toLowerCase()))) {
+          // adds the name to the filtered names
+          names.push(uniqueSnackNames[index]);
+          data.push(uniqueSnackData[index]);
+        }
+      })
+    
+    } else if (type === "snack title") {
+
+      // adds the data to the snack lists that matches the filtering
+      uniqueTitleNames.map((name, index) => {
+        
+        // if the keywords match, push the data
+        if (searchQuery.split(" ").every((word) => name.toLowerCase().includes(word.toLowerCase()))) {
+          // adds the name to the filtered names
+          names.push(uniqueTitleNames[index]);
+          data.push(uniqueTitleData[index]);
+        }
+      })
+    }
 
     // stores the data
-    setFilteredSnackNames(snackNames);
-    setFilteredSnackData(snackData);
+    setFilteredNames(names);
+    setFilteredData(data);
+  }
+
+
+  ///////////////////////////////// SNACK COPY /////////////////////////////////
+
+  // to copy a snack from the snack search
+  const copySnack = (variantIndex) => {
+    
+    // makes data have one empty snack if null
+    if (snackData === null) {
+      setSnackData([filteredData[openIndex][variantIndex]])
+    
+    // adds empty snack otherwise
+    } else {
+      setSnackData((prev) => {
+        const updated = [...prev];
+        updated[snackData.length] = filteredData[openIndex][variantIndex];
+        return updated;
+      })
+    }
+
+    // resets states
+    setOpenIndex(-1);
+    setShowSpecifics(false);
+    setCurrIndex(0);
+    setShowSnackSearch(false);
+    setSnackKeywordQuery("");
+    setKeywordType("snack");
+  }
+
+  // to copy a title from the snack search
+  const copyTitle = () => {
+    setSnackTitle(filteredData[openIndex][currIndex].snackTitle);
+    setSnackData(filteredData[openIndex][currIndex].snackData);
+
+    // resets states
+    setOpenIndex(-1);
+    setShowSpecifics(false);
+    setCurrIndex(0);
+    setShowSnackSearch(false);
+    setSnackKeywordQuery("");
+    setKeywordType("snack");
   }
 
 
@@ -375,9 +517,16 @@ const SnackListModal = ({
 
                 {/* Title */}
                 <View className="flex justify-center items-center px-1.5 py-1 w-1/2 border-r-0.5 bg-zinc700">
-                  <Text className="font-semibold text-white text-[12px]">
-                    SNACKS
-                  </Text>
+                  <TextInput
+                    className="w-full text-center mb-1 font-semibold text-[12px] text-white leading-[15px]"
+                    placeholder={snackTitle === "SNACKS" ? "SNACKS" : snackTitle}
+                    placeholderTextColor={colors.zinc400}
+                    multiline={true}
+                    blurOnSubmit={true}
+                    value={snackTitle}
+                    onChangeText={setSnackTitle}
+                    editable={isEditing}
+                  />
                 </View>
 
                 {/* Meal Details */}
@@ -393,10 +542,22 @@ const SnackListModal = ({
                     {"$"}{snackPrice === "" ? "0.00" : snackPrice || "0.00"}
                   </Text>
                 </View>
+
+                {/* Clearing Data */}
+                {isEditing && (
+                  <View className="absolute right-[-20px]">
+                    <Icon
+                      name="trash"
+                      size={18}
+                      color={colors.mauve500}
+                      onPress={() => clearData()}
+                    />
+                  </View>
+                )}
               </View> 
 
               {/* GRID */}
-              {snackData !== null && 
+              {(snackData !== null) && (
                 <ScrollView 
                   className={`flex flex-col w-full mr-[-40px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) && "max-h-[100px]"}`}
                   scrollEnabled={keyboardType === "grid" && isKeyboardOpen}
@@ -407,7 +568,7 @@ const SnackListModal = ({
                     <View key={`frozen-${index}`} className="flex flex-row min-h-[30px]">
                     
                       {/* snack */}
-                      <View className={`flex-1 flex-row bg-zinc500 border-x-[1px] ${index === 0 && "border-t-[1px]"} ${index === snackData.length - 1 && "border-b-[1px]"} border-zinc700`}>
+                      <View className={`flex-1 flex-row bg-zinc500 border-x-[1px] ${(index === 0) && "border-t-[1px]"} ${(index === snackData.length - 1) && "border-b-[1px]"} border-zinc700`}>
                         
                         {/* snack names */}
                         <View className="flex items-center justify-center w-1/2 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">
@@ -560,39 +721,39 @@ const SnackListModal = ({
 
                       {/* Delete Current Snack */}
                       <View className="flex w-[20px] z-50 justify-center items-center">
-                        {isEditing &&
-                        <Icon
-                          name="close"
-                          size={15}
-                          color={colors.zinc600}
-                          onPress={() => deleteSnack(index)}
-                        />
-                        }
+                        {isEditing && (
+                          <Icon
+                            name="close"
+                            size={15}
+                            color={colors.zinc600}
+                            onPress={() => deleteSnack(index)}
+                          />
+                        )}
                       </View>
                     </View>
                   )}
                 </ScrollView>
-              }
+              )}
 
               {/* Add Another Snack Row */}
-              {isEditing &&
-              <View className="flex flex-row items-center justify-center ml-[20px]">
-                <TouchableOpacity 
-                  className="flex justify-center items-center bg-zinc350 w-full py-0.5 border-b-[1px] border-x-[1px] border-zinc400"
-                  onPress={() => addSnack()}
-                >
-                  <Icon
-                    name="add"
-                    size={14}
-                    color={colors.zinc900}
-                  />
-                </TouchableOpacity>
-              </View>
-              }
+              {isEditing && (
+                <View className="flex flex-row items-center justify-center ml-[20px]">
+                  <TouchableOpacity 
+                    className="flex justify-center items-center bg-zinc350 w-full py-0.5 border-b-[1px] border-x-[1px] border-zinc400"
+                    onPress={() => addSnack()}
+                  >
+                    <Icon
+                      name="add"
+                      size={14}
+                      color={colors.zinc900}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
               
               {/* SEARCH TOGGLE */}
               <TouchableOpacity 
-                className={`flex flex-row justify-center items-center px-5 py-1 mt-4 ml-[20px] ${keyboardType === "grid" && isKeyboardOpen && "mb-6"} rounded-full space-x-1 bg-theme200 border-[1px] border-zinc350`}
+                className={`flex flex-row justify-center items-center px-5 py-1 mt-4 ml-[20px] ${(keyboardType === "grid" && isKeyboardOpen) && "mb-6"} rounded-full space-x-1 bg-theme200 border-[1px] border-zinc350`}
                 onPress={() => setShowSnackSearch(true)}
               >
                 {/* search button */}
@@ -625,11 +786,11 @@ const SnackListModal = ({
                 </View>
       
                 {/* filter input */}
-                <View className="flex bg-white w-full border-0.5 h-full border-zinc500 rounded-md justify-center items-start pl-2 pr-6">
+                <View className="flex bg-white w-full border-0.5 h-full border-zinc500 rounded-l-md justify-center items-start pl-2 pr-6">
                   <TextInput
                     className="w-full text-left text-[14px]"
                     value={snackKeywordQuery}
-                    onChangeText={(value) => filterSnacks(value)}
+                    onChangeText={(value) => filterSnacks(value, keywordType)}
                     placeholder="search for snack"
                     placeholderTextColor={colors.zinc400}
                   />
@@ -644,60 +805,225 @@ const SnackListModal = ({
                     />
                   </View>
                 </View>
+                            
+                {/* Keyword Type Selector */}
+                <View className="h-full justify-center bg-zinc300 px-1 rounded-r-md">
+                  <Icon
+                    name={keywordType === "snack title" ? "code-working" : keywordType === "snack" && "list"}
+                    color={colors.theme900}
+                    size={20}
+                    onPress={() => filterSnacks(snackKeywordQuery, keywordType === "snack title" ? "snack" : "snack title") }
+                  />
+                </View>
               </View>
-
-              {/* MAP OF SNACKS */}
-              <View className="px-3">
-                {filteredSnackNames.length > 0 
-                ?
+            
+              {/* Filtered List of Snacks */}
+              {filteredData?.length > 0 
+              ?
                 <ScrollView
                   vertical
                   scrollEventThrottle={16}
                   contentContainerStyle={{ flexDirection: 'column' }}
-                  className="flex w-full h-[300px] border-4 border-zinc300 bg-zinc300"
+                  className="max-h-[200px] bg-zinc500 border-2 border-zinc600 space-y-2 my-2"
                 >
-                  {filteredSnackData?.map((snack, index) => (
-                    <View key={index} className={`flex flex-row w-full justify-between mb-1.5 ${index % 2 === 0 ? "bg-theme400 border-b-zinc500" : "bg-theme500 border-b-zinc600"}
-                    `}>
-
-                      {/* snack name */}
-                      <View className="flex flex-wrap w-2/5 justify-center items-center py-2 px-2">
-                        <Text className="text-[12px] w-full text-black italic font-medium text-right">
-                          {filteredSnackNames[index]}
-                        </Text>
-                      </View>
+                  {filteredData?.map((snack, index) =>
+                    <View
+                      key={index}
+                      className="flex flex-col items-center justify-center"
+                    >
+                      {/* GENERAL DETAILS */}
+                      <View className="flex flex-row border-y-[1px] border-zinc600">
                       
-                      {/* details */}
-                      <View className={`justify-center items-end flex flex-col w-3/5 py-1 px-2 ${index % 2 === 0 ? "bg-zinc350 border-b-zinc500" : "bg-zinc400 border-b-zinc600"}`}>
-                        {snack.map((variant, i) => (
-                          <View key={i} className="flex flex-row w-full justify-evenly items-center">
-                            {/* amount */}
-                            <Text className="text-[10px] text-zinc900 font-medium">
-                              {`${variant.amount} ${variant.unit}`}
-                            </Text>
-                            {/* price */}
-                            <Text className="text-[10px] text-zinc900 font-medium">
-                              {`$${variant.price}`}
-                            </Text>
-                            {/* calories */}
-                            <Text className="text-[10px] text-zinc900 font-medium">
-                              {`${variant.cal} cal`}
+                        {/* Copy Title Button */}
+                        {(keywordType === "snack title" && openIndex === index) && (
+                          <View className="flex w-[10%] bg-zinc100 justify-center items-center">
+                            <Icon
+                              name="play-skip-back"
+                              color="black"
+                              size={16}
+                              onPress={() => copyTitle()}
+                            />
+                          </View>
+                        )}
+                        
+                        {/* Overall Name Display */}
+                        <View className={`flex flex-row bg-theme300 py-2 pl-2 pr-1 space-x-2 items-center justify-between ${(keywordType === "snack title" && openIndex === index) ? "w-3/4" : "w-[85%]"}`}>
+                          {/* name */}
+                          <View className="flex-1">
+                            <Text className="text-left text-[13px] italic">
+                              {filteredNames[index]}
                             </Text>
                           </View>
-                        ))}
+                                        
+                          {/* indicator of selected option */}
+                          {(keywordType === "snack" || (keywordType === "snack title" && !showSpecifics && (openIndex !== index)))
+                          ? 
+                            // (#)
+                            <View>
+                              <Text className="text-[12px] font-semibold text-theme900">
+                                {`(${snack.length})`}
+                              </Text>
+                            </View>
+                          : 
+                            // #/#
+                            <TouchableOpacity 
+                              onPress={() => setCurrIndex((currIndex + 1) % snack.length)}
+                            >
+                              <Text className="text-[12px] font-semibold text-theme900">
+                                {`${currIndex + 1}/${snack.length}`}
+                              </Text>
+                            </TouchableOpacity>
+                          }
+                        </View>
+
+                        {/* open information button */}
+                        <View className="flex py-2 justify-center items-center bg-theme400 w-[15%]">
+                          <Icon
+                            name="information-circle"
+                            color={colors.zinc800}
+                            size={18}
+                            onPress={() => setOpenIndex(openIndex === index ? -1 : index)}
+                          />
+                        </View>
                       </View>
+
+                      {/* DETAILS */}
+                      {(openIndex === index) && (
+                        <View className="bg-zinc300 w-full justify-center items-center">
+
+                          {/* Snack */}
+                          {keywordType === "snack" 
+                          ?
+                            <ScrollView
+                              horizontal
+                              scrollEventThrottle={16}
+                              contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
+                              className="flex flex-row p-2 space-x-2"
+                            >
+                              {snack.map((variant, i) => (
+                                <TouchableOpacity 
+                                  key={i}
+                                  onPress={() => copySnack(i)}
+                                  className="flex flex-col bg-zinc200 space-y-0.5 w-[100px] justify-center items-center px-2 py-1 border border-dashed rounded-lg"
+                                >
+                                  {/* amount */}
+                                  <Text className="text-theme900 font-medium text-[11px] text-center">
+                                    {`${variant.amount} ${extractUnit(variant.unit, variant.amount)}`}
+                                  </Text>
+                                  {/* DIVIDER */}
+                                  <View className="h-[1px] bg-zinc400 w-5/6 mb-0.5"/>
+                                  {/* calories */}
+                                  <Text className="text-zinc700 font-medium text-[10px] text-center">
+                                    {`${variant.cal} cal`}
+                                  </Text>
+                                  {/* price */}
+                                  <Text className="text-zinc700 font-medium text-[10px] text-center">
+                                  {`$${variant.price}`}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                            </ScrollView>
+                          : keywordType === "snack title"
+                          &&
+                            <View className="flex flex-row w-full bg-black">
+
+                              {/* Ingredient List */}
+                              {!showSpecifics
+                              ? // not showing specific amounts
+                              <View className="flex flex-col w-3/4 bg-zinc300 py-1 items-start justify-center">
+                                {snack[currIndex]?.snackData?.map((current, i) => 
+                                  current !== null && (
+                                    <View key={i} className="flex flex-row w-full pl-2 pr-5 space-x-1">
+                                      {/* current ingredient name */}
+                                      <Text className="text-zinc800 text-[11px] text-center">
+                                        {"⁃"}
+                                      </Text>
+                                      <Text className="text-zinc800 text-[11px] text-left pr-2">
+                                        {current.name}
+                                      </Text>
+                                    </View>
+                                  )
+                                )}
+                              </View>
+                              : 
+                              // showing specific amounts
+                              <View className="flex w-full bg-zinc300 items-start justify-center">
+                                <>
+                                {snack[currIndex]?.snackData?.map((current, i) => 
+                                  current !== null && (
+                                    <View key={i} className="flex flex-row">
+
+                                      {/* INGREDIENT NAME */}
+                                      <View className={`${(i === 0) && "pt-1"} ${(i === snack[currIndex].snackData.filter(curr => curr !== null).length - 1) && "pb-1"} w-3/4 flex flex-row pl-2 pr-5 space-x-1`}>
+                                        <Text className="text-zinc800 text-[11px] text-center">
+                                          {"⁃"}
+                                        </Text>
+                                        <Text className="text-zinc800 text-[11px] text-left pr-2">
+                                          {`${current.name}`}
+                                        </Text>
+                                      </View>
+
+                                      {/* INGREDIENT AMOUNT */}
+                                      <View className={`${(i === 0) && "pt-1"} ${(i === snack[currIndex].snackData.filter(curr => curr !== null).length - 1) && "pb-1"} w-1/4 justify-center items-center bg-zinc350`}>
+                                        <Text className="text-theme900 font-medium text-[9px] text-center">
+                                          {`${current.amount} ${current.unit}`}
+                                        </Text>
+                                      </View>
+                                    </View>
+                                  )
+                                )}
+                                </>
+
+                                {/* collapse specifics */}
+                                <View className="absolute w-1/4 right-0 mr-[20px] z-20 h-full items-start justify-center">
+                                  <Icon
+                                    name="chevron-collapse"
+                                    color={colors.zinc900}
+                                    size={16}
+                                    onPress={() => setShowSpecifics(false)}
+                                  />
+                                </View>
+                              </View>
+                              }
+                                                        
+                              {/* Details */}
+                              {!showSpecifics && (
+                                <View className="flex flex-col w-1/4 bg-zinc350 justify-center space-y-0.5 py-1">
+          
+                                  {/* expand specifics */}
+                                  <View className="absolute left-[-20px] h-full items-center justify-center">
+                                    <Icon
+                                      name="resize"
+                                      color={colors.zinc900}
+                                      size={16}
+                                      onPress={() => setShowSpecifics(true)}
+                                    />
+                                  </View>
+                                  
+                                  {/* total calories */}
+                                  <Text className="text-theme900 font-medium text-[11px] text-center">
+                                    {snack[currIndex].snackCal} {"cal"}
+                                  </Text>
+                                  {/* total price */}
+                                  <Text className="text-theme900 font-medium text-[11px] text-center">
+                                    {"$"}{snack[currIndex].snackPrice}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          }
+                        </View>
+                      )}
                     </View>
-                  ))}
+                  )}
                 </ScrollView>
-                :
-                // empty snack list after filtering
-                <View className="flex w-full justify-center items-center h-[300px] border-4 border-zinc300 bg-zinc350">
-                  <Text className="italic text-center text-theme900 font-semibold">
+              :
+                <View className="py-1 px-3 bg-zinc500 border-2 border-zinc600">
+                  <Text className="italic text-center text-white font-medium">
                     no snacks match the current filter
                   </Text>
                 </View>
-                }
-              </View>
+              }
             </View>
           }
                         

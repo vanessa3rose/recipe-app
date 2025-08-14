@@ -352,9 +352,8 @@ export default function CurrentFood ({ isSelectedTab }) {
       ]);
 
       // finds the index of the new current and scrolls to the correct y value
-      const itemHeight = 50;
-      const idx = currents.map(current => current.ingredientName).indexOf(searchIngredientQuery);
-      if (verticalScrollRef.current) { verticalScrollRef.current.scrollTo({ y: idx * itemHeight, animated: false }); }
+      const scrollY = currents.map(current => current.ingredientName).indexOf(searchIngredientQuery) * ITEM_HEIGHT;
+      if (verticalScrollRef.current) { verticalScrollRef.current.scrollTo({ y: scrollY, animated: false }); }
         
       // clears the search
       clearIngredientSearch();
@@ -690,7 +689,13 @@ export default function CurrentFood ({ isSelectedTab }) {
     setCurrentModId(null);
     setCurrentModData(null);
     setModModalVisible(false);
-    await loadCurrents(); // reloads settings
+
+    // refreshes current 
+    const currents = await loadCurrents();
+
+    // finds the index of the new current and scrolls to the correct y value
+    const scrollY = currents.map(current => current.ingredientName).indexOf(newId) * ITEM_HEIGHT;
+    if (verticalScrollRef.current) { verticalScrollRef.current.scrollTo({ y: scrollY, animated: false }); }
   };
 
 
@@ -966,9 +971,15 @@ export default function CurrentFood ({ isSelectedTab }) {
     // updates db
     await updateDoc(doc(db, 'CURRENTS', currentIds[index]), { archive: updatedItem.archive });
   }
+
+
+  ///////////////////////////////// SCROLLING /////////////////////////////////
   
   // vertical scroll syncing
   const verticalScrollRef = useRef(null);
+  
+  // for calculations
+  const ITEM_HEIGHT = 65;
 
 
   ///////////////////////////////// HTML /////////////////////////////////
@@ -986,10 +997,10 @@ export default function CurrentFood ({ isSelectedTab }) {
       </View>
 
       {/* CURRENT SECTION */}
-      <View className={`flex flex-col h-2/3 ${currentList.filter(current => current.archive === showArchive).length > 0 ? "pl-[15px] mx-[20px] pr-[5px] w-full" : "w-11/12"}`}>
+      <View className={`flex flex-col h-2/3 ${(currentList.filter(current => current.archive === showArchive).length > 0) ? "pl-[15px] mx-[20px] pr-[5px] w-full" : "w-11/12"}`}>
 
         {/* HEADER ROW */}
-        <View className={`flex flex-row z-20 w-full h-[30px] ${currentList.filter(current => current.archive === showArchive).length > 0 && "pr-[20px]"}`}>
+        <View className={`flex flex-row z-20 w-full h-[30px] ${(currentList.filter(current => current.archive === showArchive).length > 0) && "pr-[20px]"}`}>
             
           {/* meal prep filtering button */}
           <View className="flex items-center justify-center w-1/12 bg-theme900 border-y-[1px] border-l-[1px] border-black">
@@ -1048,7 +1059,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                 // only shows the ones that fit the filtering
                 <View key={`curr-${index}`}>
                   {filteredIndices[index] ?
-                    <View className="flex flex-row h-[50px] mr-[40px]">
+                    <View className={`flex flex-row h-[${ITEM_HEIGHT}px] mr-[40px]`}>
 
                       {/* Main Data */}
                       <View className="flex flex-row border-x-[1px] border-black">
@@ -1088,10 +1099,10 @@ export default function CurrentFood ({ isSelectedTab }) {
                         <TouchableOpacity 
                           activeOpacity={0.75}
                           onPress={() => openViewModal(index)}
-                          className={`flex items-start justify-center w-2/5 z-10 border-b-0.5 border-r-0.5 border-r-theme900 pl-1 pr-[5px] ${curr.ingredientId === "" && newIds.indexOf(curr.ingredientName) !== -1 ? "bg-zinc500 border-b-zinc700" : newIds.indexOf(curr.ingredientId) === -1 ? "bg-theme600 border-b-theme900" : "bg-zinc500 border-b-zinc700"}`}
+                          className={`flex items-start justify-center w-2/5 z-10 border-b-0.5 border-r-0.5 border-r-theme900 pl-1 pr-[5px] ${(curr.ingredientId === "" && newIds.indexOf(curr.ingredientName) !== -1) ? "bg-zinc500 border-b-zinc700" : newIds.indexOf(curr.ingredientId) === -1 ? "bg-theme600 border-b-theme900" : "bg-zinc500 border-b-zinc700"}`}
                         >
                           <Text className="text-white text-[12px]">
-                            {curr && curr.ingredientData ? curr.ingredientName : ""}
+                            {(curr && curr.ingredientData) ? curr.ingredientName : ""}
                           </Text>
                         </TouchableOpacity>
 
@@ -1145,7 +1156,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                               </View>
 
                               {/* Store Logo */}
-                              <View className="flex justify-start absolute right-0 w-[30px] h-[50px] -mr-2">
+                              <View className={`flex justify-start absolute right-0 w-[30px] h-[${ITEM_HEIGHT}px] -mr-2`}>
                                 {currStores[index] === "-" ? 
                                   <View className="mt-[6.5px] w-full justify-center items-center">
                                     <Icon
@@ -1205,7 +1216,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                           activeOpacity={0.9}
                         >
                           {/* Amount */}
-                          {Array.isArray(currPrices) && currPrices[index] !== "" &&
+                          {(Array.isArray(currPrices) && currPrices[index] !== "") && (
                             <Text className={`text-[12px] leading-[15px] text-center ${(currPrices[index] === "0.00" || currPrices[index] === "0.0000") ? "bg-zinc200 p-0.5" : "bg-zinc100"}`}>
                               {/* $ or ¢ display */}
                               {currPrices[index] >= 0.01 || currPrices[index] === "0.00" || currPrices[index] === ""
@@ -1215,7 +1226,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                                 <Text>{(currPrices[index] * 100).toFixed(2)}{"¢"}</Text>
                               }
                             </Text>
-                          }
+                          )}
                         </TouchableOpacity>
                       </View>
       
@@ -1234,9 +1245,9 @@ export default function CurrentFood ({ isSelectedTab }) {
               ))}
 
               {/* empty space at the bottom if the keyboard is open */}
-              {(keyboardType === "" && isKeyboardOpen) &&
+              {(keyboardType === "" && isKeyboardOpen) && (
                 <View className="flex flex-row h-[150px]"/>
-              }
+              )}
             </View>
           </ScrollView>   
         :
@@ -1250,8 +1261,8 @@ export default function CurrentFood ({ isSelectedTab }) {
         </View>
       
         {/* ARCHIVE INDICATOR */}
-        {currentList.length !== 0 &&
-          <View className={`flex flex-row z-20 ${currentList.filter(current => current.archive === showArchive).length > 0 && "mr-[20px]"} justify-center items-center space-x-3 bg-zinc900 border-t-2 mt-[-1px] pb-[2px] h-[30px]`}>
+        {(currentList.length !== 0) && (
+          <View className={`flex flex-row z-20 ${(currentList.filter(current => current.archive === showArchive).length > 0) && "mr-[20px]"} justify-center items-center space-x-3 bg-zinc900 border-t-2 mt-[-1px] pb-[2px] h-[30px]`}>
             
             {/* text */}
             <Text className="font-bold text-[12px] text-zinc300 italic">
@@ -1271,15 +1282,15 @@ export default function CurrentFood ({ isSelectedTab }) {
               />
             </View>
           </View>
-        }
+        )}
 
         {/* BACKGROUND */}
-        {currentList.filter(current => current.archive === showArchive).length > 0 &&
-        <>
-          <View className="absolute w-[25px] h-full right-0 ml-[15px] bg-zinc200 z-10"/>
-          <View className="absolute w-full h-full ml-[15px] bg-zinc700 z-0"/>
-        </>
-        }
+        {(currentList.filter(current => current.archive === showArchive).length > 0) && (
+          <>
+            <View className="absolute w-[25px] h-full right-0 ml-[15px] bg-zinc200 z-10"/>
+            <View className="absolute w-full h-full ml-[15px] bg-zinc700 z-0"/>
+          </>
+        )}
       </View>
 
       {/* MODIFY PRICE MODAL */}
@@ -1307,14 +1318,14 @@ export default function CurrentFood ({ isSelectedTab }) {
             </Text>
 
             {/* Submit */}
-            {searchIngredientQuery !== "" &&
-            <Icon
-              name="checkmark-circle"
-              size={17}
-              color={colors.zinc100}
-              onPress={() => submitIngredient()}
-            />
-            }
+            {(searchIngredientQuery !== "") && (
+              <Icon
+                name="checkmark-circle"
+                size={17}
+                color={colors.zinc100}
+                onPress={() => submitIngredient()}
+              />
+            )}
           </View>
         
           {/* Bottom Row */}
@@ -1388,22 +1399,22 @@ export default function CurrentFood ({ isSelectedTab }) {
           >
             <Text
               multiline={true}
-              className={`${searchIngredientQuery !== '' && searchIngredientQuery !== "" ? "text-black" : "text-zinc400"} ${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] py-[5px] text-[14px] leading-[17px]`}
+              className={`${(searchIngredientQuery !== '' && searchIngredientQuery !== "") ? "text-black" : "text-zinc400"} ${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] py-[5px] text-[14px] leading-[17px]`}
             >
-              {searchIngredientQuery !== '' && searchIngredientQuery !== "" ? searchIngredientQuery : "search for ingredient"}
+              {(searchIngredientQuery !== '' && searchIngredientQuery !== "") ? searchIngredientQuery : "search for ingredient"}
             </Text>
           </TouchableOpacity>
 
 
           {/* Ingredient Dropdown */}
-          {ingredientDropdownOpen && !isKeyboardOpen && (
+          {(ingredientDropdownOpen && !isKeyboardOpen) && (
             <View className="absolute w-full bottom-[100%] border-x-0.5 border-t-0.5 bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
               <ScrollView>
                 {filteredIngredientData.map((item, index) => (
                   <TouchableOpacity
                     key={index}
                     onPress={() => {pickIngredient(item)}}
-                    className={`p-2.5 ${index === 0 && "rounded-t-[5px]"} ${item.ingredientName === selectedIngredientName && "bg-zinc400"} ${index < filteredIngredientData.length - 1 && "border-b-[1px] border-zinc400"}`}
+                    className={`p-2.5 ${(index === 0) && "rounded-t-[5px]"} ${(item.ingredientName === selectedIngredientName) && "bg-zinc400"} ${(index < filteredIngredientData.length - 1) && "border-b-[1px] border-zinc400"}`}
                   >
                     {/* name */}
                     <Text className="text-[13px] mr-4">
@@ -1411,7 +1422,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                     </Text>
 
                     {/* selected indicator */}
-                    {item.ingredientName === selectedIngredientName &&
+                    {(item.ingredientName === selectedIngredientName) && (
                       <View className="flex-1 mt-2 mb-3 absolute right-1 items-center justify-center">
                         <Icon
                           name="checkmark"
@@ -1419,7 +1430,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                           size={18}
                         />
                       </View>
-                    }
+                    )}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -1427,24 +1438,24 @@ export default function CurrentFood ({ isSelectedTab }) {
           )}
 
           {/* INDICATOR */}
-          {selectedIngredientData !== null &&
-          <View className="absolute left-1 bottom-0">
-            <Icon
-              name="link"
-              size={20}
-              color={colors.theme800}
-              onPress={() => setIngredientModalVisible(true)}
-            />
-          </View>
-          }
+          {(selectedIngredientData !== null) && (
+            <View className="absolute left-1 bottom-0">
+              <Icon
+                name="link"
+                size={20}
+                color={colors.theme800}
+                onPress={() => setIngredientModalVisible(true)}
+              />
+            </View>
+          )}
 
-          {ingredientModalVisible &&
+          {ingredientModalVisible && (
             <ViewIngredientModal
               modalVisible={ingredientModalVisible}
               setModalVisible={setIngredientModalVisible}
               ingredient={{ingredientName: selectedIngredientName, ingredientData: selectedIngredientData}}
             />
-          }
+          )}
 
           {/* BUTTONS */}
           <View className="absolute right-0 bottom-0 flex flex-row">
@@ -1478,7 +1489,7 @@ export default function CurrentFood ({ isSelectedTab }) {
 
 
       {/* KEYBOARD POPUP SECTION */}
-      {isKeyboardOpen && keyboardType === "ingredient search" &&
+      {(isKeyboardOpen && keyboardType === "ingredient search") && (
         <>
           {/* Grayed Out BG */}
           <View className="absolute bg-black bg opacity-40 w-full h-full z-30"/>
@@ -1512,7 +1523,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                       <TouchableOpacity
                         key={index}
                         onPress={() => {pickIngredient(item)}}
-                        className={`p-2.5 ${index === 0 && "rounded-t-[5px]"} ${item.ingredientName === selectedIngredientData?.ingredientName && "bg-zinc400"} ${index < filteredIngredientData.length - 1 && "border-b-[1px] border-zinc400"}`}
+                        className={`p-2.5 ${(index === 0) && "rounded-t-[5px]"} ${(item.ingredientName === selectedIngredientData?.ingredientName) && "bg-zinc400"} ${(index < filteredIngredientData.length - 1) && "border-b-[1px] border-zinc400"}`}
                       >
                         {/* name */}
                         <Text className="text-[13px] mr-4">
@@ -1520,7 +1531,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                         </Text>
 
                         {/* selected indicator */}
-                        {item.ingredientName === selectedIngredientData?.ingredientName &&
+                        {(item.ingredientName === selectedIngredientData?.ingredientName) && (
                           <View className="flex-1 mt-2 mb-3 absolute right-1 items-center justify-center">
                             <Icon
                               name="checkmark"
@@ -1528,7 +1539,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                               size={18}
                             />
                           </View>
-                        }
+                        )}
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -1577,7 +1588,7 @@ export default function CurrentFood ({ isSelectedTab }) {
             </TouchableOpacity>
           </View>
         </>
-      }
+      )}
     </View>
   );
 };

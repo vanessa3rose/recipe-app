@@ -202,16 +202,16 @@ const ModPriceModal = ({
             
             {/* Warnings */}
             <View className="flex flex-col">
-              {!containerCostValid && 
+              {!containerCostValid && (
                 <Text className="text-mauve600 italic">
                   container cost is required
                 </Text>
-              }
-              {!amountValid && 
+              )}
+              {!amountValid && (
                 <Text className="text-mauve600 italic">
                   container amount is required
                 </Text>
-              }
+              )}
             </View>
 
             {/* BUTTONS */}

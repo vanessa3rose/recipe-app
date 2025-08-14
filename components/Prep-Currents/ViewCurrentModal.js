@@ -82,38 +82,38 @@ const ViewCurrentModal = ({
             </View>
           </View>
           
-          {prepList !== null && prepList.length > 0 &&
+          {(prepList !== null && prepList.length > 0) && (
             <>
-            {/* Divider */}
-            <View className="h-[1px] bg-zinc400 mx-2 my-4"/>
-            
-            {/* MEAL PREP LIST */}
-            {prepList.map((prep, index) => (
-              <View 
-                key={index}
-                className="flex flex-row justify-center items-center w-full px-4"
-              >
-                <View className="flex flex-row border-[1px] border-zinc450 bg-black">
+              {/* Divider */}
+              <View className="h-[1px] bg-zinc400 mx-2 my-4"/>
+              
+              {/* MEAL PREP LIST */}
+              {prepList.map((prep, index) => (
+                <View 
+                  key={index}
+                  className="flex flex-row justify-center items-center w-full px-4"
+                >
+                  <View className="flex flex-row border-[1px] border-zinc450 bg-black">
 
-                  {/* prep name */}
-                  <View className="py-1 px-2 w-3/5 items-center justify-center bg-zinc400">
-                    <Text className="text-black italic font-semibold text-center text-[12px]">
-                      {prep}
-                    </Text>
-                  </View>
+                    {/* prep name */}
+                    <View className="py-1 px-2 w-3/5 items-center justify-center bg-zinc400">
+                      <Text className="text-black italic font-semibold text-center text-[12px]">
+                        {prep}
+                      </Text>
+                    </View>
 
-                  {/* details */}
-                  <View className="flex flex-row py-2 px-2 w-2/5 items-center justify-center bg-zinc350">
-                    <Text>
-                      <Text className="text-[12px] text-center font-medium text-zinc700">{amountList[index]}</Text>
-                      <Text className="text-[12px] text-center font-medium text-zinc700">{`\u00A0x\u00A0${multList[index]}`}</Text>
-                    </Text>
+                    {/* details */}
+                    <View className="flex flex-row py-2 px-2 w-2/5 items-center justify-center bg-zinc350">
+                      <Text>
+                        <Text className="text-[12px] text-center font-medium text-zinc700">{amountList[index]}</Text>
+                        <Text className="text-[12px] text-center font-medium text-zinc700">{`\u00A0x\u00A0${multList[index]}`}</Text>
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
+              ))}
             </>
-          }
+          )}
         </View>
       </View>
     </Modal>
