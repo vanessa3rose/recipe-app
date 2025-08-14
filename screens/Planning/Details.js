@@ -269,14 +269,14 @@ export default function Details ({ isSelectedTab }) {
                   {/* available */}
                   <View>
                     <Text className="text-[12px] font-semibold">
-                      {currAvailable[index] !== undefined && currAvailable[index].length !== 0 ? currAvailable[index] : "0"} {"available"}
+                      {(currAvailable[index] !== undefined && currAvailable[index].length !== 0) ? currAvailable[index] : "0"} {"available"}
                     </Text>
                   </View>
 
                   {/* remaining */}
                   <View>
-                    <Text className={`text-[12px] font-semibold ${currRemaining[index] !== undefined && currRemaining[index] < 0 ? "text-mauve700" : currRemaining[index] !== undefined && currRemaining[index] === 0 ? "text-yellow-700" : currRemaining[index] !== undefined && currRemaining[index] > 0 ? "text-green-700" : "text-black"}`}>
-                      {currRemaining[index] !== undefined && currRemaining[index].length !== 0 ? currRemaining[index] : "0"} {"remaining"}
+                    <Text className={`text-[12px] font-semibold ${(currRemaining[index] !== undefined && currRemaining[index] < 0) ? "text-mauve700" : (currRemaining[index] !== undefined && currRemaining[index] === 0) ? "text-yellow-700" : (currRemaining[index] !== undefined && currRemaining[index] > 0) ? "text-green-700" : "text-black"}`}>
+                      {(currRemaining[index] !== undefined && currRemaining[index].length !== 0) ? currRemaining[index] : "0"} {"remaining"}
                     </Text>
                   </View>
                 </View>
@@ -341,13 +341,13 @@ export default function Details ({ isSelectedTab }) {
 
 
         {/* Modal to Display a Meal */}
-        {mealModalVisible && 
+        {mealModalVisible && (
           <MealOverviewModal
             data={mealModalData}
             modalVisible={mealModalVisible}
             setModalVisible={setMealModalVisible}
           />
-        }
+        )}
       </View>
     </View>
   );

@@ -105,44 +105,44 @@ const RecipeListModal = ({
           </View>
 
           {/* if other stores list the ingredient */}
-          {otherList.length !== 0 &&
-          <>
-            {/* divider */}
-            <View className="h-[1px] bg-zinc400 m-5"/>
+          {(otherList.length !== 0) && (
+            <>
+              {/* divider */}
+              <View className="h-[1px] bg-zinc400 m-5"/>
 
-            <View className="flex w-full px-2 justify-center items-center">
+              <View className="flex w-full px-2 justify-center items-center">
 
-              {/* Text Indicator */}
-              <View className="w-11/12 bg-zinc100 p-1 border-[1px] border-zinc350 mb-2">
-                <Text className="font-medium text-[12px] text-center text-zinc800">
-                  OTHER LISTS WITH THIS INGREDIENT:
-                </Text>
-              </View>
+                {/* Text Indicator */}
+                <View className="w-11/12 bg-zinc100 p-1 border-[1px] border-zinc350 mb-2">
+                  <Text className="font-medium text-[12px] text-center text-zinc800">
+                    OTHER LISTS WITH THIS INGREDIENT:
+                  </Text>
+                </View>
 
-              {/* Map of Ingredients */}
-              <View className="flex border-[1px] border-r-[1.5px] border-theme800">
-                {otherList.map((ingredient, index) => (
-                  <View key={index} className="flex flex-row w-11/12 bg-black justify-center items-center">
-                    
-                    {/* Spotlight */}
-                    <View className={`w-7/12 py-1 px-2 bg-theme600 border-l-0.5 ${index !== 0 && 'border-t-[1px] border-theme700'}`}>
-                      <Text className="text-[12.5px] text-left text-white">
-                        {ingredient.spotlightName}
-                      </Text>
+                {/* Map of Ingredients */}
+                <View className="flex border-[1px] border-r-[1.5px] border-theme800">
+                  {otherList.map((ingredient, index) => (
+                    <View key={index} className="flex flex-row w-11/12 bg-black justify-center items-center">
+                      
+                      {/* Spotlight */}
+                      <View className={`w-7/12 py-1 px-2 bg-theme600 border-l-0.5 ${(index !== 0) && 'border-t-[1px] border-theme700'}`}>
+                        <Text className="text-[12.5px] text-left text-white">
+                          {ingredient.spotlightName}
+                        </Text>
+                      </View>
+
+                      {/* Store */}
+                      <View className={`w-5/12 py-1 bg-theme800 text-zinc100 ${(index !== 0) && 'border-t-[1px] border-theme900'}`}>
+                        <Text className="text-[12.5px] text-center text-white font-medium">
+                          {ingredient.ingredientStore.toLowerCase()}
+                        </Text>
+                      </View>
                     </View>
-
-                    {/* Store */}
-                    <View className={`w-5/12 py-1 bg-theme800 text-zinc100 ${index !== 0 && 'border-t-[1px] border-theme900'}`}>
-                      <Text className="text-[12.5px] text-center text-white font-medium">
-                        {ingredient.ingredientStore.toLowerCase()}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
+                  ))}
+                </View>
               </View>
-            </View>
-          </>
-          }
+            </>
+          )}
         </View>
       </View>
     </Modal>

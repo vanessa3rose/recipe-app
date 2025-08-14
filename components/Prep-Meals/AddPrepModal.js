@@ -352,84 +352,84 @@ const AddPrepModal = ({
             :
               // SPOTLIGHTS
               <>
-              {/* SPOTLIGHT PREP PICKER */}
-              {spotlightList !== null &&
-                <View className="flex flex-row justify-evenly content-center mb-4 h-[50px]">
-                  <DropDownPicker 
-                    open={spotlightDropdownOpen}
-                    setOpen={setSpotlightDropdownOpen}
-                    value={selectedSpotlightId}
-                    setValue={setSelectedSpotlightId}
-                    items={spotlightList.map((spotlight) => ({
-                      label: spotlight.spotlightName,
-                      value: spotlight.id,
-                      key: spotlight.id,
-                      labelStyle: { color: 'black' }
-                    }))}
-                    placeholder=""
-                    style={{ height: 50, backgroundColor: colors.theme800, borderWidth: 0, justifyContent: 'center', }}
-                    dropDownContainerStyle={{ backgroundColor: 'white', }}
-                    textStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
-                    listItemContainerStyle={{ borderBottomWidth: 0.5, borderBottomColor: colors.theme100, }}
-                    ArrowDownIconComponent={() => {
-                      return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
-                    }}
-                    ArrowUpIconComponent={() => {
-                      return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
-                    }}
-                  />
-                </View>
-              }
+                {/* SPOTLIGHT PREP PICKER */}
+                {(spotlightList !== null) && (
+                  <View className="flex flex-row justify-evenly content-center mb-4 h-[50px]">
+                    <DropDownPicker 
+                      open={spotlightDropdownOpen}
+                      setOpen={setSpotlightDropdownOpen}
+                      value={selectedSpotlightId}
+                      setValue={setSelectedSpotlightId}
+                      items={spotlightList.map((spotlight) => ({
+                        label: spotlight.spotlightName,
+                        value: spotlight.id,
+                        key: spotlight.id,
+                        labelStyle: { color: 'black' }
+                      }))}
+                      placeholder=""
+                      style={{ height: 50, backgroundColor: colors.theme800, borderWidth: 0, justifyContent: 'center', }}
+                      dropDownContainerStyle={{ backgroundColor: 'white', }}
+                      textStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
+                      listItemContainerStyle={{ borderBottomWidth: 0.5, borderBottomColor: colors.theme100, }}
+                      ArrowDownIconComponent={() => {
+                        return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
+                      }}
+                      ArrowUpIconComponent={() => {
+                        return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
+                      }}
+                    />
+                  </View>
+                )}
 
-              {/* If a spotlight is selected, current selector */}
-              {selectedSpotlightData !== null &&
-                <View className="border-x-2 border-b-2 mx-1.5 border-zinc500 bg-zinc500">
-                  {selectedSpotlightData?.ingredientData?.filter(item => item === null).length !== 12
-                  ? // At least one ingredient
-                  <>
-                    {Array.from({ length: 12 }, (_, index) => (
-                      <View key={`frozen-${index}`}>
-                        {selectedSpotlightData?.ingredientData[index] !== null &&
-                          <View className="flex flex-col h-[50px] mt-0.5">
+                {/* If a spotlight is selected, current selector */}
+                {(selectedSpotlightData !== null) && (
+                  <View className="border-x-2 border-b-2 mx-1.5 border-zinc500 bg-zinc500">
+                    {selectedSpotlightData?.ingredientData?.filter(item => item === null).length !== 12
+                    ? // At least one ingredient
+                    <>
+                      {Array.from({ length: 12 }, (_, index) => (
+                        <View key={`frozen-${index}`}>
+                          {(selectedSpotlightData?.ingredientData[index] !== null) && (
+                            <View className="flex flex-col h-[50px] mt-0.5">
 
-                            <View className={`flex w-full h-1/2 justify-center items-center border-b-0.5 ${index % 2 === 0 ? "bg-zinc350" : "bg-theme200"}`}>
-                              <Text className="text-black text-[12px] font-semibold text-center px-1">
-                                {selectedSpotlightData?.ingredientNames[index]}
-                              </Text>
+                              <View className={`flex w-full h-1/2 justify-center items-center border-b-0.5 ${index % 2 === 0 ? "bg-zinc350" : "bg-theme200"}`}>
+                                <Text className="text-black text-[12px] font-semibold text-center px-1">
+                                  {selectedSpotlightData?.ingredientNames[index]}
+                                </Text>
+                              </View>
+
+                              <View className={`flex w-full h-1/2 mb-0.5 ${index % 2 === 0 ? "bg-zinc350" : "bg-theme200"}`}>
+                                <Picker
+                                  selectedValue={selectedCurrentIds[index]}
+                                  onValueChange={(value) => setCurrents(value, index)}
+                                  style={{ height: 25, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -10, }}
+                                  itemStyle={{ color: 'black', textAlign: 'center', fontSize: 12, }}
+                                >
+                                  {currentData.filter(curr => !(curr?.archive)).map((item) => {
+                                    return (
+                                      <Picker.Item
+                                        key={item?.id || Math.random()}
+                                        label={item?.ingredientName || ""}
+                                        value={item?.id || ""}
+                                      />
+                                    );
+                                  })}
+                                </Picker>
+                              </View>
                             </View>
-
-                            <View className={`flex w-full h-1/2 mb-0.5 ${index % 2 === 0 ? "bg-zinc350" : "bg-theme200"}`}>
-                              <Picker
-                                selectedValue={selectedCurrentIds[index]}
-                                onValueChange={(value) => setCurrents(value, index)}
-                                style={{ height: 25, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -10, }}
-                                itemStyle={{ color: 'black', textAlign: 'center', fontSize: 12, }}
-                              >
-                                {currentData.filter(curr => !(curr?.archive)).map((item) => {
-                                  return (
-                                    <Picker.Item
-                                      key={item?.id || Math.random()}
-                                      label={item?.ingredientName || ""}
-                                      value={item?.id || ""}
-                                    />
-                                  );
-                                })}
-                              </Picker>
-                            </View>
-                          </View>
-                        }
+                          )}
+                        </View>
+                      ))}
+                    </>
+                    : // No ingredients
+                      <View className="flex w-full h-[30px] justify-center items-center border-t-2 border-zinc500 bg-zinc450">
+                        <Text className="text-black font-semibold text-[12px] italic">
+                          no ingredients available
+                        </Text>
                       </View>
-                    ))}
-                  </>
-                  : // No ingredients
-                    <View className="flex w-full h-[30px] justify-center items-center border-t-2 border-zinc500 bg-zinc450">
-                      <Text className="text-black font-semibold text-[12px] italic">
-                        no ingredients available
-                      </Text>
-                    </View>
-                  }
-                </View>
-              }
+                    }
+                  </View>
+                )}
               </>
             }
           </>

@@ -1,7 +1,7 @@
 module.exports = [
   "Aldi",
   "Market Basket",
-  "Star Market",
+  "Shaws / Star",
   "Stop & Shop",
   "Target",
   "Walmart",

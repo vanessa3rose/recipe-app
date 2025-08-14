@@ -576,19 +576,19 @@ const PrepToRecipeModal = ({
                 </View>
 
                 {/* Recipe Name */}
-                {(prepData?.prepName !== overrideRecipeData?.recipeName) &&
-                <View className="flex flex-row w-full justify-start items-center space-x-2">
-                  <Icon
-                    name={overrideName === overrideRecipeData?.recipeName ? "radio-button-on" : "radio-button-off"}
-                    size={20}
-                    color={colors.theme600}
-                    onPress={() => setOverrideName(overrideRecipeData?.recipeName)}
-                  />
-                  <Text className="text-[14px] text-zinc900">
-                    {overrideRecipeData?.recipeName}
-                  </Text>
-                </View>
-                }
+                {(prepData?.prepName !== overrideRecipeData?.recipeName) && (
+                  <View className="flex flex-row w-full justify-start items-center space-x-2">
+                    <Icon
+                      name={overrideName === overrideRecipeData?.recipeName ? "radio-button-on" : "radio-button-off"}
+                      size={20}
+                      color={colors.theme600}
+                      onPress={() => setOverrideName(overrideRecipeData?.recipeName)}
+                    />
+                    <Text className="text-[14px] text-zinc900">
+                      {overrideRecipeData?.recipeName}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -599,7 +599,7 @@ const PrepToRecipeModal = ({
             <View className="flex-row items-center justify-evenly">
 
               {/* back button if editing */}
-              {(editIngredientIndex !== -1 || showFindRecipe) &&
+              {(editIngredientIndex !== -1 || showFindRecipe) && (
                 <View className="flex w-1/12">
                   <Icon
                     name="arrow-back"
@@ -611,10 +611,10 @@ const PrepToRecipeModal = ({
                     }}
                   />
                 </View>
-              }
+              )}
 
               {/* Title */}
-              <Text className={`${editIngredientIndex === -1 && !showFindRecipe ? "text-center" : "pr-2 text-center"} w-full text-black font-bold py-1 text-[18px]`}>
+              <Text className={`${(editIngredientIndex === -1 && !showFindRecipe) ? "text-center" : "pr-2 text-center"} w-full text-black font-bold py-1 text-[18px]`}>
                 {prepData?.prepName || ""}
               </Text>
             </View>
@@ -633,78 +633,78 @@ const PrepToRecipeModal = ({
                 <>
                   
                   {/* If there are no ingredients */}
-                  {prepData?.currentData?.filter(item => item === null).length === 12 &&
+                  {(prepData?.currentData?.filter(item => item === null).length === 12) && (
                     <View className="flex w-full py-1 justify-center items-center border-x-2 border-t-2 border-zinc500 bg-zinc400">
                       <Text className="text-black font-semibold text-[12px] italic">
                         no ingredients available
                       </Text>
                     </View>
-                  }
+                  )}
 
                   {/* old and new */}
                   <View className="border-x-2 border-t-2 border-zinc500 bg-zinc500">
                   {Array.from({ length: 12 }, (_, index) => (
                       
                     <View key={`frozen-${index}`}>
-                      {prepData?.currentData[index] !== null &&
-                      <View className="flex flex-col">
+                      {(prepData?.currentData[index] !== null) && (
+                        <View className="flex flex-col">
 
-                        {/* original ingredient */}
-                        <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b-0.5 ${index % 2 === 0 ? "bg-zinc400" : "bg-theme300"}`}>
-                          {/* name */}
-                          <Text className={`text-black text-[12px] font-semibold text-center px-1 ${(searchIngredientName !== "" || selectedIngredient[index]?.ingredientData) ? "w-[88%]" : "w-full"}`}>
-                              {prepData?.currentData[index]?.ingredientName}
-                          </Text>
-
-                          {/* BUTTONS */}
-                          <View className="flex flex-row items-center justify-end space-x-[-3px] w-[12%]">
-                            
-                            {/* + */}
-                            {searchIngredientName !== "" &&
-                            <Icon 
-                              size={20}
-                              color={colors.theme800}
-                              name="add-sharp"
-                              onPress={() => setIngredient(index, true)}
-                            />
-                            }
-
-                            {/* X */}
-                            {selectedIngredient[index]?.ingredientData &&
-                            <Icon 
-                              size={20}
-                              color={colors.theme900}
-                              name="close-outline"
-                              onPress={() => setIngredient(index, false)}
-                            />
-                            }
-                          </View>
-                        </View>
-
-                        {/* selected ingredient */}
-                        <View className={`flex flex-row w-full min-h-[25px] justify-between items-center py-0.5 mb-0.5 pl-0.5 pr-1 ${index % 2 === 0 ? "bg-zinc350" : "bg-theme200"}`}>
-                          {/* name */}
-                          <View className="flex ml-1 pl-1 pr-2">
-                            <Text className="text-black text-[12px] italic text-left">
-                              {selectedIngredient[index]?.ingredientName || ""}  
+                          {/* original ingredient */}
+                          <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b-0.5 ${index % 2 === 0 ? "bg-zinc400" : "bg-theme300"}`}>
+                            {/* name */}
+                            <Text className={`text-black text-[12px] font-semibold text-center px-1 ${(searchIngredientName !== "" || selectedIngredient[index]?.ingredientData) ? "w-[88%]" : "w-full"}`}>
+                                {prepData?.currentData[index]?.ingredientName}
                             </Text>
+
+                            {/* BUTTONS */}
+                            <View className="flex flex-row items-center justify-end space-x-[-3px] w-[12%]">
+                              
+                              {/* + */}
+                              {(searchIngredientName !== "") && (
+                                <Icon 
+                                  size={20}
+                                  color={colors.theme800}
+                                  name="add-sharp"
+                                  onPress={() => setIngredient(index, true)}
+                                />
+                              )}
+
+                              {/* X */}
+                              {selectedIngredient[index]?.ingredientData && (
+                                <Icon 
+                                  size={20}
+                                  color={colors.theme900}
+                                  name="close-outline"
+                                  onPress={() => setIngredient(index, false)}
+                                />
+                              )}
+                            </View>
                           </View>
 
-                          {/* BUTTONS */}
-                          {selectedIngredientIds[index] !== "" && 
-                            <View className="flex flex-row items-center justify-center space-x-[-3px]">
-                              {/* Edit */}
-                              <Icon 
-                                size={20}
-                                color={editedIndices[index] ? colors.zinc500 : "white"}
-                                name="ellipsis-horizontal"
-                                onPress={() => changeEdited(index)}
-                              />
+                          {/* selected ingredient */}
+                          <View className={`flex flex-row w-full min-h-[25px] justify-between items-center py-0.5 mb-0.5 pl-0.5 pr-1 ${index % 2 === 0 ? "bg-zinc350" : "bg-theme200"}`}>
+                            {/* name */}
+                            <View className="flex ml-1 pl-1 pr-2">
+                              <Text className="text-black text-[12px] italic text-left">
+                                {selectedIngredient[index]?.ingredientName || ""}  
+                              </Text>
                             </View>
-                          }
+
+                            {/* BUTTONS */}
+                            {(selectedIngredientIds[index] !== "") && (
+                              <View className="flex flex-row items-center justify-center space-x-[-3px]">
+                                {/* Edit */}
+                                <Icon 
+                                  size={20}
+                                  color={editedIndices[index] ? colors.zinc500 : "white"}
+                                  name="ellipsis-horizontal"
+                                  onPress={() => changeEdited(index)}
+                                />
+                              </View>
+                            )}
+                          </View>
                         </View>
-                      </View>
-                      }
+                      )}
                       </View>
                   ))}
                   </View>
@@ -723,8 +723,8 @@ const PrepToRecipeModal = ({
                         setIngredientDropdownOpen(false);
                       }}
                     >
-                      <Text className={`${searchIngredientQuery !== '' && searchIngredientQuery !== "" ? "text-black" : "text-zinc400"} ${ingredientDropdownOpen ? "rounded-b-[5px] rounded-tr-[5px]" : "rounded-[5px]"} flex bg-white border-[1px] border-zinc300 px-[10px] py-[5px] text-[13px] leading-[16px]`}>
-                        {searchIngredientQuery !== '' && searchIngredientQuery !== "" ? searchIngredientQuery : "search for ingredient"}
+                      <Text className={`${(searchIngredientQuery !== '' && searchIngredientQuery !== "") ? "text-black" : "text-zinc400"} ${ingredientDropdownOpen ? "rounded-b-[5px] rounded-tr-[5px]" : "rounded-[5px]"} flex bg-white border-[1px] border-zinc300 px-[10px] py-[5px] text-[13px] leading-[16px]`}>
+                        {(searchIngredientQuery !== '' && searchIngredientQuery !== "") ? searchIngredientQuery : "search for ingredient"}
                       </Text>
                     </TouchableOpacity>
                     
@@ -759,7 +759,7 @@ const PrepToRecipeModal = ({
                             <TouchableOpacity
                               key={index}
                               onPress={() => pickIngredient(item)}
-                              className={`p-2.5 ${index === 0 && "rounded-t-[5px]"} ${item.ingredientName === searchIngredientName && "bg-zinc600"} ${index < filteredIngredientData.length - 1 && "border-b-[1px] border-zinc600"}`}
+                              className={`p-2.5 ${(index === 0) && "rounded-t-[5px]"} ${(item.ingredientName === searchIngredientName) && "bg-zinc600"} ${(index < filteredIngredientData.length - 1) && "border-b-[1px] border-zinc600"}`}
                             >
                               {/* name */}
                               <Text className="text-[13px] mr-4 text-white font-semibold">
@@ -767,7 +767,7 @@ const PrepToRecipeModal = ({
                               </Text>
                               
                               {/* selected indicator */}
-                              {item.ingredientName === searchIngredientName &&
+                              {(item.ingredientName === searchIngredientName) && (
                                 <View className="flex-1 mt-2 mb-3 absolute right-1 items-center justify-center">
                                   <Icon
                                     name="checkmark"
@@ -775,7 +775,7 @@ const PrepToRecipeModal = ({
                                     size={18}
                                   />
                                 </View>
-                              }
+                              )}
                             </TouchableOpacity>
                           ))}
                         </ScrollView>
@@ -902,64 +902,64 @@ const PrepToRecipeModal = ({
               }
 
               {/* Recipe Lookup */}
-              {!showFindRecipe && editIngredientIndex === -1 &&
-              <>
-                {overrideRecipeId === null
-                  ? 
-                    // pick new
-                    <View className="flex justify-center items-center mt-3">
-                      {/* button to find a recipe to override */}
-                      <TouchableOpacity
-                        className="flex flex-row justify-center items-center bg-theme600 py-1.5 px-4 space-x-2 rounded-lg"
-                        onPress={() => setShowFindRecipe(true)}
-                      >
-                        <Icon
-                          name="search"
-                          color="white"
-                          size={18}
-                        />
-                        <Text className="text-center text-white font-bold text-[13px]">
-                          FIND SIMILAR RECIPE
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  : 
-                    // pick different
-                  <View className="flex flex-col">
+              {(!showFindRecipe && editIngredientIndex === -1) && (
+                <>
+                  {overrideRecipeId === null
+                    ? 
+                      // pick new
+                      <View className="flex justify-center items-center mt-3">
+                        {/* button to find a recipe to override */}
+                        <TouchableOpacity
+                          className="flex flex-row justify-center items-center bg-theme600 py-1.5 px-4 space-x-2 rounded-lg"
+                          onPress={() => setShowFindRecipe(true)}
+                        >
+                          <Icon
+                            name="search"
+                            color="white"
+                            size={18}
+                          />
+                          <Text className="text-center text-white font-bold text-[13px]">
+                            FIND SIMILAR RECIPE
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    : 
+                      // pick different
+                    <View className="flex flex-col">
 
-                    {/* button to change overriding */}
-                    <View className="flex flex-row w-full space-x-2 justify-center items-center mt-3">
-                      <TouchableOpacity
-                        className="flex flex-row justify-center items-center bg-theme600 py-1.5 px-4 space-x-2 rounded-lg"
-                        onPress={() => setShowFindRecipe(true)}
-                      >
+                      {/* button to change overriding */}
+                      <View className="flex flex-row w-full space-x-2 justify-center items-center mt-3">
+                        <TouchableOpacity
+                          className="flex flex-row justify-center items-center bg-theme600 py-1.5 px-4 space-x-2 rounded-lg"
+                          onPress={() => setShowFindRecipe(true)}
+                        >
+                          <Icon
+                            name="shuffle"
+                            color="white"
+                            size={18}
+                          />
+                          <Text className="text-center text-white font-bold text-[13px]">
+                            {overrideRecipeData.recipeName}
+                          </Text>
+                        </TouchableOpacity>
+          
+                        {/* Button to open tag list */}
                         <Icon
-                          name="shuffle"
-                          color="white"
-                          size={18}
+                          name="trash"
+                          color={colors.zinc700}
+                          size={20}
+                          onPress={() => {
+                            setOverrideRecipeId(null);
+                            setOverrideRecipeData(null);
+                            setSelectedRecipeId(null);
+                            setSelectedRecipeData(null);
+                          }}
                         />
-                        <Text className="text-center text-white font-bold text-[13px]">
-                          {overrideRecipeData.recipeName}
-                        </Text>
-                      </TouchableOpacity>
-        
-                      {/* Button to open tag list */}
-                      <Icon
-                        name="trash"
-                        color={colors.zinc700}
-                        size={20}
-                        onPress={() => {
-                          setOverrideRecipeId(null);
-                          setOverrideRecipeData(null);
-                          setSelectedRecipeId(null);
-                          setSelectedRecipeData(null);
-                        }}
-                      />
+                      </View>
                     </View>
-                  </View>
-                }
-              </>
-              }
+                  }
+                </>
+              )}
               </>
 
             :
@@ -977,35 +977,35 @@ const PrepToRecipeModal = ({
                   </View>
                   
                   {/* If there are no ingredients */}
-                  {prepData?.currentData?.filter(item => item === null).length === 12 &&
+                  {(prepData?.currentData?.filter(item => item === null).length === 12) && (
                     <View className="flex w-11/12 py-1 justify-center items-center bg-zinc400 border-x-2 border-theme700">
                       <Text className="text-black font-semibold text-[12px] italic">
                         ━
                       </Text>
                     </View>
-                  }
+                  )}
 
                   {/* map of ingredients */}
-                  {keyboardType !== "recipe keyword" &&
+                  {(keyboardType !== "recipe keyword") && (
                     <View className="w-11/12 border-x-2 border-b-2 border-theme700">
                       {Array.from({ length: 12 }, (_, index) => (
                           
                         <View key={`frozen-${index}`}>
-                          {prepData?.currentData[index] !== null &&
-                          <View className="flex flex-col">
+                          {(prepData?.currentData[index] !== null) && (
+                            <View className="flex flex-col">
 
-                            {/* name */}
-                            <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b-0.5 ${index % 2 === 0 ? "bg-theme100" : "bg-theme200"}`}>
-                              <Text className="text-black text-[12px] text-left px-1">
-                                  {prepData?.currentData[index]?.ingredientName || ""}
-                              </Text>
+                              {/* name */}
+                              <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b-0.5 ${index % 2 === 0 ? "bg-theme100" : "bg-theme200"}`}>
+                                <Text className="text-black text-[12px] text-left px-1">
+                                    {prepData?.currentData[index]?.ingredientName || ""}
+                                </Text>
+                              </View>
                             </View>
-                          </View>
-                          }
+                          )}
                         </View>
                       ))}
                     </View>
-                  }
+                  )}
         
                   {/* LOOKUP */}
                   <View className="flex flex-col w-full">
@@ -1096,48 +1096,48 @@ const PrepToRecipeModal = ({
                 </View>
                   
                 {/* If there are no ingredients */}
-                {selectedRecipeData?.ingredientData?.filter(item => item === null).length === 12 &&
+                {(selectedRecipeData?.ingredientData?.filter(item => item === null).length === 12) && (
                   <View className="flex w-full py-1 justify-center items-center border-x-2 border-zinc500 bg-zinc400">
                     <Text className="text-black font-semibold text-[12px] italic">
                       no ingredients available
                     </Text>
                   </View>
-                }
+                )}
 
                 {/* map of ingredients */}
-                {selectedRecipeId !== null && selectedRecipeId !== "" && selectedRecipeData !== null  && selectedRecipeData.ingredientData && 
+                {(selectedRecipeId !== null && selectedRecipeId !== "" && selectedRecipeData !== null  && selectedRecipeData.ingredientData) && (
                   <View className="w-full border-x-2 border-b-2 border-zinc500">
                     
                     {Array.from({ length: 12 }, (_, index) => (
                       <View key={`frozen-${index}`}>
-                        {selectedRecipeData !== null && selectedRecipeData.ingredientData[index] !== null &&
-                        <View className="flex flex-col">
+                        {(selectedRecipeData !== null && selectedRecipeData.ingredientData[index] !== null) && (
+                          <View className="flex flex-col">
 
-                          {/* name */}
-                          <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b-0.5 border-b-zinc500 ${index % 2 === 0 ? "bg-zinc300" : "bg-zinc350"}`}>
-                            <Text className="text-black text-[12px] text-left px-1">
-                                {selectedRecipeData?.ingredientNames[index] || ""}
-                            </Text>
+                            {/* name */}
+                            <View className={`flex flex-row w-full min-h-[20px] justify-between items-center px-1 py-0.5 border-b-0.5 border-b-zinc500 ${index % 2 === 0 ? "bg-zinc300" : "bg-zinc350"}`}>
+                              <Text className="text-black text-[12px] text-left px-1">
+                                  {selectedRecipeData?.ingredientNames[index] || ""}
+                              </Text>
+                            </View>
                           </View>
-                        </View>
-                        }
+                        )}
                       </View>
                     ))}
                   </View>
-                }
+                )}
 
                 {/* Selected Recipe Tag List */}
-                {showTagList && selectedRecipeId !== null && selectedRecipeId !== "" &&
+                {(showTagList && selectedRecipeId !== null && selectedRecipeId !== "") && (
                   <View className="flex w-full py-1.5 mx-2 items-center justify-center bg-white border-x-2 border-b-2 border-theme300">
                     <Text className="text-theme800 font-extrabold text-[10px]">
                       {selectedRecipeData?.recipeTags?.join(", ").toUpperCase() || "no tags available"}
                     </Text>
                   </View>
-                }
+                )}
 
                 {/* Recipe Override */}
                 <View className="flex flex-row justify-center items-center mt-3">
-                  {selectedRecipeId !== null && selectedRecipeId !== "" 
+                  {(selectedRecipeId !== null && selectedRecipeId !== "")
                   ?
                     // override chosen
                     <View className="flex flex-row w-full justify-center items-center space-x-4">
@@ -1195,14 +1195,14 @@ const PrepToRecipeModal = ({
           <View className="justify-end w-full flex flex-row space-x-[-2px]">
 
             {/* submit if editing */}
-            {(editIngredientIndex === -1 && !showFindRecipe) &&
-            <Icon 
-              size={24}
-              color={colors.zinc900}
-              name="checkmark-sharp"
-              onPress={() => {overrideRecipeData === null ? submitModal() : setShowOverrideSubmit(true)}}
-            />
-            }
+            {(editIngredientIndex === -1 && !showFindRecipe) && (
+              <Icon 
+                size={24}
+                color={colors.zinc900}
+                name="checkmark-sharp"
+                onPress={() => {overrideRecipeData === null ? submitModal() : setShowOverrideSubmit(true)}}
+              />
+            )}
 
             {/* close */}
             <Icon 
@@ -1216,7 +1216,7 @@ const PrepToRecipeModal = ({
               
               
         {/* KEYBOARD POPUP SECTION */}
-        {isKeyboardOpen && keyboardType === "ingredient search" && 
+        {(isKeyboardOpen && keyboardType === "ingredient search") && (
           <>
             {/* Grayed Out BG */}
             <TouchableOpacity 
@@ -1260,7 +1260,7 @@ const PrepToRecipeModal = ({
                         <TouchableOpacity
                           key={index}
                           onPress={() => pickIngredient(item)}
-                          className={`p-2.5 ${index === 0 && "rounded-t-[5px]"} ${item.ingredientName === searchIngredientName && "bg-zinc400"} ${index < filteredIngredientData.length - 1 && "border-b-[1px] border-zinc400"}`}
+                          className={`p-2.5 ${(index === 0) && "rounded-t-[5px]"} ${(item.ingredientName === searchIngredientName) && "bg-zinc400"} ${(index < filteredIngredientData.length - 1) && "border-b-[1px] border-zinc400"}`}
                         >
                           {/* name */}
                           <Text className="text-[13px] mr-4">
@@ -1268,7 +1268,7 @@ const PrepToRecipeModal = ({
                           </Text>
                           
                           {/* selected indicator */}
-                          {item.ingredientName === searchIngredientName &&
+                          {(item.ingredientName === searchIngredientName) && (
                             <View className="flex-1 mt-2 mb-3 absolute right-1 items-center justify-center">
                               <Icon
                                 name="checkmark"
@@ -1276,7 +1276,7 @@ const PrepToRecipeModal = ({
                                 size={18}
                               />
                             </View>
-                          }
+                          )}
                         </TouchableOpacity>
                       ))}
                     </ScrollView>
@@ -1308,7 +1308,7 @@ const PrepToRecipeModal = ({
               </View>
             </View>
           </>
-        }
+        )}
       </View>
     </Modal>
   );

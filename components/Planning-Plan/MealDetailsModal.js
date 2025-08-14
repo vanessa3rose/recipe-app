@@ -1,10 +1,10 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
 // react hooks
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // UI components
-import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, Keyboard, Image } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, Keyboard, Image } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Calendar } from 'react-native-calendars';
 
@@ -21,6 +21,9 @@ var Fractional = require('fractional').Fraction;
 
 // validation
 import extractUnit from '../Validation/extractUnit';
+import validateFractionInput from '../../components/Validation/validateFractionInput';
+import validateDecimalInput from '../../components/Validation/validateDecimalInput';
+import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
 import { deepPrepIndexOf } from '../Validation/deepPrepSearch';
 
 // initialize firebase app
@@ -85,7 +88,7 @@ const MealDetailsModal = ({
         setPrepCurrentAmounts(data.currentAmounts);
         setPrepCurrentCals(data.currentCals);
         setPrepCurrentData(data.currentData);
-        setNumIngredients(data?.currentData?.length || 0);
+        setNumIngredients(data.currentData?.length || 0);
       }
     }
   }, [modalVisible]);
@@ -186,7 +189,7 @@ const MealDetailsModal = ({
   const [showNewIndex, setShowNewIndex] = useState(false);
   const [numIngredients, setNumIngredients] = useState(0);
 
-  // to delete or clear the pressed ingredient
+  // to add an ingredient
   const addPrepIngredient = (index) => {
 
     // null new data to set
@@ -502,7 +505,7 @@ const MealDetailsModal = ({
       setPrepCurrentAmounts(data.prepData.currentAmounts);
       setPrepCurrentData(data.prepData.currentData);
       setPrepCurrentCals(data.prepData.currentCals.map(cal => cal === "" ? "" : Math.round(cal)));
-      setNumIngredients(data?.prepData?.currentData?.length || 0);
+      setNumIngredients(data.prepData.currentData?.length || 0);
     
     // otherwise, not valid
     } else { setCopyData(null); }
@@ -574,6 +577,7 @@ const MealDetailsModal = ({
   const [prepKeywordQuery, setPrepKeywordQuery] = useState("");
   const [prepTypeFilter, setPrepTypeFilter] = useState("");
   const [keywordType, setKeywordType] = useState("meal prep");
+  const [prepRestaurantFilter, setPrepRestaurantFilter] = useState("bag-outline");
 
   const [openPrepIndex, setOpenPrepIndex] = useState(-1);
   const [openSimpleIndex, setOpenSimpleIndex] = useState(-1);
@@ -598,10 +602,10 @@ const MealDetailsModal = ({
   };
   
   // to filter the list of preps in the search section
-  const filterPreps = (keyword, searchQuery, typeFilter) => {
-    
+  const filterPreps = (keyword, searchQuery, typeFilter, restaurantFilter) => {
     setPrepKeywordQuery(searchQuery);
     setPrepTypeFilter(typeFilter);
+    setPrepRestaurantFilter(restaurantFilter);
     setOpenPrepIndex(-1);
     setOpenSimpleIndex(-1);
     setOpenComplexIndex(-1);
@@ -615,19 +619,27 @@ const MealDetailsModal = ({
     let prepDates = [];
     let prepMeals = [];
 
-    // helper function for keyword filtering
+    // helper function for keyword & restaurant filtering
     const matchesKeywordFilter = (i, index) => {
       // meal prep keyword - checks the meal prep name
       if (keyword === "meal prep") {
-        return searchQuery.split(" ").every((word) => 
-          uniquePrepNames[index].toLowerCase().includes(word.toLowerCase()
-        ));
+        return (
+          // restaurant
+          restaurantFilter === "bag-add" ? uniquePrepNames[index].includes(":") : restaurantFilter === "bag-remove" ? !uniquePrepNames[index].includes(":") : true
+          &&
+          // keyword
+          searchQuery.split(" ").every((word) =>  uniquePrepNames[index].toLowerCase().includes(word.toLowerCase() ))
+        );
       }
       // ingredient keyword - checks each ingredient's name
       if (keyword === "ingredient") {
-        return uniquePrepData[index][i]?.currentData?.some(current =>
-          searchQuery.split(" ").every(word =>
-            current?.ingredientName?.toLowerCase().includes(word.toLowerCase())
+        return (
+          // restaurant
+          restaurantFilter === "bag-add" ? uniquePrepNames[index].includes(":") : restaurantFilter === "bag-remove" ? !uniquePrepNames[index].includes(":") : true
+          &&
+          // keyword
+          uniquePrepData[index][i]?.currentData?.some(current =>
+            searchQuery.split(" ").every(word => current?.ingredientName?.toLowerCase().includes(word.toLowerCase()) )
           )
         );
       }
@@ -906,7 +918,7 @@ const MealDetailsModal = ({
             </Text>
             
             {/* BUTTON */}
-            {data !== null &&
+            {(data !== null) && (
               <Icon 
                 size={24}
                 color={colors.zinc800}
@@ -917,7 +929,7 @@ const MealDetailsModal = ({
                   setCreateComplex(!(id.includes("LUNCH") || id.includes("DINNER")))
                 }}
               />
-            }
+            )}
           </View>
 
           {/* Divider */}
@@ -965,11 +977,11 @@ const MealDetailsModal = ({
                       
                       {/* amount */}
                       <View className="flex py-1 px-1 w-1/4 items-center justify-center bg-zinc100 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc300">
-                        {data?.currentData?.[index]?.ingredientData?.[data?.currentData?.[index]?.ingredientStore]?.unit &&
+                        {data?.currentData?.[index]?.ingredientData?.[data?.currentData?.[index]?.ingredientStore]?.unit && (
                           <Text className="text-[10px] text-center">
-                            {data.currentAmounts[index] || "?"}{` ${extractUnit(data.currentData[index].ingredientData[data.currentData[index].ingredientStore].unit, data.currentAmounts[index]) || ""}`}
+                            {data?.currentAmounts[index] || "?"}{` ${extractUnit(data?.currentData[index].ingredientData[data?.currentData[index].ingredientStore].unit, data?.currentAmounts[index]) || ""}`}
                           </Text>
-                        }
+                        )}
                       </View>
 
                       {/* details */}
@@ -978,14 +990,14 @@ const MealDetailsModal = ({
                         {/* calories */}
                         {data?.currentCals?.[index] !== "" ? 
                           <Text className="text-[10px] text-center">
-                            {data.currentCals[index].toFixed(0)} {"cal"}
+                            {!isNaN(Number(data?.currentCals?.[index])) ? Number(data?.currentCals?.[index]).toFixed(0) : "0"} {"cal"}
                           </Text>
                         : null}
 
                         {/* price */}
                         {data?.currentPrices?.[index] !== "" ? 
                           <Text className="text-[10px] text-center">
-                            {"$"}{data.currentPrices[index].toFixed(2)}
+                            {"$"}{!isNaN(Number(data?.currentCals?.[index])) ? Number(data?.currentPrices?.[index]).toFixed(2) : "0.00"}
                           </Text>
                         : null}
                       </View>
@@ -1008,10 +1020,18 @@ const MealDetailsModal = ({
               
               {/* Meal Specifics */}
               {data?.prepNote === "" 
-              ?
+              ? // no notes
                 <View className="flex flex-row justify-center items-center w-full h-[20px] bg-zinc500">
                   <Text className="text-[11px] text-zinc100 italic">
                       {data?.prepCal || "0"}{" cal, $"}{data?.prepPrice || "0.00"}
+                  </Text>
+                </View>
+              : 
+              (data?.prepCal === "0" && data?.prepPrice === "0.00")
+              ? // no price / cal
+                <View className="flex flex-row justify-center items-center w-full py-2 bg-zinc450">
+                  <Text className="text-[11px] text-center text-zinc100 italic">
+                      {data?.prepNote}
                   </Text>
                 </View>
               :
@@ -1028,13 +1048,11 @@ const MealDetailsModal = ({
                   </View>
 
                   {/* Meal Note */}
-                  {data?.prepNote !== "" &&
                   <View className="flex justify-center items-center w-1/2 py-2 bg-zinc450">
                     <Text className="text-[10px] text-center text-white font-medium">
-                        {data.prepNote}
+                        {data?.prepNote}
                     </Text>
                   </View>
-                  }
                 </View>
               }
             </View>
@@ -1075,23 +1093,23 @@ const MealDetailsModal = ({
                 </Picker>
 
                 {/* Create Type Selector */}
-                {option === "CREATE" &&
-                <View className="absolute flex h-full justify-center items-center right-1">
-                  <Icon
-                    name={createComplex ? "information-circle" : "information-circle-outline"}
-                    color={"black"}
-                    size={20}
-                    onPress={() => setCreateComplex(!createComplex)}
-                  />
-                </View>
-                }
+                {(option === "CREATE") && (
+                  <View className="absolute flex h-full justify-center items-center right-1">
+                    <Icon
+                      name={createComplex ? "information-circle" : "information-circle-outline"}
+                      color={"black"}
+                      size={20}
+                      onPress={() => setCreateComplex(!createComplex)}
+                    />
+                  </View>
+                )}
               </View> 
             </View>
 
             {/* Divider */}
             <View className="h-[0.5px] bg-zinc400 w-11/12 m-4"/>
 
-            {option === "CREATE" && !createComplex
+            {(option === "CREATE" && !createComplex)
             ?
               <>
                 {/* simple create without ingredients */}
@@ -1123,11 +1141,7 @@ const MealDetailsModal = ({
                           placeholder={prepCal === "" ? "0" : prepCal}
                           placeholderTextColor='black'
                           value={prepCal}
-                          onChangeText={(text) => {
-                            if (/^\d*$/.test(text)) { // only allows digits
-                              setPrepCal(text);
-                            }
-                          }}
+                          onChangeText={(value) => setPrepCal(validateWholeNumberInput(value))}
                         />
                         {/* label */}
                         <Text className="flex-auto text-left italic text-[12px]">
@@ -1148,11 +1162,7 @@ const MealDetailsModal = ({
                           placeholder={prepPrice === "" ? "0.00" : prepPrice}
                           placeholderTextColor='black'
                           value={prepPrice}
-                          onChangeText={(text) => {
-                            if (/^\d*\.?\d*$/.test(text)) { // only allows digits and "."
-                              setPrepPrice(text);
-                            }
-                          }}
+                          onChangeText={(value) => setPrepPrice(validateDecimalInput(value))}
                           onBlur={() => {
                             setPrepPrice((prev) => {
                               const num = parseFloat(prev);
@@ -1177,39 +1187,39 @@ const MealDetailsModal = ({
                       onChangeText={setPrepNote}
                     />
 
-                    {keyboardType === "note" &&
-                    <View className="absolute right-1.5 bottom-0.5">
-                      <Icon
-                        name="chevron-down"
-                        size={14}
-                        color={colors.zinc900}
-                        onPress={() => {
-                          Keyboard.dismiss()
-                          setIsKeyboardOpen(false)
-                          setKeyboardType("")
-                        }}
-                      />
-                    </View>
-                    }
+                    {(keyboardType === "note") && (
+                      <View className="absolute right-1.5 bottom-0.5">
+                        <Icon
+                          name="chevron-down"
+                          size={14}
+                          color={colors.zinc900}
+                          onPress={() => {
+                            Keyboard.dismiss()
+                            setIsKeyboardOpen(false)
+                            setKeyboardType("")
+                          }}
+                        />
+                      </View>
+                    )}
                   </View>
 
                   {/* WARNING FOR PREP */}
                   {(copyData === null 
                     ? !(id === null || id?.includes("LUNCH") || id?.includes("DINNER") || id?.includes("."))
                     : !(copyData?.prepId === null || copyData?.prepId?.includes("LUNCH") || copyData?.prepId?.includes("DINNER") || copyData?.prepId?.includes(".")))
-                  &&
-                  <View className="w-full px-2 mb-2">
-                    {/* divider */}
-                    <View className="h-[1px] bg-zinc350 mb-4"/>
-                    {/* text */}
-                    <Text className="text-mauve600 italic text-center text-[12px]">
-                      {'modifying this meal prep is not recommended\nand may lead to inaccurate calculations'}
-                    </Text>
-                  </View>
-                  }
+                  && (
+                    <View className="w-full px-2 mb-2">
+                      {/* divider */}
+                      <View className="h-[1px] bg-zinc350 mb-4"/>
+                      {/* text */}
+                      <Text className="text-mauve600 italic text-center text-[12px]">
+                        {'modifying this meal prep is not recommended\nand may lead to inaccurate calculations'}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </>
-            : option === "CREATE" && createComplex
+            : (option === "CREATE" && createComplex)
             ? !showIngredientSearch
             ?
               <>
@@ -1252,11 +1262,7 @@ const MealDetailsModal = ({
                           placeholder={prepPrice === "" ? "0.00" : prepPrice}
                           placeholderTextColor={colors.zinc400}
                           value={prepPrice}
-                          onChangeText={(text) => {
-                            if (/^\d*\.?\d*$/.test(text)) { // only allows digits and "."
-                              setPrepPrice(text);
-                            }
-                          }}
+                          onChangeText={(text) => setPrepPrice(validateDecimalInput(text))}
                           onBlur={() => {
                             setPrepPrice((prev) => {
                               const num = parseFloat(prev);
@@ -1269,170 +1275,167 @@ const MealDetailsModal = ({
 
                     {/* First Index Add Indicator */}
                     <View className="absolute w-[20px] left-[-15px] top-[32.5px] pr-1 z-50 justify-end items-center">
-                      {(showNewIndex && numIngredients !== 0) &&
-                      <Icon
-                        name="send"
-                        size={10}
-                        color={colors.zinc600}
-                        onPress={() => addPrepIngredient(0)}
-                      />
-                      }
+                      {(showNewIndex && numIngredients !== 0) && (
+                        <Icon
+                          name="send"
+                          size={10}
+                          color={colors.zinc600}
+                          onPress={() => addPrepIngredient(0)}
+                        />
+                      )}
                     </View>   
                   </View> 
     
                   {/* GRID */}
-                  {numIngredients !== 0 &&
-                  <ScrollView 
-                    className={`flex flex-col w-full mr-[-10px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) ? "max-h-[100px]" : "max-h-[430px]"}`}
-                    // scrollEnabled={keyboardType === "grid" && isKeyboardOpen}
-                  >
-                    
-                    {/* Frozen Columns */}
-                    {Array.from({ length: numIngredients }, (_, index) => index < numIngredients && 
-                      <View key={`frozen-${index}`} className="flex flex-row min-h-[30px]">
+                  {(numIngredients !== 0) && (
+                    <ScrollView className={`flex flex-col w-full mr-[-10px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) ? "max-h-[100px]" : "max-h-[430px]"}`}>
+                      
+                      {/* Frozen Columns */}
+                      {Array.from({ length: numIngredients }, (_, index) => index < numIngredients && (
+                        <View key={`frozen-${index}`} className="flex flex-row min-h-[30px]">
 
-                        {/* Add Indicator */}
-                        <View className="w-[20px] h-[10px] mt-[-5px] mx-[-5px] pr-1 z-50 justify-end items-center">
-                          {(index !== 0 && showNewIndex) && 
-                          <Icon
-                            name="send"
-                            size={10}
-                            color={colors.zinc600}
-                            onPress={() => addPrepIngredient(index)}
-                          />
-                          }
-                        </View>      
+                          {/* Add Indicator */}
+                          <View className="w-[20px] h-[10px] mt-[-5px] mx-[-5px] pr-1 z-50 justify-end items-center">
+                            {(index !== 0 && showNewIndex) && (
+                              <Icon
+                                name="send"
+                                size={10}
+                                color={colors.zinc600}
+                                onPress={() => addPrepIngredient(index)}
+                              />
+                            )}
+                          </View>      
 
-                        {/* current */}
-                        <View className={`flex-1 flex-row bg-zinc500 border-x-[1px] ${index === 0 && "border-t-[1px]"} ${index === numIngredients - 1 && "border-b-[1px]"} border-zinc700`}>
-    
-                          {/* ingredient names */}
-                          <View className="flex items-center justify-center w-7/12 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">     
-                            <View className="flex flex-wrap flex-row">
-                              {/* Input */}
+                          {/* current */}
+                          <View className={`flex-1 flex-row bg-zinc500 border-x-[1px] ${(index === 0) && "border-t-[1px]"} ${(index === numIngredients - 1) && "border-b-[1px]"} border-zinc700`}>
+      
+                            {/* ingredient names */}
+                            <View className="flex items-center justify-center w-7/12 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">     
+                              <View className="flex flex-wrap flex-row">
+                                {/* Input */}
+                                <TextInput
+                                  className="w-full text-white font-semibold text-[10px] text-center px-2 py-2"
+                                  placeholder="ingredient name"
+                                  placeholderTextColor={colors.zinc350}
+                                  value={prepCurrentData?.[index]?.ingredientName || ""}
+                                  onChangeText={(value) => changeName(index, value)}
+                                  multiline={true}
+                                  blurOnSubmit={true}
+                                  onFocus={() => setKeyboardType("grid")}
+                                  onBlur={() => setKeyboardType("")}
+                                />
+                              </View>
+                            </View>
+                            
+                            {/* amount */}
+                            <View className="flex flex-row px-1 space-x-0.5 items-center justify-center bg-zinc100 w-1/4 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc400">
+                              {/* Amount Input */}
                               <TextInput
-                                className="w-full text-white font-semibold text-[10px] text-center px-2 py-2"
-                                placeholder="ingredient name"
-                                placeholderTextColor={colors.zinc350}
-                                value={prepCurrentData?.[index]?.ingredientName || ""}
-                                onChangeText={(value) => changeName(index, value)}
+                                className="text-[9px] flex text-center h-full pl-4"
+                                placeholder="_"
+                                placeholderTextColor={colors.zinc450}
+                                value={prepCurrentAmounts?.[index]}
+                                onChangeText={(value) => {
+                                  setPrepCurrentAmounts((prev) => {
+                                    const updated = [...prev];
+                                    updated[index] = validateFractionInput(value);
+                                    return updated;
+                                  });
+                                }}
+                                onFocus={() => setKeyboardType("grid")}
+                                onBlur={() => setKeyboardType("")}
+                              />
+                              
+                              {/* Unit Input */}
+                              <TextInput
+                                className="text-[9px] leading-[12px] flex text-center pr-4 py-1"
+                                placeholder="unit(s)"
+                                placeholderTextColor={colors.zinc450}
+                                value={prepCurrentData?.[index]?.ingredientData[prepCurrentData?.[index]?.ingredientStore]?.unit || ""}
+                                onChangeText={(value) => changeUnit(index, value)}
                                 multiline={true}
                                 blurOnSubmit={true}
                                 onFocus={() => setKeyboardType("grid")}
                                 onBlur={() => setKeyboardType("")}
                               />
                             </View>
-                          </View>
-                          
-                          {/* amount */}
-                          <View className="flex flex-row px-1 space-x-0.5 items-center justify-center bg-zinc100 w-1/4 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc400">
-                            {/* Amount Input */}
-                            <TextInput
-                              className="text-[9px] flex text-center h-full pl-4"
-                              placeholder="_"
-                              placeholderTextColor={colors.zinc450}
-                              value={prepCurrentAmounts?.[index]}
-                              onChangeText={(value) => {
-                                setPrepCurrentAmounts((prev) => {
-                                  const updated = [...prev];
-                                  updated[index] = value;
-                                  return updated;
-                                });
-                              }}
-                              onFocus={() => setKeyboardType("grid")}
-                              onBlur={() => setKeyboardType("")}
-                            />
-                            
-                            {/* Unit Input */}
-                            <TextInput
-                              className="text-[9px] leading-[12px] flex text-center pr-4 py-1"
-                              placeholder="unit(s)"
-                              placeholderTextColor={colors.zinc450}
-                              value={prepCurrentData?.[index]?.ingredientData[prepCurrentData?.[index]?.ingredientStore]?.unit || ""}
-                              onChangeText={(value) => changeUnit(index, value)}
-                              multiline={true}
-                              blurOnSubmit={true}
-                              onFocus={() => setKeyboardType("grid")}
-                              onBlur={() => setKeyboardType("")}
-                            />
-                          </View>
-    
-                          {/* calories */}
-                          <View className="flex flex-row px-1 space-x-0.5 items-center justify-center bg-white w-1/6 border-b-0.5 border-b-zinc400">
-                            
-                            {/* Amount Input */}
-                            <TextInput
-                              className="text-[9px] flex-auto text-right"
-                              placeholder="_"
-                              placeholderTextColor={colors.zinc400}
-                              value={prepCurrentCals?.[index]?.toString()}
-                              onChangeText={(value) => {
-                                setPrepCurrentCals((prev) => {
-                                  const updated = [...prev];
-                                  updated[index] = value;
-                                  return updated;
-                                });
-                              }}
-                              onFocus={() => setKeyboardType("grid")}
-                              onBlur={() => setKeyboardType("")}
-                            />
+      
+                            {/* calories */}
+                            <View className="flex flex-row px-1 space-x-0.5 items-center justify-center bg-white w-1/6 border-b-0.5 border-b-zinc400">
+                              
+                              {/* Amount Input */}
+                              <TextInput
+                                className="text-[9px] flex-auto text-right"
+                                placeholder="_"
+                                placeholderTextColor={colors.zinc400}
+                                value={prepCurrentCals?.[index]?.toString()}
+                                onChangeText={(value) => {
+                                  setPrepCurrentCals((prev) => {
+                                    const updated = [...prev];
+                                    updated[index] = validateWholeNumberInput(value);
+                                    return updated;
+                                  });
+                                }}
+                                onFocus={() => setKeyboardType("grid")}
+                                onBlur={() => setKeyboardType("")}
+                              />
 
-                            {/* Label */}
-                            <Text className="text-[9px] flex-auto text-left">
-                              {"cal"}
-                            </Text>
+                              {/* Label */}
+                              <Text className="text-[9px] flex-auto text-left">
+                                {"cal"}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Delete Button */}
+                          <View className="flex w-[20px] mx-[-2.5px] pl-1 z-50 justify-center items-center">
+                            <Icon
+                              name="close"
+                              size={15}
+                              color={colors.zinc600}
+                              onPress={() => deletePrepIngredient(index)}
+                            />
                           </View>
                         </View>
-
-                        {/* Delete Button */}
-                        <View className="flex w-[20px] mx-[-2.5px] pl-1 z-50 justify-center items-center">
-                          <Icon
-                            name="close"
-                            size={15}
-                            color={colors.zinc600}
-                            onPress={() => deletePrepIngredient(index)}
-                          />
-                        </View>
-                      </View>
-                    )}
-                  </ScrollView>
-                  }
+                      ))}
+                    </ScrollView>
+                  )}
 
                   {/* Add Another Ingredient Row */}
                   {(copyData === null 
                     ? (id === null || id?.includes("LUNCH") || id?.includes("DINNER") || id?.includes("."))
                     : (copyData?.prepId === null || copyData?.prepId?.includes("LUNCH") || copyData?.prepId?.includes("DINNER") || copyData?.prepId?.includes(".")))
-                  &&
-                  <View className="flex flex-row items-center justify-center ml-[15px] mr-[10px]">
+                  && (
+                    <View className="flex flex-row items-center justify-center ml-[15px] mr-[10px]">
 
-                    {/* Last Index Add Indicator */}
-                    <View className="absolute w-[20px] left-[-15px] pr-1 top-[-5px] z-50 justify-end items-center">
-                      {showNewIndex &&
-                      <Icon
-                        name="send"
-                        size={10}
-                        color={colors.zinc600}
-                        onPress={() => addPrepIngredient(numIngredients)}
-                      />
-                      }
-                    </View>   
+                      {/* Last Index Add Indicator */}
+                      <View className="absolute w-[20px] left-[-15px] pr-1 top-[-5px] z-50 justify-end items-center">
+                        {showNewIndex && (
+                          <Icon
+                            name="send"
+                            size={10}
+                            color={colors.zinc600}
+                            onPress={() => addPrepIngredient(numIngredients)}
+                          />
+                        )}
+                      </View>   
 
-                    <TouchableOpacity 
-                      className="flex justify-center items-center bg-zinc350 w-full py-0.5 border-b-[1px] border-x-[1px] border-zinc400"
-                      onPress={() => setShowNewIndex(!showNewIndex)}
-                    >
-                      <Icon
-                        name={!showNewIndex ? "add" : "close-outline"}
-                        size={14}
-                        color={colors.zinc900}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  }
+                      <TouchableOpacity 
+                        className="flex justify-center items-center bg-zinc350 w-full py-0.5 border-b-[1px] border-x-[1px] border-zinc400"
+                        onPress={() => setShowNewIndex(!showNewIndex)}
+                      >
+                        <Icon
+                          name={!showNewIndex ? "add" : "close-outline"}
+                          size={14}
+                          color={colors.zinc900}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
                   {/* SEARCH TOGGLE */}
                   <TouchableOpacity 
-                    className={`flex flex-row justify-center items-center px-3 py-1 mt-4 ml-[20px] ${keyboardType === "grid" && isKeyboardOpen && "mb-6"} rounded-full space-x-1 bg-theme200 border-[1px] border-zinc350`}
+                    className={`flex flex-row justify-center items-center px-3 py-1 mt-4 ml-[20px] ${(keyboardType === "grid" && isKeyboardOpen) && "mb-6"} rounded-full space-x-1 bg-theme200 border-[1px] border-zinc350`}
                     onPress={() => setShowIngredientSearch(true)}
                   >
                     {/* search button */}
@@ -1451,16 +1454,16 @@ const MealDetailsModal = ({
                   {(copyData === null 
                     ? !(id === null || id?.includes("LUNCH") || id?.includes("DINNER") || id?.includes("."))
                     : !(copyData?.prepId === null || copyData?.prepId?.includes("LUNCH") || copyData?.prepId?.includes("DINNER") || copyData?.prepId?.includes(".")))
-                  &&
-                  <View className="w-full mt-2 ml-[20px] px-2">
-                    {/* divider */}
-                    <View className="h-[1px] bg-zinc350 m-4"/>
-                    {/* text */}
-                    <Text className="text-mauve600 italic text-center text-[12px]">
-                      {'modifying this meal prep is not recommended\nand may lead to inaccurate calculations'}
-                    </Text>
-                  </View>
-                  }
+                  && (
+                    <View className="w-full mt-2 ml-[20px] px-2">
+                      {/* divider */}
+                      <View className="h-[1px] bg-zinc350 m-4"/>
+                      {/* text */}
+                      <Text className="text-mauve600 italic text-center text-[12px]">
+                        {'modifying this meal prep is not recommended\nand may lead to inaccurate calculations'}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </>
             :
@@ -1522,35 +1525,32 @@ const MealDetailsModal = ({
               <View className="px-3">
                 {filteredIngredients.length > 0 
                 ?
-                <ScrollView
-                  vertical
-                  scrollEventThrottle={16}
-                  contentContainerStyle={{ flexDirection: 'column' }}
+                <FlatList
                   className="flex w-full h-[300px] border-4 border-zinc300 bg-zinc300"
-                >
-                  {filteredIngredients.map((ingredient, index) => (
-                    <View key={index} className={`flex flex-row w-full justify-between mb-1 ${index % 2 === 0 ? "bg-theme300 border-b-zinc600" : "bg-theme400 border-b-zinc700"}
-                    `}>
+                  data={filteredIngredients}
+                  keyExtractor={(_, index) => index.toString()}
+                  renderItem={({ item: ingredient, index }) => (
+                    <View className={`flex flex-row w-full justify-between mb-1 ${index % 2 === 0 ? "bg-theme300 border-b-zinc600" : "bg-theme400 border-b-zinc700"}`}>
 
                       {/* ingredient name */}
-                      <View className="flex flex-wrap justify-center items-center py-1 px-2">
+                      <View className="flex-1 flex-wrap justify-center items-center py-1 px-2">
                         <Text className="text-[12px] text-black font-medium">
-                          {ingredient.ingredientName}
+                          {ingredient?.ingredientName}
                         </Text>
                       </View>
                       
                       {/* servings */}
                       <View className={`justify-center items-end flex py-1 px-2 ${index % 2 === 0 ? "bg-zinc350 border-b-zinc600" : "bg-zinc400 border-b-zinc700"}`}>
                         <Text className="text-[10px] text-right text-black font-medium">
-                          {`${ingredient.ingredientData[selectedStore].servingSize} ${ingredient.ingredientData[selectedStore].unit}`}
+                          {`${ingredient?.ingredientData[selectedStore].servingSize} ${ingredient?.ingredientData[selectedStore].unit}`}
                         </Text>
                         <Text className="text-[10px] text-right text-black font-medium">
-                          {ingredient.ingredientData[selectedStore].calServing !== "" && `${ingredient.ingredientData[selectedStore].calServing} cal`}
+                          {(ingredient?.ingredientData[selectedStore].calServing !== "") && `${ingredient?.ingredientData[selectedStore].calServing} cal`}
                         </Text>
                       </View>
                     </View>
-                  ))}
-                </ScrollView>
+                  )}
+                />
                 :
                 // empty snack list after filtering
                 <View className="flex w-full justify-center items-center h-[300px] border-4 border-zinc300 bg-zinc350">
@@ -1646,56 +1646,73 @@ const MealDetailsModal = ({
                   </View>
                 </View>
               :
-                <View className="flex flex-col">
+                <View className="flex flex-col w-full">
                   
                   {/* RECIPE FILTERING SECTION */}
-                  <View className="flex flex-row w-full px-3 justify-center items-center mb-[20px] space-x-2">
+                  <View className="flex flex-row w-full px-3 justify-between items-center mb-[20px]">
+                    <View className="flex flex-row w-[85%]">
 
-                    {/* Keyword Type Selector */}
-                    <Icon
-                      name={keywordType === "meal prep" ? "code-working" : keywordType === "ingredient" && "list"}
-                      color={colors.zinc900}
-                      size={20}
-                      onPress={() => {
-                        const keyword = keywordType === "meal prep" ? "ingredient" : "meal prep";
-                        setKeywordType(keyword)
-                        filterPreps(keyword, "", prepTypeFilter)
-                      }}
-                    />
+                      {/* Keyword Type Selector */}
+                      <View className="bg-zinc300 px-1 py-1 rounded-l-md h-[30px] items-center justify-center">
+                        <Icon
+                          name={keywordType === "meal prep" ? "code-working" : keywordType === "ingredient" && "list"}
+                          color={colors.zinc900}
+                          size={20}
+                          onPress={() => {
+                            const keyword = keywordType === "meal prep" ? "ingredient" : "meal prep";
+                            setKeywordType(keyword)
+                            filterPreps(keyword, "", prepTypeFilter, prepRestaurantFilter)
+                          }}
+                        />
+                      </View>
 
-                    {/* text input */}
-                    <TextInput
-                      value={prepKeywordQuery}
-                      onChangeText={(value) => filterPreps(keywordType, value, prepTypeFilter)}
-                      placeholder={`${keywordType} keyword(s)`}
-                      placeholderTextColor={colors.zinc400}
-                      className="flex-1 w-5/6 bg-white radius-[5px] border-[1px] border-zinc300 pl-2.5 pr-[50px] py-1.5 rounded-md text-[14px] leading-[17px]"
-                    />
-        
-                    {/* BUTTONS */}
-                    <View className="flex flex-row absolute right-5 h-[30px] items-center justify-center">
-
-                      {/* type filtering */}
-                      <Icon
-                        name={prepTypeFilter === "prep" ? "information-circle" : prepTypeFilter === "complex" ? "stop-circle" : prepTypeFilter === "simple" ? "ellipse" : "ellipse-outline"}
-                        color={colors.zinc700}
-                        size={18}
-                        onPress={() => filterPreps(keywordType, prepKeywordQuery, prepTypeFilter === "prep" ? "complex" : prepTypeFilter === "complex" ? "simple" : prepTypeFilter === "simple" ? "" : "prep")}
+                      {/* text input */}
+                      <TextInput
+                        value={prepKeywordQuery}
+                        onChangeText={(value) => filterPreps(keywordType, value, prepTypeFilter, prepRestaurantFilter)}
+                        placeholder={`${keywordType} keyword(s)`}
+                        placeholderTextColor={colors.zinc400}
+                        className="flex-1 w-5/6 bg-white rounded-r-md border-[1px] border-zinc300 pl-2.5 pr-[50px] py-1.5 text-[14px] leading-[17px]"
                       />
+          
+                      {/* BUTTONS */}
+                      <View className="flex flex-row absolute right-1 h-[30px] items-center justify-center">
 
-                      {/* clear */}
+                        {/* type filtering */}
+                        <Icon
+                          name={prepTypeFilter === "prep" ? "information-circle" : prepTypeFilter === "complex" ? "stop-circle" : prepTypeFilter === "simple" ? "ellipse" : "ellipse-outline"}
+                          color={colors.zinc700}
+                          size={18}
+                          onPress={() => filterPreps(keywordType, prepKeywordQuery, prepTypeFilter === "prep" ? "complex" : prepTypeFilter === "complex" ? "simple" : prepTypeFilter === "simple" ? "" : "prep", prepRestaurantFilter)}
+                        />
+
+                        {/* clear */}
+                        <Icon
+                          name="close-outline"
+                          size={20}
+                          color="black"
+                          onPress={() => {
+                            setPrepKeywordQuery("");
+                            setOpenPrepIndex(-1);
+                            setOpenComplexIndex(-1);
+                            setOpenSimpleIndex(-1);
+                            setShowSpecifics(false);
+                            filterPreps(keywordType, "", prepTypeFilter, prepRestaurantFilter);
+                          }}
+                        />
+                      </View>
+                    </View>
+                    
+                    {/* Restaurant Indicator */}
+                    <View className="p-1 absolute right-2">
                       <Icon
-                        name="close-outline"
+                        name={prepRestaurantFilter}
                         size={20}
-                        color="black"
-                        onPress={() => {
-                          setPrepKeywordQuery("");
-                          setOpenPrepIndex(-1);
-                          setOpenComplexIndex(-1);
-                          setOpenSimpleIndex(-1);
-                          setShowSpecifics(false);
-                          filterPreps(keywordType, "", prepTypeFilter);
-                        }}
+                        color={colors.theme800}
+                        onPress={() => filterPreps(keywordType, prepKeywordQuery, prepTypeFilter, 
+                          prepRestaurantFilter === "bag-outline" ? "bag-add" : prepRestaurantFilter === "bag-add" ? "bag-remove" : prepRestaurantFilter === "bag-remove" && "bag-outline", 
+                          uniquePrepNames, uniquePrepIds, uniquePrepData, uniquePrepDates, uniquePrepMeals
+                        )}
                       />
                     </View>
                   </View>
@@ -1739,15 +1756,24 @@ const MealDetailsModal = ({
                             {/* indicator of selected option */}
                             <TouchableOpacity 
                               className="" 
-                              onPress={(openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? () => setCurrIndex((currIndex + 1) % prep.length) : undefined}
+                              onPress={(openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? () => {
+                                setCurrIndex((currIndex + 1) % prep.length); 
+                                setOpenSimpleIndex(
+                                  filteredPrepIds[index]?.[(currIndex + 1) % prep.length]?.includes("LUNCH") || filteredPrepIds[index]?.[(currIndex + 1) % prep.length]?.includes("DINNER") ? index : -1);
+                                setOpenPrepIndex(
+                                  (filteredPrepIds[index]?.[(currIndex + 1) % prep.length]?.includes(".")) ? index : -1); 
+                                setOpenComplexIndex(
+                                  !(filteredPrepIds[index]?.[(currIndex + 1) % prep.length]?.includes("LUNCH") || filteredPrepIds[index]?.[(currIndex + 1) % prep.length]?.includes("DINNER"))
+                                    && !(filteredPrepIds[index]?.[(currIndex + 1) % prep.length]?.includes("."))
+                                  ? index : -1
+                                );
+                              } : undefined}
                               activeOpacity={!(openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) && 1}
                             >
                               <Text className="text-[12px] font-semibold text-theme900">
-                                {
-                                (openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index)
+                                {(openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index)
                                 ? `${currIndex + 1}/${prep.length}`
-                                : `(${prep.length})`
-                                }
+                                : `(${prep.length})`}
                               </Text>
                             </TouchableOpacity>
                           </View>
@@ -1852,7 +1878,7 @@ const MealDetailsModal = ({
                                   <View key={i} className="flex flex-row">
 
                                     {/* INGREDIENT NAME */}
-                                    <View className={`${i === 0 && "pt-1"} ${i === prep[currIndex].currentData.filter(curr => curr !== null).length - 1 && "pb-1"} w-3/4 flex flex-row pl-2 pr-5 space-x-1`}>
+                                    <View className={`${(i === 0) && "pt-1"} ${(i === prep[currIndex].currentData.filter(curr => curr !== null).length - 1) && "pb-1"} w-3/4 flex flex-row pl-2 pr-5 space-x-1`}>
                                       <Text className="text-zinc800 text-[11px] text-center">
                                         {"⁃"}
                                       </Text>
@@ -1862,7 +1888,7 @@ const MealDetailsModal = ({
                                     </View>
 
                                     {/* INGREDIENT AMOUNT */}
-                                    <View className={`${i === 0 && "pt-1"} ${i === prep[currIndex].currentData.filter(curr => curr !== null).length - 1 && "pb-1"} w-1/4 justify-center items-center bg-zinc350`}>
+                                    <View className={`${(i === 0) && "pt-1"} ${(i === prep[currIndex].currentData.filter(curr => curr !== null).length - 1) && "pb-1"} w-1/4 justify-center items-center bg-zinc350`}>
                                       <Text className="text-theme900 font-medium text-[9px] text-center">
                                         {`${prep[currIndex].currentAmounts[i]} ${extractUnit(current.ingredientData[current.ingredientStore].unit, prep[currIndex].currentAmounts[i])}`}
                                       </Text>
@@ -1885,43 +1911,58 @@ const MealDetailsModal = ({
                             }
                                                 
                             {/* Details */}
-                            {!showSpecifics &&
-                            <View className="flex flex-col w-1/4 bg-zinc350 justify-center space-y-0.5 py-1">
-                            
-                              {/* expand specifics */}
-                              <View className="absolute left-[-20px] h-full items-center justify-center">
-                                <Icon
-                                  name="resize"
-                                  color={colors.zinc900}
-                                  size={16}
-                                  onPress={() => setShowSpecifics(true)}
-                                />
-                              </View>
+                            {!showSpecifics && (
+                              <View className="flex flex-col w-1/4 bg-zinc350 justify-center space-y-0.5 py-1">
+                              
+                                {/* expand specifics */}
+                                <View className="absolute left-[-20px] h-full items-center justify-center">
+                                  <Icon
+                                    name="resize"
+                                    color={colors.zinc900}
+                                    size={16}
+                                    onPress={() => setShowSpecifics(true)}
+                                  />
+                                </View>
 
-                              {/* total calories */}
-                              <Text className="text-theme900 font-medium text-[11px] text-center">
-                                {prep[currIndex]?.prepCal} {"cal"}
-                              </Text>
-                              {/* total price */}
-                              <Text className="text-theme900 font-medium text-[11px] text-center">
-                                {"$"}{prep[currIndex]?.prepPrice}
-                              </Text>
-                            </View>
-                            }
+                                {/* total calories */}
+                                <Text className="text-theme900 font-medium text-[11px] text-center">
+                                  {prep[currIndex]?.prepCal} {"cal"}
+                                </Text>
+                                {/* total price */}
+                                <Text className="text-theme900 font-medium text-[11px] text-center">
+                                  {"$"}{prep[currIndex]?.prepPrice}
+                                </Text>
+                              </View>
+                            )}
                           </View>
                         )}
                         
                         {/* SIMPLE DETAILS */}
-                        {openSimpleIndex === index && (
-                          <View className="flex flex-row w-full bg-zinc300 justify-center items-center space-x-5 py-1">
-                            {/* total calories */}
-                            <Text className="text-theme900 font-medium text-[11px] text-center">
-                              {prep[currIndex]?.prepCal} {"cal"}
-                            </Text>
-                            {/* total price */}
-                            <Text className="text-theme900 font-medium text-[11px] text-center">
-                              {"$"}{prep[currIndex]?.prepPrice}
-                            </Text>
+                        {(openSimpleIndex === index) && (
+                          <View className={`flex flex-row w-full ${prep[currIndex]?.prepNote !== "" ? "bg-zinc200" : "bg-zinc300"}`}>
+
+                            {/* Notes, if available */}
+                            {(prep[currIndex]?.prepNote !== "") && (
+                              <View className={`py-1 justify-center items-center bg-zinc200 ${(prep[currIndex]?.prepCal !== "0" || prep[currIndex]?.prepPrice !== "0.00") ? "w-2/3" : "w-full"}`}>
+                                <Text className="text-zinc800 font-medium text-[11px] text-center">
+                                  {prep[currIndex]?.prepNote}
+                                </Text>
+                              </View>
+                            )}
+                            
+                            {/* Details, if not empty */}
+                            {(prep[currIndex]?.prepCal !== "0" || prep[currIndex]?.prepPrice !== "0.00") && (
+                              <View className={`flex flex-row py-1 bg-zinc300 items-center justify-center ${(prep[currIndex]?.prepNote !== "") ? "w-1/3" : "w-full"} ${prep[currIndex]?.prepNote !== "" ? "w-1/3 justify-evenly" : "space-x-5"}`}>
+                                {/* total calories */}
+                                <Text className="text-theme900 font-medium text-[11px] text-center">
+                                  {prep[currIndex]?.prepCal} {"cal"}
+                                </Text>
+                                {/* total price */}
+                                <Text className="text-theme900 font-medium text-[11px] text-center">
+                                  {"$"}{prep[currIndex]?.prepPrice}
+                                </Text>
+                              </View>
+                            )}
                           </View>
                         )}
                       </View>
@@ -1954,34 +1995,34 @@ const MealDetailsModal = ({
                 }
                     
                 {/* Button to stop searching */}
-                {showSearchSection && 
+                {showSearchSection && (
                   <Icon
                     name="backspace"
                     size={24}
                     color={colors.zinc700}
                     onPress={() => setShowSearchSection(false)}
                   />
-                }
+                )}
     
                 {/* BUTTONS */}
                 <View className="flex flex-row justify-center items-center space-x-[-2px] ml-auto">
     
                   {/* Check */}
-                  {(option === "COPY" && copyData?.prepData?.prepName || option === "CREATE") &&
-                  <Icon 
-                    size={24}
-                    color="black"
-                    name="checkmark"
-                    onPress={() => {
-                      option === "CREATE" ? 
-                        createComplex 
-                        ? submitNewComplex()
-                        : submitNewSimple()
-                      : // option === "COPY"
-                        submitCopy()
-                    }}
-                  />
-                  }
+                  {(option === "COPY" && copyData?.prepData?.prepName || option === "CREATE") && (
+                    <Icon 
+                      size={24}
+                      color="black"
+                      name="checkmark"
+                      onPress={() => {
+                        option === "CREATE" ? 
+                          createComplex 
+                          ? submitNewComplex()
+                          : submitNewSimple()
+                        : // option === "COPY"
+                          submitCopy()
+                      }}
+                    />
+                  )}
 
                   {/* Close */}
                   <Icon

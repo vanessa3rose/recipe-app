@@ -24,7 +24,7 @@ const db = getFirestore(app);
 
 const ModTypeModal = ({ 
   modalVisible, setModalVisible, closeModal, 
-  initialTypeList, initialQuery, 
+  initialType, initialTypeList, initialQuery, 
   ingredientsSnapshot, recipeSnapshot, spotlightSnapshot
 }) => {
 
@@ -37,9 +37,16 @@ const ModTypeModal = ({
   useEffect(() => {
     if (modalVisible) {
       storeData();
+
+      // stores intial type in both spots
+      if (initialType !== "-" && initialType !== "") {
+        setFilterType(initialType);
+        setSelectedType(initialType);
+      }
     }
   }, [modalVisible]);  
 
+  const [oldIngredients, setOldIngredients] = useState(null);
   const [ingredients, setIngredients] = useState(null);
 
   // to put the initial (provided) data in states
@@ -53,6 +60,7 @@ const ModTypeModal = ({
       };
     });
 
+    setOldIngredients(ingredients);
     setIngredients(ingredients);
 
     // stores the initial data
@@ -74,14 +82,6 @@ const ModTypeModal = ({
     
     // filters by changed data only
     if (filterChanged) {
-
-      // original data
-      let oldIngredients = ingredientsSnapshot.docs.map((ingredient) => {
-        return {
-          id: ingredient.id,    
-          ...ingredient.data(),  
-        };
-      });
     
       // filters by changed
       dataToUse = dataToUse.filter((oldIngredient) => {
@@ -249,10 +249,9 @@ const ModTypeModal = ({
 
   // when a type is to be added to an ingredient
   const addIngredientType = (id) => {
-
-    // adds the new type to the ingredient with the given id
     let newIngredients = ingredients;
   
+    // adds the new type to the ingredient with the given id
     newIngredients = newIngredients.map((ingredient) => {
       if (ingredient.id === id) {
         if (!ingredient.ingredientTypes.includes(selectedType)) {
@@ -271,12 +270,38 @@ const ModTypeModal = ({
     setIngredients(newIngredients);
   }
 
+  // when a type is to be added to all ingredients under the current filter
+  const addIngredientTypeAll = () => {
+    let newIngredients = ingredients;
+
+    // loops over all filtered data
+    filteredData.map((data) => {
+      
+      // adds the new type to the ingredient with the given id
+      newIngredients = newIngredients.map((ingredient) => {
+        if (ingredient.id === data.id) {
+          if (!ingredient.ingredientTypes.includes(selectedType)) {
+            const newTypes = [...ingredient.ingredientTypes.filter((type) => type !== ""), selectedType];
+
+            return {
+              ...ingredient,
+              ingredientTypes: newTypes,
+            };
+          }
+        }
+        return ingredient;
+      });
+    })
+
+    // stores the new data
+    setIngredients(newIngredients);
+  }
+
   // when a type is to be removed from an ingredient
   const removeIngredientType = (id) => {
-
-    // removes the type from the ingredient of the given id
     let newIngredients = ingredients;
   
+    // removes the type from the ingredient of the given id
     newIngredients = newIngredients.map((ingredient) => {
       if (ingredient.id === id) {
         const newTypes = ingredient.ingredientTypes.length === 1 && ingredient.ingredientTypes.includes(selectedType)
@@ -290,6 +315,33 @@ const ModTypeModal = ({
       }
       return ingredient;
     });
+
+    // stores the new data
+    setIngredients(newIngredients);
+  }
+
+  // when a type is to be removed from all ingredients under the current filter
+  const removeIngredientTypeAll = () => {
+    let newIngredients = ingredients;
+
+    // loops over all filtered data
+    filteredData.map((data) => {
+  
+      // removes the type from the ingredient of the given id
+      newIngredients = newIngredients.map((ingredient) => {
+        if (ingredient.id === data.id) {
+          const newTypes = ingredient.ingredientTypes.length === 1 && ingredient.ingredientTypes.includes(selectedType)
+            ? [""]
+            : ingredient.ingredientTypes.filter((type) => type !== selectedType);
+
+          return {
+            ...ingredient,
+            ingredientTypes: newTypes,
+          };
+        }
+        return ingredient;
+      });
+    })
 
     // stores the new data
     setIngredients(newIngredients);
@@ -310,6 +362,7 @@ const ModTypeModal = ({
   
   // when the checkmark is clicked to submit changes
   const submitModal = async () => { 
+    setModalVisible(false)
 
     // creates a batch to update ingredients, recipes, and spotlights
     const batch = writeBatch(db);
@@ -478,14 +531,14 @@ const ModTypeModal = ({
                   </Text>
 
                   {/* button */}
-                  {!showEditType &&
+                  {!showEditType && (
                     <Icon
                       name={showCustomType ? "close-circle" : "add-circle"}
                       color="white"
                       size={18}
                       onPress={() => setShowCustomType(!showCustomType)}
                     />
-                  }
+                  )}
                 </View>
 
                 {/* DETAILS -- three choices */}
@@ -597,15 +650,15 @@ const ModTypeModal = ({
                               </Text>
 
                               {/* selected indicator */}
-                              {item.label === filterType &&
-                              <View className="absolute flex justify-center items-center h-[30px] right-1">
-                                <Icon
-                                  name="checkmark"
-                                  color="black"
-                                  size={18}
-                                />
-                              </View>
-                              }
+                              {(item.label === filterType) && (
+                                <View className="absolute flex justify-center items-center h-[30px] right-1">
+                                  <Icon
+                                    name="checkmark"
+                                    color="black"
+                                    size={18}
+                                  />
+                                </View>
+                              )}
                             </TouchableOpacity>
                           ))}
                         </ScrollView>
@@ -635,16 +688,16 @@ const ModTypeModal = ({
                 </View>
 
                 {/* Edit Type */}
-                {filterType !== "" &&
-                <View className="pl-4">
-                  <Icon
-                    name={showEditType ? "backspace" : "create"}
-                    color={colors.theme700}
-                    size={showEditType ? 18 : 16}
-                    onPress={() => openEditType()}
-                  />
-                </View>
-                }
+                {(filterType !== "") && (
+                  <View className="pl-4">
+                    <Icon
+                      name={showEditType ? "backspace" : "create"}
+                      color={colors.theme700}
+                      size={showEditType ? 18 : 16}
+                      onPress={() => openEditType()}
+                    />
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -655,7 +708,7 @@ const ModTypeModal = ({
 
             
           {/* TYPE SELECTION */}
-          <View className="flex-row w-full px-5 mb-2 h-[30px]">
+          <View className="flex-row w-full px-5 mb-4 h-[30px]">
 
             {/* Text */}
             <View className="flex w-[45%] h-[30px] bg-zinc100 items-center justify-center border-l-[1.5px] border-y-[1.5px] border-zinc350">
@@ -684,13 +737,41 @@ const ModTypeModal = ({
             </View>
           </View>
 
+          {/* TOGGLE ALL */}
+          {(selectedType !== "") && (
+            <View className="flex-row w-full pl-4 space-x-1 pr-5">
+              {/* add */}
+              <TouchableOpacity 
+                className="w-1/2 pt-0.5 rounded-t-xl bg-zinc300 justify-center items-center"
+                onPress={() => addIngredientTypeAll()}
+              >
+                <Icon
+                  name="add"
+                  size={18}
+                  color={colors.zinc900}
+                />
+              </TouchableOpacity>
+              {/* remove */}
+              <TouchableOpacity 
+                className="w-1/2 pt-0.5 rounded-t-xl bg-zinc300 justify-center items-center"
+                onPress={() => removeIngredientTypeAll()}
+              >
+                <Icon
+                  name="close-outline"
+                  size={18}
+                  color={colors.zinc900}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+
 
           {/* MAP OF INGREDIENTS */}
           <ScrollView
             vertical
             scrollEventThrottle={16}
             contentContainerStyle={{ flexDirection: 'column' }}
-            className="flex border-4 border-zinc300 bg-zinc300 mx-4 my-2 h-1/2"
+            className="flex border-4 border-zinc300 bg-zinc300 mx-4 mb-2 h-1/2"
           >
             {filteredData.map((ingredient, index) => (
               <View key={index} className="flex mb-2">
@@ -704,35 +785,61 @@ const ModTypeModal = ({
 
                 {/* ingredient types */}
                 <View className={`flex flex-row py-1 px-2 ${index % 2 === 0 ? "bg-zinc450" : "bg-zinc500"}`}>
-                  <Text className="text-[9px] text-white italic font-semibold">
-                    {ingredient.ingredientTypes.sort((a, b) => a.localeCompare(b)).join(", ").toUpperCase()}
-                  </Text>
+                  {!showModOnly 
+                  ?
+                    // if showing regular types
+                    <Text className="text-[9px] text-white italic font-semibold">
+                      {ingredient.ingredientTypes.sort((a, b) => a.localeCompare(b)).join(", ").toUpperCase()}
+                    </Text>
+                  :
+                    // if showing modified types
+                    <View className="flex flex-row space-x-4">
+                      {[...new Set([...ingredient.ingredientTypes, ...(oldIngredients.find(old => old.id === ingredient.id)?.ingredientTypes || [])
+                        ])].sort((a, b) => a.localeCompare(b)).filter(type => type !== "")
+                      .map((type, idx) => (
+                        <View key={idx}>
+                          <Text 
+                            className={`text-[9px] ${
+                              // kept the same - white
+                              ingredient.ingredientTypes.includes(type) && oldIngredients.find(old => old.id === ingredient.id)?.ingredientTypes?.includes(type) ? "font-semibold text-white" 
+                              // added - white bg with teal letters
+                              : ingredient.ingredientTypes.includes(type) ? "bg-white text-theme900 px-2 font-bold rounded-lg" 
+                              // removed - white bg with pink letters & strikethrough
+                              : oldIngredients.find(old => old.id === ingredient.id)?.ingredientTypes?.includes(type) ? "px-2 bg-white text-mauve700 line-through decoration-mauve900 font-bold rounded-lg" : ""
+                            }`}
+                          >
+                            {type.toUpperCase()}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  }
 
                   {/* BUTTONS */}
-                  {selectedType !== "" && selectedType !== "CUSTOM" &&
+                  {(selectedType !== "" && selectedType !== "CUSTOM") && (
                     <View className="flex flex-row absolute right-0.5 py-0.5">
 
                       {/* add (if not already included) */}
-                      {!ingredient.ingredientTypes.includes(selectedType) &&
+                      {!ingredient.ingredientTypes.includes(selectedType) && (
                         <Icon
                           name="add"
                           color="white"
                           size={14}
                           onPress={() => addIngredientType(ingredient.id)}
                         />
-                      }
+                      )}
 
                       {/* remove (if already included) */}
-                      {ingredient.ingredientTypes.includes(selectedType) &&
+                      {ingredient.ingredientTypes.includes(selectedType) && (
                         <Icon
                           name="close-outline"
                           color="white"
                           size={14}
                           onPress={() => removeIngredientType(ingredient.id)}
                         />
-                      }
+                      )}
                     </View>
-                  }
+                  )}
                 </View>
               </View>
             ))}
@@ -740,20 +847,27 @@ const ModTypeModal = ({
 
 
           {/* TO VIEW CHANGED INGREDIENTS */}
-          <View className="flex flex-row mt-3 justify-center items-center space-x-2 bg-zinc100 border-[1px] border-zinc300 py-1 mx-10">
+          <View className="flex flex-row mt-3 justify-around items-center">
             
-            {/* Text Prompt */}
-            <Text className="italic text-zinc500 text-[12px]">
-              only show modified ingredients
-            </Text>
+            {/* filtering for modified */}
+            <View className="flex flex-row space-x-2 px-3 bg-zinc100 border-[1px] border-zinc300 py-1">
+              <Text className="italic text-zinc500 text-[12px]">
+                only show modified ingredients
+              </Text>
 
-            {/* Checkbox Button */}
-            <Icon
-              name={showModOnly ? "checkbox" : "square-outline"}
-              color={colors.zinc450}
-              size={16}
-              onPress={() => setShowModOnly(!showModOnly)}
-            />
+              {/* Checkbox Button */}
+              <Icon
+                name={showModOnly ? "checkbox" : "square-outline"}
+                color={colors.zinc450}
+                size={16}
+                onPress={() => setShowModOnly(!showModOnly)}
+              />
+            </View>
+
+            {/* number of ingredients shown */}
+            <Text className="text-[12px] font-semibold text-theme700">
+              {filteredData.length}
+            </Text>
           </View>
         </View>
       </View>

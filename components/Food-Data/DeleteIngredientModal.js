@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 
 // UI components
-import { Modal, View, Text, TouchableOpacity } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
 
 // firebase
 import { ingredientDelete } from '../../firebase/Ingredients/ingredientDelete';
@@ -138,19 +138,19 @@ const DeleteIngredientModal = ({
           
           
           {/* No Warning */}
-          {recipeList && recipeList.length === 0 && spotlightList && spotlightList.length === 0 &&
+          {(recipeList && recipeList.length === 0 && spotlightList && spotlightList.length === 0) && (
             <Text className="italic text-zinc450 text-center">
               {"this ingredient is not listed in any\nrecipes or spotlights"}
             </Text>
-          }
+          )}
 
           {/* Recipe Warning */}
-          {recipeList && recipeList.length > 0 &&
+          {(recipeList && recipeList.length > 0) && (
             <View className="space-y-2">
               <Text className="text-zinc600 text-center">
                 recipes including this ingredient:
               </Text>
-              <View className="flex flex-col pl-2">
+              <ScrollView className="flex flex-col pl-2 max-h-[180px]">
                 {/* maps the recipe list */}
                 {recipeList?.map((recipe, index) => 
                   <View className="flex flex-row space-x-2" key={index}>
@@ -162,23 +162,23 @@ const DeleteIngredientModal = ({
                     </Text>
                   </View>
                 )}
-              </View>
+              </ScrollView>
             </View>
-          }
+          )}
 
           {/* Double Warning */}
-          {recipeList && recipeList.length > 0 && spotlightList && spotlightList.length > 0 &&
+          {(recipeList && recipeList.length > 0 && spotlightList && spotlightList.length > 0) && (
             // divider
             <View className="h-[1px] bg-zinc350 m-4"/>
-          }
+          )}
           
           {/* Spotlight Warning */}
-          {spotlightList && spotlightList.length > 0 &&
+          {(spotlightList && spotlightList.length > 0) && (
             <View className="space-y-2">
               <Text className="text-zinc600 text-center">
                 spotlights including this ingredient:
               </Text>
-              <View className="flex flex-col pl-2">
+              <ScrollView className="flex flex-col pl-2 max-h-[180px]">
                 {/* maps the spotlight list */}
                 {spotlightList?.map((spotlight, index) => 
                   <View className="flex flex-row space-x-2" key={index}>
@@ -190,9 +190,9 @@ const DeleteIngredientModal = ({
                     </Text>
                   </View>
                 )}
-              </View>
+              </ScrollView>
             </View>
-          }
+          )}
 
 
 

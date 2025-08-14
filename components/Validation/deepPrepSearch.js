@@ -5,7 +5,7 @@ export function deepPrepEqual (a, b) {
     "prepNote", "prepMult", 
     "amountLeft", "amountTotal", "archive", "check", 
     "ingredientData", "ingredientId", "ingredientStore", "ingredientTypes", 
-    "id", "containerPrice", "unitPrice"
+    "id", "containerPrice", "unitPrice", "editingId"
   ];
 
   if (a === b) return true;

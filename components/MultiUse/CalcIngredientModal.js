@@ -317,7 +317,7 @@ const CalcIngredientModal = ({
             <View className="flex flex-row w-full justify-center items-center space-x-2">
 
               {/* Calories - IF CONTAINER CAL ISN'T 0 */}
-              {calContainer !== 0 &&
+              {(calContainer !== 0) && (
                 <View className={`flex flex-col ${priceContainer === 0 ? "w-1/2" : "w-1/3"} justify-center items-center space-y-1`}>
                   {/* label */}
                   <Text className="text-[14px] text-theme700 font-semibold">
@@ -334,10 +334,10 @@ const CalcIngredientModal = ({
                     />
                   </View>
                 </View>
-              }
+              )}
 
               {/* Cost - IF CONTAINER COST ISN'T 0 */}
-              {priceContainer !== 0 &&
+              {(priceContainer !== 0) && (
                 <View className={`flex flex-col ${calContainer === 0 ? "w-1/2" : "w-1/3"} justify-center items-center space-y-1`}>
                   {/* label */}
                   <Text className="text-[14px] text-theme700 font-semibold">
@@ -357,7 +357,7 @@ const CalcIngredientModal = ({
                     />
                   </View>
                 </View>
-              }
+              )}
 
               {/* Servings */}
               <View className={`flex flex-col ${(calContainer === 0 && priceContainer === 0) ? "w-full" : calContainer === 0 || priceContainer === 0 ? "w-1/2" : "w-1/3"} justify-center items-center space-y-1`}>
@@ -381,90 +381,90 @@ const CalcIngredientModal = ({
 
           
           {/* CONTAINER SECTION */}
-          {amountUsed !== null && amountUsed !== "0" && 
-          <>
-            {/* Divider */}
-            <View className="h-[1px] bg-zinc400 mt-4 mb-6"/>
+          {(amountUsed !== null && amountUsed !== "0") && (
+            <>
+              {/* Divider */}
+              <View className="h-[1px] bg-zinc400 mt-4 mb-6"/>
 
-            {/* GENERAL AMOUNTS */}
-            <View className="flex flex-row w-full justify-center items-center px-3">
-              {/* headers */}
-              <View className="flex flex-col justify-center items-center py-1 space-y-1">
-                <Text className="w-full py-1 px-2 text-right text-[12px] font-medium text-theme800 bg-zinc300 border-l-[1px] border-y-[1px] border-zinc350">
-                  AMOUNT IN OTHER SELECTED RECIPES
-                </Text>
-                <Text className="w-full py-1 px-2 text-right text-[12px] font-medium text-theme800 bg-zinc300 border-l-[1px] border-y-[1px] border-zinc350">
-                  AMOUNT PER CONTAINER
-                </Text>
-              </View>
-              {/* amounts */}
-              <View className="flex flex-col justify-center items-center py-1 space-y-1">
-                <Text className="w-full font-medium text-theme700 bg-zinc100 py-1 px-2 text-center text-[12px] border-r-[1px] border-y-[1px] border-zinc350">
-                  {amountUsed}
-                </Text>
-                <Text className="w-full font-medium text-theme700 bg-zinc100 py-1 px-2 text-center text-[12px] border-r-[1px] border-y-[1px] border-zinc350">
-                  {amountContainer}
-                </Text>
-              </View>
-            </View>
-
-            {/* CONTAINER AMOUNTS */}
-            <View className="flex flex-row justify-center items-center mt-3 space-x-4">
-
-              <View className="flex flex-row bg-zinc100 justify-center items-center border-[1px] border-zinc400">
-                {/* Num Containers -- Buttons */}
-                <View className="flex flex-col space-y-[-4px] bg-theme200 border-r-[1px] border-theme300 px-1 py-2">
-                  <Icon
-                    name="add"
-                    size={14}
-                    color="black"
-                    onPress={() => setNumContainers(numContainers + 1)}
-                  />
-                  <Icon
-                    name="remove"
-                    size={14}
-                    color="black"
-                    onPress={() => setNumContainers(numContainers !== 0 ? numContainers - 1 : numContainers)}
-                  />
-                </View>
-
-                {/* Num Containers */}
-                <Text className="py-2 px-2 text-[14px] text-black">
-                  {numContainers} {numContainers === 1 ? "CONTAINER" : "CONTAINERS"}
-                </Text>
-              </View>
-
-              {/* CALCULATED DETAILS */}
-              <View className="flex flex-row bg-theme100 border-[1px] border-zinc400">
+              {/* GENERAL AMOUNTS */}
+              <View className="flex flex-row w-full justify-center items-center px-3">
                 {/* headers */}
-                <View className="flex flex-col justify-center items-end bg-theme200 px-2 py-1">
-                <View className="flex flex-row">
-                  <Icon
-                    name="checkmark"
-                    size={14}
-                    onPress={() => updateTotalYield(((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(new Fractional(amountUsed))).toString())}
-                  />
-                  <Text className="text-[13px] text-zinc700 italic font-medium">
-                    OVERALL
+                <View className="flex flex-col justify-center items-center py-1 space-y-1">
+                  <Text className="w-full py-1 px-2 text-right text-[12px] font-medium text-theme800 bg-zinc300 border-l-[1px] border-y-[1px] border-zinc350">
+                    AMOUNT IN OTHER SELECTED RECIPES
                   </Text>
-                </View>
-                  <Text className="text-[13px] text-zinc700 italic font-medium">
-                    REMAINING
+                  <Text className="w-full py-1 px-2 text-right text-[12px] font-medium text-theme800 bg-zinc300 border-l-[1px] border-y-[1px] border-zinc350">
+                    AMOUNT PER CONTAINER
                   </Text>
                 </View>
                 {/* amounts */}
-                <View className="flex flex-col justify-center items-center px-2 py-1">
-                  <Text className="text-[13px] text-zinc800">
-                    {(new Fractional(numContainers)).multiply(new Fractional(amountContainer)).toString()}
+                <View className="flex flex-col justify-center items-center py-1 space-y-1">
+                  <Text className="w-full font-medium text-theme700 bg-zinc100 py-1 px-2 text-center text-[12px] border-r-[1px] border-y-[1px] border-zinc350">
+                    {amountUsed}
                   </Text>
-                  <Text className="text-[13px] text-zinc800">
-                    {((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(new Fractional(amountUsed))).toString()}
+                  <Text className="w-full font-medium text-theme700 bg-zinc100 py-1 px-2 text-center text-[12px] border-r-[1px] border-y-[1px] border-zinc350">
+                    {amountContainer}
                   </Text>
                 </View>
               </View>
-            </View>
-          </>
-          }
+
+              {/* CONTAINER AMOUNTS */}
+              <View className="flex flex-row justify-center items-center mt-3 space-x-4">
+
+                <View className="flex flex-row bg-zinc100 justify-center items-center border-[1px] border-zinc400">
+                  {/* Num Containers -- Buttons */}
+                  <View className="flex flex-col space-y-[-4px] bg-theme200 border-r-[1px] border-theme300 px-1 py-2">
+                    <Icon
+                      name="add"
+                      size={14}
+                      color="black"
+                      onPress={() => setNumContainers(numContainers + 1)}
+                    />
+                    <Icon
+                      name="remove"
+                      size={14}
+                      color="black"
+                      onPress={() => setNumContainers(numContainers !== 0 ? numContainers - 1 : numContainers)}
+                    />
+                  </View>
+
+                  {/* Num Containers */}
+                  <Text className="py-2 px-2 text-[14px] text-black">
+                    {numContainers} {numContainers === 1 ? "CONTAINER" : "CONTAINERS"}
+                  </Text>
+                </View>
+
+                {/* CALCULATED DETAILS */}
+                <View className="flex flex-row bg-theme100 border-[1px] border-zinc400">
+                  {/* headers */}
+                  <View className="flex flex-col justify-center items-end bg-theme200 px-2 py-1">
+                  <View className="flex flex-row">
+                    <Icon
+                      name="checkmark"
+                      size={14}
+                      onPress={() => updateTotalYield(((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(new Fractional(amountUsed))).toString())}
+                    />
+                    <Text className="text-[13px] text-zinc700 italic font-medium">
+                      OVERALL
+                    </Text>
+                  </View>
+                    <Text className="text-[13px] text-zinc700 italic font-medium">
+                      REMAINING
+                    </Text>
+                  </View>
+                  {/* amounts */}
+                  <View className="flex flex-col justify-center items-center px-2 py-1">
+                    <Text className="text-[13px] text-zinc800">
+                      {(new Fractional(numContainers)).multiply(new Fractional(amountContainer)).toString()}
+                    </Text>
+                    <Text className="text-[13px] text-zinc800">
+                      {((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(new Fractional(amountUsed))).toString()}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </>
+          )}
         </View>
       </View>
     </Modal>
