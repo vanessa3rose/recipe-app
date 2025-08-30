@@ -6,7 +6,6 @@ import { useNavigation, useNavigationState } from '@react-navigation/native';
 
 // UI components
 import { View, Text, ScrollView, TextInput, Keyboard, TouchableOpacity, FlatList, Linking, Image } from 'react-native';
-import DropDownPicker from 'react-native-dropdown-picker';
 import { Picker } from '@react-native-picker/picker';
 
 // visual effects

@@ -510,8 +510,8 @@ useEffect(() => {
         let newData = plan.data.meals;
         const oldData = oldSnapshot.find(doc => doc.id === plan.data.date).data.meals;
         
-        // if the data has changed, adds update to the batch
-        if (!deepPrepEqual(newData, oldData)) {
+        // if the data has changed, adds update to the batch - INCLUDES NOTES
+        if (!deepPrepEqual(newData, oldData) || oldData.lunch?.prepData?.prepNote !== newData.lunch?.prepData?.prepNote || oldData.dinner?.prepData?.prepNote !== newData.dinner?.prepData?.prepNote) {
           batch.update(doc(db, 'PLANS', plan.id), { meals: newData });
         }
       }

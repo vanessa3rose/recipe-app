@@ -1530,7 +1530,7 @@ const MealDetailsModal = ({
                   data={filteredIngredients}
                   keyExtractor={(_, index) => index.toString()}
                   renderItem={({ item: ingredient, index }) => (
-                    <View className={`flex flex-row w-full justify-between mb-1 ${index % 2 === 0 ? "bg-theme300 border-b-zinc600" : "bg-theme400 border-b-zinc700"}`}>
+                    <View className={`flex flex-row w-full justify-between mb-1 ${(index % 2 === 0) ? "bg-theme300 border-b-zinc600" : "bg-theme400 border-b-zinc700"}`}>
 
                       {/* ingredient name */}
                       <View className="flex-1 flex-wrap justify-center items-center py-1 px-2">
@@ -1540,7 +1540,7 @@ const MealDetailsModal = ({
                       </View>
                       
                       {/* servings */}
-                      <View className={`justify-center items-end flex py-1 px-2 ${index % 2 === 0 ? "bg-zinc350 border-b-zinc600" : "bg-zinc400 border-b-zinc700"}`}>
+                      <View className={`justify-center items-end flex py-1 px-2 ${(index % 2 === 0) ? "bg-zinc350 border-b-zinc600" : "bg-zinc400 border-b-zinc700"}`}>
                         <Text className="text-[10px] text-right text-black font-medium">
                           {`${ingredient?.ingredientData[selectedStore].servingSize} ${ingredient?.ingredientData[selectedStore].unit}`}
                         </Text>
