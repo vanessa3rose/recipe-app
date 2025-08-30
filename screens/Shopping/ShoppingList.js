@@ -27,6 +27,7 @@ import extractUnit from '../../components/Validation/extractUnit';
 import RecipeListModal from '../../components/Shopping-List/RecipeListModal';
 import SpotlightSelectorModal from '../../components/Shopping-List/SpotlightSelectorModal';
 import StoreSwapModal from '../../components/Shopping-List/StoreSwapModal';
+import ExtraIngredientsModal from '../../components/Shopping-List/ExtraIngredientsModal';
 
 // initialize firebase app
 import { getFirestore, doc, updateDoc, getDocs, getDoc, collection, writeBatch } from 'firebase/firestore';
@@ -37,6 +38,9 @@ const db = getFirestore(app);
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 export default function ShoppingList ({ isSelectedTab }) {
+
+  const miscStoreKeys = ["Misc", ...storeKeys];
+  const miscStoreLabels = ["Miscelaneous", ...storeLabels];
 
 
   ///////////////////////////////// KEYBOARD /////////////////////////////////
@@ -103,11 +107,11 @@ export default function ShoppingList ({ isSelectedTab }) {
   const [spotlightsSnapshot, setSpotlightsSnapshot] = useState(null);
     
   // for store picker
-  const [selectedStore, setSelectedStore] = useState(storeKeys[0]); 
+  const [selectedStore, setSelectedStore] = useState(miscStoreKeys[0]); 
   
   // store details
   const [allStoreLists, setAllStoreLists] = useState(Object.fromEntries(
-    storeKeys.map(storeKey => [storeKey, {
+    miscStoreKeys.map(storeKey => [storeKey, {
       check: [],
       included: [],
       name: [],
@@ -152,7 +156,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
       // gets all lists
       const snapshots = {};
-      for (const storeKey of storeKeys) {
+      for (const storeKey of miscStoreKeys) {
         const snap = await getDoc(doc(db, 'SHOPPING', `list${storeKey}`));
         snapshots[storeKey] = snap;
       }
@@ -160,7 +164,7 @@ export default function ShoppingList ({ isSelectedTab }) {
       let initialStoreFound = false;
       
       // loops over all 6 stores
-      await Promise.all(storeKeys.map(async (storeKey) => {
+      await Promise.all(miscStoreKeys.map(async (storeKey) => {
         
         // stores the current data
         const idList = snapshots[storeKey].data().id;
@@ -179,10 +183,10 @@ export default function ShoppingList ({ isSelectedTab }) {
         const linkList = [];
         const brandList = [];
         const unitList = [];
-        const yieldUnitList = [];
         const yieldNeededList = [];
         const costUnitList = [];
         const totalYieldList = [];
+        const extraList = [];
     
         // loops over the collection of spotlights
         querySnapshot.forEach((doc) => {
@@ -202,13 +206,33 @@ export default function ShoppingList ({ isSelectedTab }) {
                 linkList.push(ingredient[storeKey].link);
                 brandList.push(ingredient[storeKey].brand);
                 unitList.push(ingredient[storeKey].unit);
-                yieldUnitList.push(ingredient[storeKey].servingContainer);
                 const amt = new Fractional(data.ingredientAmounts[index]).multiply(new Fractional(data.spotlightMult));
                 yieldNeededList.push(amt === 0 || isNaN(amt.numerator / amt.denominator) ? "0" : amt.toString())
                 costUnitList.push(ingredient[storeKey].priceContainer);
                 totalYieldList.push(ingredient[storeKey].totalYield);
+                extraList.push(false);
               }
             });
+          }
+        });
+    
+        // loops over the collection of extras
+        const shopping = await getDoc(doc(db, 'GLOBALS', 'shopping'));
+        shopping.data().extras.forEach((doc) => {
+          const ingredientStore = doc.ingredientStore;
+          
+          // adds its data to the empty arrays
+          if (doc.ingredientData !== null && ingredientStore === storeKey && doc.ingredientServings > 0 && doc.ingredientServings !== "") {
+            newIdList.push(doc.ingredientId);
+            nameList.push(doc.ingredientName);
+            linkList.push(doc.ingredientData[ingredientStore].link);
+            brandList.push(doc.ingredientData[ingredientStore].brand);
+            unitList.push(doc.ingredientData[ingredientStore].unit);
+            const amt = new Fractional(doc.ingredientData[ingredientStore].totalYield).multiply(new Fractional(doc.ingredientServings));
+            yieldNeededList.push(amt === 0 || isNaN(amt.numerator / amt.denominator) ? "0" : amt.toString())
+            costUnitList.push(doc.ingredientData[ingredientStore].priceContainer);
+            totalYieldList.push(doc.ingredientData[ingredientStore].totalYield);
+            extraList.push(true);
           }
         });
          
@@ -227,6 +251,7 @@ export default function ShoppingList ({ isSelectedTab }) {
           const unit = unitList[matchingIndices[0]];
           const totalYield = totalYieldList[matchingIndices[0]];
           const costUnit = costUnitList[matchingIndices[0]];
+          const extra = extraList[matchingIndices[0]];
           
           // add together all yields needed to get the total needed
           let yieldNeeded = 0;
@@ -271,6 +296,7 @@ export default function ShoppingList ({ isSelectedTab }) {
             yieldNeeded,
             costUnit,
             costTotal,
+            extra,
           };
         })
         // sorts by name alphabetically
@@ -291,14 +317,14 @@ export default function ShoppingList ({ isSelectedTab }) {
           // if it was in the original id list, set its corresponding value
           if (id && index !== -1) {
             combinedCheckList.push(checkList[index] || false);
-            combinedIncludedList.push(includedList[index] || false);
+            combinedIncludedList.push(extraList[index] ? true : includedList[index] || false);
             combinedNotesList.push(notesList[index] || "");
 
           // if it wasn't, look in the other store lists
           } else if (id) {
             let found = false;
 
-            storeKeys.map((currStore) => {
+            miscStoreKeys.map((currStore) => {
               if (currStore !== storeKey) {
 
                 // current list data
@@ -306,7 +332,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
                 const currIdList = currSnap.data().id;
                 const currCheckList = currSnap.data().check;
-                const currIncludedList = currSnap.data().included;
+                const currIncludedList = extraList[index] ? true : currSnap.data().included;
                 const currNotesList = currSnap.data().notes;
 
                 const currIndex = currIdList.indexOf(id);
@@ -324,14 +350,14 @@ export default function ShoppingList ({ isSelectedTab }) {
             // if not found in any store, use defaults
             if (!found) {
               combinedCheckList.push(false);
-              combinedIncludedList.push(false);
+              combinedIncludedList.push(extraList[index] ? true : false);
               combinedNotesList.push("");
             }
 
           // otherwise, use defaults
           } else {
             combinedCheckList.push(false);
-            combinedIncludedList.push(false);
+            combinedIncludedList.push(extraList[index] ? true : false);
             combinedNotesList.push("");
           }
         });
@@ -421,11 +447,11 @@ export default function ShoppingList ({ isSelectedTab }) {
   ///////////////////////////////// STORE LIST DATA /////////////////////////////////
 
   const [storeListCosts, setStoreListCosts] = useState(
-    Object.fromEntries(storeKeys.map(storeKey => [storeKey, 0]))
+    Object.fromEntries(miscStoreKeys.map(storeKey => [storeKey, 0]))
   );
   
   const [allStoreCosts, setAllStoreCosts] = useState(
-    Object.fromEntries(storeKeys.map(storeKey => [storeKey, 0]))
+    Object.fromEntries(miscStoreKeys.map(storeKey => [storeKey, 0]))
   );
 
   // to fetch the global shopping list of a given store
@@ -445,7 +471,7 @@ export default function ShoppingList ({ isSelectedTab }) {
   }
 
   const [storeListLengths, setStoreListLengths] = useState(
-    Object.fromEntries(storeKeys.map(storeKey => [storeKey, 0]))
+    Object.fromEntries(miscStoreKeys.map(storeKey => [storeKey, 0]))
   );
 
   // to fetch the global shopping list length of a given store
@@ -459,7 +485,7 @@ export default function ShoppingList ({ isSelectedTab }) {
   }
 
   const [storeListDone, setStoreListDone] = useState(
-    Object.fromEntries(storeKeys.map(storeKey => [storeKey, false]))
+    Object.fromEntries(miscStoreKeys.map(storeKey => [storeKey, false]))
   );
 
   // to fetch the global shopping list length of a given store
@@ -496,7 +522,7 @@ export default function ShoppingList ({ isSelectedTab }) {
     const done = {};
 
     // loops over each list
-    for (const storeKey of storeKeys) {
+    for (const storeKey of miscStoreKeys) {
       const docSnap = await getDoc(doc(db, 'SHOPPING', `list${storeKey}`));
       costs[storeKey] = await getStoreListCost(docSnap);
       lengths[storeKey] = await getStoreListLength(docSnap);
@@ -530,7 +556,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
   // whether the lists of checkboxes is selected
   const [allStoreChecks, setAllStoreChecks] = useState(
-    Object.fromEntries(storeKeys.map(storeKey => [storeKey, null]))
+    Object.fromEntries(miscStoreKeys.map(storeKey => [storeKey, null]))
   );  
 
   // to update the list of checkboxes
@@ -565,7 +591,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
   // whether the lists of included buttons are selected
   const [allStoreIncluded, setAllStoreIncluded] = useState(
-    Object.fromEntries(storeKeys.map(storeKey => [storeKey, null]))
+    Object.fromEntries(miscStoreKeys.map(storeKey => [storeKey, null]))
   );  
 
   // to calculate the number of included ingredients that are not checked
@@ -629,7 +655,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
   // whether the lists of notes are selected
   const [allStoreNotes, setAllStoreNotes] = useState(
-    Object.fromEntries(storeKeys.map(storeKey => [storeKey, null]))
+    Object.fromEntries(miscStoreKeys.map(storeKey => [storeKey, null]))
   );  
 
   // to update the list of notes
@@ -650,6 +676,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
   // overall notes
   const [currNote, setCurrNote] = useState("");
+  const [oldGlobalNote, setOldGlobalNote] = useState("");
 
   // when a note is changed, update the corresponding global document
   const dbNote = (note) => {
@@ -788,6 +815,17 @@ export default function ShoppingList ({ isSelectedTab }) {
   }
 
 
+  ///////////////////////////////// EXTRA INGREDIENTS /////////////////////////////////
+
+  const [extraModalVisible, setExtraModalVisible] = useState(false);
+
+  const closeExtras = async (extras) => {
+    await updateDoc(doc(db, 'GLOBALS', 'shopping'), { extras: extras });
+    await getAllShoppingLists(spotlightsSnapshot, spotlightsIds, spotlightsSelected, null, null);
+    setExtraModalVisible(false);
+  }
+
+
   ///////////////////////////////// HTML /////////////////////////////////
 
   return (
@@ -813,16 +851,16 @@ export default function ShoppingList ({ isSelectedTab }) {
             </View>
 
             {/* Selection */}
-            <View className="w-[45%] ml-[-25px] h-[30px] z-20">
+            <View className="w-[45%] ml-[-25px] h-[30px] z-0">
               <Picker
                 selectedValue={selectedStore}
                 onValueChange={setSelectedStore}
-                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', backgroundColor: calcNumLeft() !== 0 ? colors.theme600 : colors.zinc500, borderWidth: 1, }}
+                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', backgroundColor: (selectedStore === "Misc" && storeListLengths["Misc"] !== 0) ? colors.mauve800 : calcNumLeft() !== 0 ? colors.theme600 : colors.zinc500, borderWidth: 1, }}
                 itemStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 13, }}
               >
-                {storeLabels.map((storeLabel, index) => {
-                  if (storeListLengths[storeKeys[index]] > 0) {
-                    return <Picker.Item key={storeKeys[index]} label={storeLabel.toUpperCase()} value={storeKeys[index]} />;
+                {miscStoreLabels.map((storeLabel, index) => {
+                  if (storeListLengths[miscStoreKeys[index]] > 0) {
+                    return <Picker.Item key={miscStoreKeys[index]} label={storeLabel.toUpperCase()} value={miscStoreKeys[index]} />;
                   }
                   return null;
                 })}
@@ -837,7 +875,7 @@ export default function ShoppingList ({ isSelectedTab }) {
         )}
 
         {/* selects the store from the dropdown */}
-        {storeKeys
+        {miscStoreKeys
           .filter((store) => store === selectedStore)
           .map((store) => {
 
@@ -856,8 +894,117 @@ export default function ShoppingList ({ isSelectedTab }) {
                       {allStoreLists[selectedStore].map((store, index) => (
                         (store.yieldNeeded !== 0 && (new Fractional(store.yieldNeeded.toString()).numerator !== undefined)) && (
                           <View key={`data-${index}`}>
-                            {/* If the ingredient is to be included according to the button */}
-                            {allStoreIncluded[selectedStore][index] ? 
+                            { // IF THE INGREDIENT IS EXTRA
+                            store.extra
+                            ?
+                              <View className="flex flex-row border-b-[1px] w-full h-[60px]">
+
+                                {/* Specifics */}
+                                <View className={`flex w-[30px] justify-center items-center ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc500" : "bg-mauve700"} space-y-[4px] border-r-0.5`}>
+                                  
+                                  {/* BUTTONS */}
+                                  <View className="flex flex-col space-y-[3px]">
+                                    {/* Check */}
+                                    <Icon
+                                      name={(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "checkbox" : "square-outline"}
+                                      size={14}
+                                      color="white"
+                                      onPress={() => updateCheck(index)}
+                                    />
+                                  </View>
+                                  
+                                  {/* Amount Needed */}
+                                  <View className="flex flex-col w-full justify-center items-center">
+                                    <Text className="text-white text-[12px]">{store.amountNeeded}</Text>
+                                  </View>
+                                </View>
+                                
+                                {/* INGREDIENT NAME */}
+                                <View
+                                  className={`flex w-[125px] justify-center items-center border-r-2 border-black ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc600" : "bg-mauve900"}`}
+                                >
+                                  {/* Linking */}
+                                  <Text 
+                                    className={`text-white text-[12px] font-bold text-center px-1 ${(store.link !== "") && "underline"}`}
+                                    onPress={ (store.link !== "") ? () => Linking.openURL(store.link) : undefined }
+                                  >
+                                    {store.name}
+                                  </Text>
+                                </View>
+                              
+
+                                {/* SCROLLABLE COLUMNS */}
+                                <ScrollView
+                                  horizontal
+                                  scrollEventThrottle={16}
+                                  contentContainerStyle={{ flexDirection: 'column', minWidth: 500 }}
+                                  showsHorizontalScrollIndicator={false}
+                                >
+                                  <View className={`flex flex-col border-b-[1px] h-[60px] space-y-1 ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-mauve300") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-mauve400") } items-center justify-center`} key={`middle${index}`}>
+                                    
+                                    {/* to open the detailed recipe list */}
+                                    <View className="w-full space-y-1">
+                                      {/* List of details */}
+                                      <View className="flex flex-row">
+                                        <Text className="w-[15%] text-right pr-2 font-bold text-[12px]">
+                                          DETAILS:
+                                        </Text>
+                                        {/* brand, unit yield, and unit cost */}
+                                        {store.brand ? 
+                                          <Text className="w-[85%] text-left text-[12px]">
+                                            {store.brand} {"—"} {store.totalYield} {extractUnit(store.unit, store.totalYield)}{" for $"}{((new Fraction(store.costUnit)) * 1)}
+                                          </Text>
+                                        : 
+                                          <Text className="w-[85%] text-left text-[12px]">
+                                            N/A
+                                          </Text>
+                                        }
+                                      </View>
+
+                                      {/* List of purchase details */}
+                                      <View className="flex flex-row">
+                                        <Text className="w-[15%] text-right pr-2 font-bold text-[12px]">
+                                          NEEDED:
+                                        </Text>
+                                        {/* yield needed, amount needed, cost expected */}
+                                        {store.brand ? 
+                                          <Text className="w-[85%] text-left text-[12px]">
+                                            {store.yieldNeeded} {extractUnit(store.unit, store.yieldNeeded)} {"—"} {store.amountNeeded}{"x for $"}{store.costTotal.toFixed(2)}
+                                          </Text>
+                                        : 
+                                          <Text className="w-[85%] text-left text-[12px]">
+                                            N/A
+                                          </Text>
+                                        }
+                                      </View>
+                                    </View>
+                                  
+                                    {/* Notes input */}
+                                    <View className="flex flex-row">
+                                      {/* Text */}
+                                      <Text className="w-[15%] text-right pr-2 font-bold text-[12px] justify-start">
+                                        NOTES:
+                                      </Text>
+                                      {/* MOCK text input */}
+                                      <TouchableOpacity 
+                                        className="w-[85%] pr-[10px] h-[15px]"
+                                        onPress={() => {
+                                          setKeyboardType("individual notes");
+                                          setKeyboardIndex(index);
+                                          setIsKeyboardOpen(true);
+                                        }}
+                                      >
+                                        <Text className="flex bg-zinc300 px-[5px] border-[1px] border-zinc300 rounded-[5px] text-[12px] leading-[14px]">
+                                          {(Array.isArray(allStoreNotes[selectedStore]) && allStoreNotes[selectedStore][index]) ? allStoreNotes[selectedStore][index] : ""}
+                                        </Text>      
+                                      </TouchableOpacity>    
+                                    </View>
+                                  </View>
+                                </ScrollView>                            
+                              </View>
+                            // IF THE INGREDIENT IS INCLUDED
+                            : allStoreIncluded[selectedStore][index] 
+                            ? 
                               <View className="flex flex-row border-b-[1px] w-full h-[60px]">
 
                                 {/* Specifics */}
@@ -1011,12 +1158,12 @@ export default function ShoppingList ({ isSelectedTab }) {
                   </>
                 )
                 : 
-                // if no ingredients are part of the shopping list
-                <View className="flex w-full h-full justify-center items-center">
-                  <Text className="text-theme400 italic font-bold">
-                    NO SHOPPING LISTS AVAILABLE
-                  </Text>
-                </View>
+                  // if no ingredients are part of the shopping list
+                  <View className="flex w-full h-full justify-center items-center">
+                    <Text className="text-theme400 italic font-bold">
+                      NO SHOPPING LISTS AVAILABLE
+                    </Text>
+                  </View>
                 }
               </View>
             </View>
@@ -1063,7 +1210,7 @@ export default function ShoppingList ({ isSelectedTab }) {
           <TouchableOpacity className="flex w-full py-2 bg-zinc500 justify-center items-center border-b-0.5 rounded-t-lg" onPress={() => setSpotlightModalVisible(true)}>
             <Text className="font-bold text-[14px] text-white text-center">
               {"$"}
-              {storeKeys.reduce((sum, key) => sum + (storeListCosts[key] || 0), 0).toFixed(2)}
+              {miscStoreKeys.reduce((sum, key) => sum + (storeListCosts[key] || 0), 0).toFixed(2)}
               {"   |   "}
               {numSpotlights}
               {numSpotlights === "1" ? " Recipe" : " Recipes"}
@@ -1086,7 +1233,7 @@ export default function ShoppingList ({ isSelectedTab }) {
           {Object.entries(storeListLengths).filter(([key, value]) => key !== selectedStore && value !== 0).length
           ?
             <ScrollView className="flex flex-col pt-1.5 mb-2">
-              {storeKeys.map((storeKey, index) => (
+              {miscStoreKeys.map((storeKey, index) => (
                 <View key={index}>
                 {(selectedStore !== storeKey && storeListLengths[storeKey] > 0) && (
                   <View className="flex flex-row justify-end space-x-1 mb-0.5">
@@ -1098,7 +1245,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                     />
                     {/* Store label and cost */}
                     <Text className="text-[13px]">
-                      {storeLabels[index].toUpperCase() + ": $"}{storeListCosts[storeKey].toFixed(2)}
+                      {miscStoreLabels[index].toUpperCase() + ": $"}{storeListCosts[storeKey].toFixed(2)}
                     </Text>
                   </View>
                 )}
@@ -1116,37 +1263,70 @@ export default function ShoppingList ({ isSelectedTab }) {
 
         {/* Global Notes */}
         <View className="flex w-5/12 h-full justify-center items-center my-3">
-          <View className="bg-transparent w-full h-full">
   
-            {/* MOCK text input */}
-            <TouchableOpacity 
-              className="flex w-full h-full"
+          {/* MOCK text input */}
+          <ScrollView className="flex flex-col w-full h-full bg-white border-t border-x border-b-[0.25px] border-zinc400 rounded-t-md">
+            {/* TEXT */}
+            <TouchableOpacity
               onPress={() => {
+                setOldGlobalNote(currNote);
                 setKeyboardType("global notes");
                 setIsKeyboardOpen(true);
               }}
             >
-              <Text
-                multiline={true}
-                className={`${currNote !== "" ? "text-black" : "text-zinc400"} flex-1 bg-white border-[1px] border-zinc400 px-[10px] rounded-[5px] py-[5px] text-[13px] leading-[16px]`}
-              >
-                {currNote !== "" ? currNote : "notes"}
-              </Text>
+              {currNote === ""
+              ? // empty
+                <Text className="text-zinc400 flex-1 px-[10px] py-[5px] text-[13px]">
+                  notes
+                </Text>
+              : // lines
+                <View className="flex flex-col flex-1 px-[10px] py-[5px] space-y-[-15px]">
+                  {currNote.split("- ").map((line, i) => (
+                    <View key={i} className="flex flex-row">
+                      <Text className="text-black text-[13px]">- </Text>
+                      <Text className="text-black text-[13px]">{line}</Text>
+                    </View>
+                  ))}
+                </View>
+              }
             </TouchableOpacity>
-  
-            {/* clear button */}
-            <View className="absolute right-0 justify-end h-full">
+          </ScrollView>
+
+
+          {/* BUTTONS */}
+          <View className="bg-zinc100 pt-1 border-b border-x border-zinc400 rounded-b-md bottom-0 flex flex-row w-full justify-between">
+
+            {/* extra ingredients */}
+            <View className="mb-0.5 ml-0.5">
               <Icon
-                name="close-outline"
-                size={20}
-                color="black"
-                onPress={() => {
-                  setCurrNote("");
-                  dbNote("");
-                }}
+                name="apps"
+                size={16}
+                color={colors.zinc700}
+                onPress={() => setExtraModalVisible(true)}
               />
             </View>
+
+            {/* clear */}
+            <Icon
+              name="close-outline"
+              size={20}
+              color="black"
+              onPress={() => {
+                setCurrNote("");
+                dbNote("");
+              }}
+            />
           </View>
+
+
+          {/* EXTRA INGREDIENT MODAL */}
+          {extraModalVisible && (
+            <ExtraIngredientsModal
+              modalVisible={extraModalVisible}
+              setModalVisible={setExtraModalVisible}
+              closeModal={closeExtras}
+            />
+          )}
         </View>
       </View>
 
@@ -1160,7 +1340,7 @@ export default function ShoppingList ({ isSelectedTab }) {
             className="absolute bg-black bg opacity-40 w-full h-full" 
             onPress={() => {
               (keyboardType === "individual notes") && dbIndivNotes(allStoreNotes[selectedStore]);
-              (keyboardType === "global notes") && dbNote(currNote);
+              (keyboardType === "global notes") && setCurrNote(oldGlobalNote);
               Keyboard.dismiss();
               setIsKeyboardOpen(false); 
             }}
@@ -1173,15 +1353,17 @@ export default function ShoppingList ({ isSelectedTab }) {
               <View className="flex flex-row border-b-2">
 
                 {/* Buttons */}
-                <View className={`flex flex-row w-1/5 h-[30px] justify-center items-center space-x-1 ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "bg-zinc500" : "bg-theme700"}`}>
+                <View className={`flex flex-row w-1/5 h-[30px] justify-center items-center space-x-1 ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "bg-zinc500" : allStoreLists[selectedStore][keyboardIndex].extra ? "bg-mauve700" : "bg-theme700"}`}>
                                       
                   {/* Included */}
-                  <Icon
-                    name={(Array.isArray(allStoreIncluded[selectedStore]) && allStoreIncluded[selectedStore][keyboardIndex]) ? "close-outline" : "add"}
-                    size={14}
-                    color="white"
-                    onPress={() => updateIncluded(keyboardIndex)}
-                  />
+                  {!allStoreLists[selectedStore][keyboardIndex].extra && (
+                    <Icon
+                      name={(Array.isArray(allStoreIncluded[selectedStore]) && allStoreIncluded[selectedStore][keyboardIndex]) ? "close-outline" : "add"}
+                      size={14}
+                      color="white"
+                      onPress={() => updateIncluded(keyboardIndex)}
+                    />
+                  )}
                   {/* Check */}
                   <Icon
                     name={(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "checkbox" : "square-outline"}
@@ -1194,7 +1376,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                 </View>
                                     
                 {/* INGREDIENT NAME */}
-                <View className={`flex w-4/5 justify-center items-center ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "bg-zinc600" : "bg-theme800"}`}>
+                <View className={`flex w-4/5 justify-center items-center ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "bg-zinc600" : allStoreLists[selectedStore][keyboardIndex].extra ? "bg-mauve900" : "bg-theme800"}`}>
                   {/* Linking */}
                   <Text 
                     className={`text-white text-[12px] font-bold text-center px-1 ${(allStoreLists[selectedStore][keyboardIndex].link !== "") && "underline"}`}
@@ -1206,7 +1388,7 @@ export default function ShoppingList ({ isSelectedTab }) {
               </View>   
 
               {/* DETAILS */}
-              <View className={`flex flex-col border-b-[1px] h-[60px] space-y-1 ${(keyboardIndex % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "bg-zinc400" : "bg-theme400") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "bg-zinc450" : "bg-theme500") } items-center justify-center`} key={`middle${keyboardIndex}`}>
+              <View className={`flex flex-col border-b-[1px] h-[60px] space-y-1 ${(keyboardIndex % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "bg-zinc400" : allStoreLists[selectedStore][keyboardIndex].extra ? "bg-mauve300" : "bg-theme400") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "bg-zinc450" : allStoreLists[selectedStore][keyboardIndex].extra ? "bg-mauve400" : "bg-theme500") } items-center justify-center`} key={`middle${keyboardIndex}`}>
                 
                 {/* List of details */}
                 <View className="flex flex-row">
@@ -1271,27 +1453,51 @@ export default function ShoppingList ({ isSelectedTab }) {
           {/* Global Notes */}
           {(keyboardType === "global notes") && (
             <View className="absolute flex w-5/12 h-[15%] bottom-[300px]">
-              <View className="bg-transparent w-full h-full">
-      
-                {/* text input */}
+              {/* text input */}
+              <ScrollView className="flex flex-col w-full h-full bg-white border-t border-x border-b-[0.25px] border-zinc400 rounded-t-md">
                 <TextInput
                   value={currNote}
-                  onChangeText={(value) => setCurrNote(value)}
+                  onChangeText={(value) => {
+                    const newVal 
+                      = value[0] !== "-" ? ("- " + value) 
+                      : (value[0] === "-" && value[1] === "\n") ? value.substring(2)
+                      : value[value.length - 1] === "\n" ? (value + "- ")
+                      : value[value.length - 1] === "-" ? value.substring(0, value.length - 2)
+                      : value.replace("\n\n", "\n- \n").replace("\n-\n", "\n")
+                    setCurrNote(newVal);
+                  }}
                   multiline={true}
                   placeholder="notes"
                   placeholderTextColor={colors.zinc400}
-                  className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc400 px-2.5 text-[13px] leading-[16px]"
+                  className="flex-1 px-[10px] py-[5px] text-[13px] leading-[16px]"
                 />
-      
-                {/* clear button */}
-                <View className="absolute right-0 justify-end h-full">
+              </ScrollView>
+
+              {/* BUTTONS */}
+              <View className="bg-zinc100 pt-1 border-b border-x border-zinc400 rounded-b-md bottom-0 flex flex-row w-full justify-between">
+
+                {/* submit */}
+                <View className="mb-0.5 ml-0.5">
                   <Icon
-                    name="close-outline"
-                    size={20}
-                    color="black"
-                    onPress={() => setCurrNote("")}
+                    name="checkmark"
+                    size={16}
+                    color={colors.zinc700}
+                    onPress={() => {
+                      dbNote(currNote);
+                      Keyboard.dismiss();
+                      setIsKeyboardOpen(false); 
+                      setOldGlobalNote("");
+                    }}
                   />
                 </View>
+
+                {/* clear */}
+                <Icon
+                  name="close-outline"
+                  size={20}
+                  color="black"
+                  onPress={() => setCurrNote("")}
+                />
               </View>
             </View>
           )}

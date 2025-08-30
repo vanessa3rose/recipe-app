@@ -716,6 +716,7 @@ export default function CurrentFood ({ isSelectedTab }) {
       servingSize: currentList[index].ingredientData[currStores[index]].servingSize,
       unit: currentList[index].ingredientData[currStores[index]].unit,
       calServing: currentList[index].ingredientData[currStores[index]].calServing,
+      totalYield: currentList[index].ingredientData[currStores[index]].totalYield || "",
     }
     
     setCurrentViewData(initialData);

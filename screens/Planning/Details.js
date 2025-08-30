@@ -11,7 +11,7 @@ import { View, Text, ScrollView, TouchableOpacity} from 'react-native';
 import MealOverviewModal from '../../components/Planning/MealOverviewModal';
 
 // initialize firebase app
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, getDoc, doc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
 
@@ -89,6 +89,8 @@ export default function Details ({ isSelectedTab }) {
   ///////////////////////////////// MEAL PREPS /////////////////////////////////
 
   const [prepData, setPrepData] = useState([]);
+  const [prepsIds, setPrepsIds] = useState(null);
+  const [prepsCompleted, setPrepsCompleted] = useState(null);
 
   // updates the current list of meal preps
   const updatePreps = async () => {
@@ -107,6 +109,13 @@ export default function Details ({ isSelectedTab }) {
     .sort((a, b) => a.prepName.localeCompare(b.prepName)); // sorts by prepName alphabetically
 
     setPrepData(prepsArray);
+                
+    // gets current global prep info
+    const prep = await getDoc(doc(db, 'GLOBALS', 'prep'));
+    
+    // stores it
+    setPrepsIds(prep.data().preps.map((doc) => doc.id));
+    setPrepsCompleted(prep.data().preps.map((doc) => doc.completed));
   }
   
 
@@ -255,7 +264,7 @@ export default function Details ({ isSelectedTab }) {
                 <TouchableOpacity
                   onPress={() => displayMeal(index)}
                   activeOpacity={0.6}
-                  className="flex flex-col justify-center items-center w-1/3 h-full bg-theme700 px-1"
+                  className={`flex flex-col justify-center items-center w-1/3 h-full px-1 ${(prepsCompleted === null || prepsCompleted?.[prepsIds?.indexOf(data.id)]) ? "bg-theme700" : "bg-mauve800"}`}
                 >
                   <Text className="text-white text-[12px] font-bold text-center">
                     {data.prepName}

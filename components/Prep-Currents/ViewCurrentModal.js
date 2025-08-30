@@ -45,6 +45,23 @@ const ViewCurrentModal = ({
 
           {/* DETAILS */}
           <View className="flex flex-col space-y-2 px-5">
+            
+            {/* total yield */}
+            {(ingredientData.totalYield !== "") &&
+              <View className="flex flex-row justify-between items-center pb-3">
+          
+                {/* Label */}
+                <Text className="text-zinc600 mr-4 font-medium">
+                  TOTAL YIELD
+                </Text>
+        
+                {/* Text */}
+                <Text className="border-0.5 border-zinc500 bg-zinc350 p-1 flex-1 text-center text-[12px]">
+                  {`${ingredientData.totalYield} ${extractUnit(ingredientData.unit, ingredientData.totalYield)}`}
+                </Text>
+              </View>
+            }
+
             {/* serving size */}
             <View className="flex flex-row justify-between items-center w-full">
 

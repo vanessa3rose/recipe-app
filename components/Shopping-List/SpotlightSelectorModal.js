@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 
 // UI components
-import { Modal, View, Text, TouchableOpacity } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
 
 // visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -229,7 +229,7 @@ const SpotlightSelectorModal = ({
           
           {/* recipe list */}
           {(selected !== null && ingredientList !== null) && (
-            <View className="mx-4">
+            <ScrollView className="max-h-[500px] mx-4">
               {spotlightData.map((spotlight, index) => ( 
                 <View 
                   key={index}
@@ -272,20 +272,20 @@ const SpotlightSelectorModal = ({
                     <>
                       {spotlight.data.ingredientData.filter(data => data !== null).length > 0
                       ?
-                        <View className="border-b-[1px] border-x-[1px] border-t-2 border-t-theme700 border-x-zinc700 border-b-zinc700">
+                        <View className="w-full border-b-[1px] border-x-[1px] border-t-2 border-t-theme700 border-x-zinc700 border-b-zinc700">
                           {spotlight.data.ingredientData.map((ingredient, i) => (
-                            <View key={`ingredient-${index}-${i}`}>
+                            <View key={i}>
                             
                             {/* doesnt display ingredient if it's amount is 0 in the spotlight */}
                             {(ingredient !== null && spotlight.data.ingredientAmounts[i] !== "0") && (
-                              <View className="flex flex-row justify-center items-center h-[20px] bg-zinc500">
+                              <>
                                 {/* different display based on checkbox */}
                                 {selected[index] 
                                   ? 
                                   // selected
-                                  <>
+                                  <View className="flex flex-row bg-zinc700">
                                     {/* Included Button */}
-                                    <View className="flex flex-row justify-center items-center bg-theme500 w-[10%] h-full border-b-[1px] border-theme600">
+                                    <View className="justify-center items-center bg-theme500 w-[10%] py-0.5 border-b-[1px] border-theme600">
                                       <Icon
                                         name={ingredientList?.filter(ingredient => ingredient.id === spotlight.data.ingredientIds[i])?.[0]?.included ? "close-outline" : "add-sharp"}
                                         size={16}
@@ -295,24 +295,22 @@ const SpotlightSelectorModal = ({
                                     </View>
 
                                     {/* Name */}
-                                    <View className="flex flex-row items-center w-[90%] h-full bg-zinc450 pl-2 border-b-[1px] border-zinc500">
+                                    <View className="justify-center w-[90%] py-0.5 bg-zinc450 pl-2 border-b-[1px] border-zinc500">
                                       <Text className="text-white text-[10.5px] italic font-semibold">
                                         {spotlight.data.ingredientNames[i]}
                                       </Text>
                                     </View>
-                                  </>
+                                  </View>
                                   : 
                                   // not selected
-                                  <>
-                                    {/* Name */}
-                                    <View className="flex flex-row items-center w-full h-full bg-zinc450 pl-2 border-b-[1px] border-zinc500">
-                                      <Text className="text-white text-[10.5px] italic font-semibold">
-                                        {spotlight.data.ingredientNames[i]}
-                                      </Text>
-                                    </View>
-                                  </>
+                                  <View className="py-[3px] justify-center bg-zinc450 pl-2 border-b-[1px] border-zinc500">
+                                    {/* name */}
+                                    <Text className="text-white text-[10.5px] italic font-semibold">
+                                      {spotlight.data.ingredientNames[i]}
+                                    </Text>
+                                  </View>
                                 }
-                              </View>
+                              </>
                             )}
                             </View>
                           ))}      
@@ -329,7 +327,7 @@ const SpotlightSelectorModal = ({
                   )}
                 </View>
               ))}
-            </View>
+            </ScrollView>
           )}
         </View>
       </View>
