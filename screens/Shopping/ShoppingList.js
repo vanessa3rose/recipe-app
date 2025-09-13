@@ -39,7 +39,7 @@ const db = getFirestore(app);
 
 export default function ShoppingList ({ isSelectedTab }) {
 
-  const miscStoreKeys = ["Misc", ...storeKeys];
+  const miscStoreKeys = ["-", ...storeKeys];
   const miscStoreLabels = ["Miscelaneous", ...storeLabels];
 
 
@@ -107,7 +107,7 @@ export default function ShoppingList ({ isSelectedTab }) {
   const [spotlightsSnapshot, setSpotlightsSnapshot] = useState(null);
     
   // for store picker
-  const [selectedStore, setSelectedStore] = useState(miscStoreKeys[0]); 
+  const [selectedStore, setSelectedStore] = useState("-"); 
   
   // store details
   const [allStoreLists, setAllStoreLists] = useState(Object.fromEntries(
@@ -144,13 +144,14 @@ export default function ShoppingList ({ isSelectedTab }) {
     // stores it
     setSpotlightsIds(shoppingIds);
     setSpotlightsSelected(shoppingSelected);
+    setShoppingExtras(shoppingData.extras);
 
-    await getAllShoppingLists(querySnapshot, shoppingIds, shoppingSelected, null, null);
+    await getAllShoppingLists(querySnapshot, shoppingData.extras, shoppingIds, shoppingSelected, null, null);
   }
 
 
   // to get all shopping lists
-  const getAllShoppingLists = async (querySnapshot, shoppingIds, shoppingSelected, ingredientIdList, ingredientIncludedList) => {
+  const getAllShoppingLists = async (querySnapshot, extrasList, shoppingIds, shoppingSelected, ingredientIdList, ingredientIncludedList) => {
     try {
       const batch = writeBatch(db);
 
@@ -165,7 +166,7 @@ export default function ShoppingList ({ isSelectedTab }) {
       
       // loops over all 6 stores
       await Promise.all(miscStoreKeys.map(async (storeKey) => {
-        
+
         // stores the current data
         const idList = snapshots[storeKey].data().id;
         const checkList = snapshots[storeKey].data().check;
@@ -187,6 +188,7 @@ export default function ShoppingList ({ isSelectedTab }) {
         const costUnitList = [];
         const totalYieldList = [];
         const extraList = [];
+        const dataList = [];
     
         // loops over the collection of spotlights
         querySnapshot.forEach((doc) => {
@@ -211,14 +213,24 @@ export default function ShoppingList ({ isSelectedTab }) {
                 costUnitList.push(ingredient[storeKey].priceContainer);
                 totalYieldList.push(ingredient[storeKey].totalYield);
                 extraList.push(false);
+                dataList.push(data.ingredientData[index]);
               }
             });
           }
         });
     
-        // loops over the collection of extras
-        const shopping = await getDoc(doc(db, 'GLOBALS', 'shopping'));
-        shopping.data().extras.forEach((doc) => {
+        // retrieves the list of extra ingredients
+        let extras = extrasList;
+        if (extrasList == null) {
+          const shopping = await getDoc(doc(db, 'GLOBALS', 'shopping'));
+          extras = shopping.data().extras;
+        }
+
+        // updates the extras
+        setShoppingExtras(extras);
+
+        // loops over the extras to populate their details
+        extras.forEach((doc) => {
           const ingredientStore = doc.ingredientStore;
           
           // adds its data to the empty arrays
@@ -233,6 +245,7 @@ export default function ShoppingList ({ isSelectedTab }) {
             costUnitList.push(doc.ingredientData[ingredientStore].priceContainer);
             totalYieldList.push(doc.ingredientData[ingredientStore].totalYield);
             extraList.push(true);
+            dataList.push(doc.ingredientData);
           }
         });
          
@@ -252,6 +265,7 @@ export default function ShoppingList ({ isSelectedTab }) {
           const totalYield = totalYieldList[matchingIndices[0]];
           const costUnit = costUnitList[matchingIndices[0]];
           const extra = extraList[matchingIndices[0]];
+          const data = dataList[matchingIndices[0]];
           
           // add together all yields needed to get the total needed
           let yieldNeeded = 0;
@@ -264,7 +278,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
           let amountNeeded = (new Fractional(0)) * 1;
           let costTotal = (new Fractional(0)) * 1; 
-          
+
           // calculate the total amount needed
           if (totalYield !== "" && !isNaN((new Fraction(totalYield.toString())) * 1)) {
             amountNeeded = Math.ceil(
@@ -297,6 +311,7 @@ export default function ShoppingList ({ isSelectedTab }) {
             costUnit,
             costTotal,
             extra,
+            data,
           };
         })
         // sorts by name alphabetically
@@ -309,9 +324,9 @@ export default function ShoppingList ({ isSelectedTab }) {
         const combinedCheckList = [];
         const combinedIncludedList = [];
         const combinedNotesList = [];
-        
+
         // loops over each id
-        combinedIdList.forEach((id) => {
+        combinedIdList.forEach((id, idx) => {
           const index = idList.indexOf(id);
           
           // if it was in the original id list, set its corresponding value
@@ -329,14 +344,13 @@ export default function ShoppingList ({ isSelectedTab }) {
 
                 // current list data
                 const currSnap = snapshots[currStore];
-
                 const currIdList = currSnap.data().id;
                 const currCheckList = currSnap.data().check;
-                const currIncludedList = extraList[index] ? true : currSnap.data().included;
+                const currIncludedList = extraList[idx] ? true : currSnap.data().included;
                 const currNotesList = currSnap.data().notes;
 
                 const currIndex = currIdList.indexOf(id);
-
+                
                 // if it was found in this list, add that data
                 if (currIndex !== -1) {
                   combinedCheckList.push(currCheckList[currIndex] || false);
@@ -350,14 +364,14 @@ export default function ShoppingList ({ isSelectedTab }) {
             // if not found in any store, use defaults
             if (!found) {
               combinedCheckList.push(false);
-              combinedIncludedList.push(extraList[index] ? true : false);
+              combinedIncludedList.push(extraList[idx] ? true : false);
               combinedNotesList.push("");
             }
 
           // otherwise, use defaults
           } else {
             combinedCheckList.push(false);
-            combinedIncludedList.push(extraList[index] ? true : false);
+            combinedIncludedList.push(extraList[idx] ? true : false);
             combinedNotesList.push("");
           }
         });
@@ -384,6 +398,8 @@ export default function ShoppingList ({ isSelectedTab }) {
           totalYield: [],
           unit: [],
           yieldNeeded: [],
+          extra: [],
+          data: [],
         };
 
         // groups the combined list to match Shopping format in globals if there is data to add
@@ -473,7 +489,7 @@ export default function ShoppingList ({ isSelectedTab }) {
   const [storeListLengths, setStoreListLengths] = useState(
     Object.fromEntries(miscStoreKeys.map(storeKey => [storeKey, 0]))
   );
-
+  
   // to fetch the global shopping list length of a given store
   const getStoreListLength = async (docSnap) => {
     
@@ -799,7 +815,7 @@ export default function ShoppingList ({ isSelectedTab }) {
     
     // updates info and closes modal
     await updateDoc(doc(db, 'GLOBALS', 'shopping'), { spotlights: spotlightsData });
-    await getAllShoppingLists(spotlightsSnapshot, ids, selected, ingredientIds, ingredientIncluded);
+    await getAllShoppingLists(spotlightsSnapshot, null, ids, selected, ingredientIds, ingredientIncluded);
     setSpotlightModalVisible(false);
   }
 
@@ -817,11 +833,13 @@ export default function ShoppingList ({ isSelectedTab }) {
 
   ///////////////////////////////// EXTRA INGREDIENTS /////////////////////////////////
 
+  const [shoppingExtras, setShoppingExtras] = useState(null);
   const [extraModalVisible, setExtraModalVisible] = useState(false);
 
+  // updates info and closes the extra ingredient modal
   const closeExtras = async (extras) => {
     await updateDoc(doc(db, 'GLOBALS', 'shopping'), { extras: extras });
-    await getAllShoppingLists(spotlightsSnapshot, spotlightsIds, spotlightsSelected, null, null);
+    await getAllShoppingLists(spotlightsSnapshot, extras, spotlightsIds, spotlightsSelected, null, null);
     setExtraModalVisible(false);
   }
 
@@ -855,7 +873,7 @@ export default function ShoppingList ({ isSelectedTab }) {
               <Picker
                 selectedValue={selectedStore}
                 onValueChange={setSelectedStore}
-                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', backgroundColor: (selectedStore === "Misc" && storeListLengths["Misc"] !== 0) ? colors.mauve800 : calcNumLeft() !== 0 ? colors.theme600 : colors.zinc500, borderWidth: 1, }}
+                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', backgroundColor: (selectedStore === "-" && storeListLengths["-"] !== 0) ? colors.mauve800 : calcNumLeft() !== 0 ? colors.theme600 : colors.zinc500, borderWidth: 1, }}
                 itemStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 13, }}
               >
                 {miscStoreLabels.map((storeLabel, index) => {
@@ -1324,6 +1342,7 @@ export default function ShoppingList ({ isSelectedTab }) {
             <ExtraIngredientsModal
               modalVisible={extraModalVisible}
               setModalVisible={setExtraModalVisible}
+              extras={shoppingExtras}
               closeModal={closeExtras}
             />
           )}

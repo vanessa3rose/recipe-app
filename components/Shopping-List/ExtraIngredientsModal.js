@@ -25,7 +25,7 @@ import Fraction from 'fraction.js';
 import extractUnit from '../../components/Validation/extractUnit';
 
 // initialize firebase app
-import { getFirestore, doc, updateDoc, collection, getDocs, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, collection, getDocs } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 import validateFractionInput from '../Validation/validateFractionInput';
 import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
@@ -36,7 +36,7 @@ const db = getFirestore(app);
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const ExtraIngredientsModal = ({ 
-  modalVisible, setModalVisible, closeModal
+  modalVisible, setModalVisible, extras, closeModal
 }) => {
 
 
@@ -133,7 +133,7 @@ const ExtraIngredientsModal = ({
     
     // dynamically sets initial brand lists
     storeKeys.forEach((storeKey) => setBrandLists(prev => ({ ...prev, [storeKey]: brandListsObj[storeKey] })));
-    filterBrandList("Misc", "", 
+    filterBrandList("-", "", 
       storeKeys.reduce((acc, storeKey) => {
         acc[storeKey] = brandListsObj[storeKey];
         return acc;
@@ -182,8 +182,7 @@ const ExtraIngredientsModal = ({
 
   // loading in all the extras in the beginning
   const populateExtras = async () => {
-    const docs = await getDoc(doc(db, 'GLOBALS', 'shopping'));
-    setExtraIngredients(docs.data().extras);
+    setExtraIngredients(extras);
   }
 
   // for clicking the add button
@@ -220,7 +219,7 @@ const ExtraIngredientsModal = ({
 
     // resets states
     setAddingIngredient(false);
-    setCurrIngredientStore("Misc");
+    setCurrIngredientStore("-");
     setSearchIngredientQuery("");
     setSelectedIngredientName("");
     setSelectedIngredientId("");
@@ -237,7 +236,7 @@ const ExtraIngredientsModal = ({
   const [ingredientDropdownOpen, setIngredientDropdownOpen] = useState(false);
   
   // for store picker
-  const [currIngredientStore, setCurrIngredientStore] = useState("Misc");
+  const [currIngredientStore, setCurrIngredientStore] = useState("-");
 
   // for the ingredient search textinput
   const [searchIngredientQuery, setSearchIngredientQuery] = useState('');
@@ -272,7 +271,7 @@ const ExtraIngredientsModal = ({
   const clearIngredientSearch = () => {
     
     // resets the search filtering
-    setCurrIngredientStore("Misc");
+    setCurrIngredientStore("-");
     setSearchIngredientQuery("");
     setSelectedIngredientName("");
     setSelectedIngredientId("");
@@ -328,9 +327,9 @@ const ExtraIngredientsModal = ({
     // clears selected ingredient if it doesn't match filtering
     if (filtered.filter((ingredient) => ingredient.ingredientName.toLowerCase() === ingredientQuery.toLowerCase()).length === 0) {
       setSelectedIngredientId("");
-      setCurrIngredientStore("Misc");
+      setCurrIngredientStore("-");
       setSelectedIngredientData({
-        ["Misc"]: {
+        ["-"]: {
           "brand": "", 
           "calContainer": "", 
           "calServing": "", 
@@ -422,7 +421,7 @@ const ExtraIngredientsModal = ({
     }
     
     // gets all of the current store's brands
-    if (currStore !== "Misc") {
+    if (currStore !== "-") {
       brands[currStore].map(brand => {
         uniqueList.push({
           "value": brand.value, 
@@ -436,7 +435,7 @@ const ExtraIngredientsModal = ({
     // adds the unique values from the other stores
     storeKeys.map(store => {
       if (store !== currStore) {
-        brands[store].map(brand => {
+        brands?.[store].map(brand => {
           if (!uniqueList.map(uniqueBrand => uniqueBrand.value).includes(brand.value)) {
             uniqueList.push({
               "value": brand.value, 
@@ -493,6 +492,27 @@ const ExtraIngredientsModal = ({
   }
     
     
+  ///////////////////////////////// EDITING EXTRA /////////////////////////////////
+
+  // to edit the extra ingredient at the given index
+  const editExtraIngredients = (index) => {
+    
+    // for the ingredient search textinput
+    filterIngredientData(extraIngredients[index].ingredientName);
+    setCurrIngredientStore(extraIngredients[index].ingredientStore);
+    setSelectedIngredientId(extraIngredients[index].ingredientId);
+    setSearchIngredientQuery(extraIngredients[index].ingredientName);
+    setSelectedIngredientName(extraIngredients[index].ingredientName);
+    setSelectedIngredientData(extraIngredients[index].ingredientData);
+
+    // changes screen
+    setAddingIngredient(true);
+
+    // removes the old ingredient
+    setExtraIngredients(extraIngredients.filter((_, i) => i !== index));
+  }
+    
+  
   ///////////////////////////////// SCROLLING /////////////////////////////////
   
   const [scrollY, setScrollY] = useState(0);
@@ -520,7 +540,7 @@ const ExtraIngredientsModal = ({
         <View className="absolute bg-black opacity-50 w-full h-full"/>
 
         {/* Modal Content */}
-        <View className="flex flex-col w-3/4 py-4 px-2 mb-[50px] bg-zinc200 rounded-xl border-[1px] border-zinc-400 z-50">
+        <View className={`flex flex-col w-3/4 py-4 px-2 bg-zinc200 rounded-xl border-[1px] border-zinc-400 z-50 ${(keyboardType === "amt" && isKeyboardOpen) ? "mb-[150px]" : "mb-[50px]"}`}>
 
           {/* HEADER */}
           <View className="flex flex-row items-center justify-around">
@@ -555,23 +575,36 @@ const ExtraIngredientsModal = ({
           {/* INGREDIENTS */}
           {!addingIngredient
           ?
-            <View className="flex flex-col w-full justify-center items-center space-y-3">
+            <View className="flex flex-col w-full mx-[-15px] justify-center items-center space-y-3">
 
               {/* CURRENT EXTRAS */}
               {(extraIngredients.length > 0)
               ?
                 // if ingredients are present
                 <ScrollView 
-                  className="flex flex-col z-10 max-h-[360px] ml-[15px]"
+                  className="flex flex-col z-10 max-h-[250px] ml-[15px] mr-[-15px]"
                   onScroll={syncScroll}
                 >
                   {extraIngredients.map((ingredient, index) => (
 
                     // Frozen Columns
-                    <View key={index} className="flex flex-row bg-white pr-[15px]">
+                    <View key={index} className="flex flex-row bg-white px-[15px]">
+                              
+                      {/* edit extra ingredient */}
+                      <TouchableOpacity 
+                        className="absolute w-[15px] bg-zinc200 h-full justify-center items-center left-0 border-r-[1px] border-r-zinc700 z-50"
+                        onPress={() => editExtraIngredients(index)}
+                        activeOpacity={0.5}
+                      >
+                        <Icon
+                          name="ellipsis-vertical"
+                          size={16}
+                          color={colors.zinc600}
+                        />
+                      </TouchableOpacity>
                         
                       {/* ingredient names */}
-                      <View className={`flex p-1 items-center justify-center w-[37.5%] border-y-[1px] border-y-zinc700 border-l-[1px] border-l-zinc700 border-r-0.5 border-r-theme900 z-20 ${(newIngredient === ingredient?.ingredientName) ? " bg-zinc500" : " bg-theme600"}`}>
+                      <View className={`flex p-1 items-center justify-center w-[37.5%] border-y-[1px] border-y-zinc700 border-l-zinc700 border-r-0.5 border-r-theme900 z-20 ${(newIngredient === ingredient?.ingredientName) ? " bg-zinc500" : " bg-theme600"}`}>
                         <Text 
                           className={`text-white text-center text-[10px] font-semibold ${ingredient?.ingredientData?.[ingredient?.ingredientStore]?.link ? 'underline' : 'none'}`}
                           onPress={ingredient?.ingredientData?.[ingredient?.ingredientStore]?.link ? () => Linking.openURL(ingredient?.ingredientData?.[ingredient?.ingredientStore]?.link) : undefined }
@@ -608,6 +641,8 @@ const ExtraIngredientsModal = ({
                               )
                             )
                           }}
+                          onFocus={() => setKeyboardType("amt")}
+                          onBlur={() => setKeyboardType("")}
                         />
                       </View>
                               
@@ -617,7 +652,7 @@ const ExtraIngredientsModal = ({
                         activeOpacity={!ingredient?.ingredientId.includes(".") ? 0.5 : 1}
                         className="flex items-center justify-center w-[10%] border-y-[1px] border-y-zinc700 bg-theme200"
                       >
-                        {ingredient?.ingredientStore === "Misc" ? (
+                        {ingredient?.ingredientStore === "-" ? (
                           <Text>-</Text>
                         ) : (
                           <Image
@@ -645,15 +680,10 @@ const ExtraIngredientsModal = ({
                       </TouchableOpacity>
                     </View>
                   ))}
-                  
-                  {/* empty space at the bottom if the keyboard is open */}
-                  {(keyboardType === "" && isKeyboardOpen) && (
-                    <View className="flex flex-row h-[120px]"/>
-                  )}
                 </ScrollView>
               :
                 // if no ingredients are part of the extras list
-                <View className="flex px-4 py-2 justify-center items-center bg-zinc450 border-2 border-zinc500">
+                <View className="flex px-4 py-2 ml-[15px] mr-[-15px] justify-center items-center bg-zinc450 border-2 border-zinc500">
                   <Text className="text-white italic font-bold">
                     NO INGREDIENTS SELECTED
                   </Text>
@@ -662,14 +692,16 @@ const ExtraIngredientsModal = ({
 
 
               {/* TOGGLING ADDING */}
-              <View className="flex py-0.5 px-6 bg-theme800 border border-theme900 rounded-3xl">
+              <TouchableOpacity 
+                onPress={() => setAddingIngredient(true)}
+                className="flex py-0.5 px-6 bg-theme800 ml-[15px] mr-[-15px] border border-theme900 rounded-3xl"
+              >
                 <Icon
                   name="add-sharp"
                   color={colors.zinc100}
                   size={16}
-                  onPress={() => setAddingIngredient(true)}
                 />
-              </View>
+              </TouchableOpacity>
             </View>
           :
             // when finding a new extra ingredient
@@ -812,15 +844,15 @@ const ExtraIngredientsModal = ({
 
                   {(!ingredientDropdownOpen && selectedIngredientName !== "") && (
                     <Icon
-                      name={(selectedIngredientId === "" || currIngredientStore === "Misc") ? "unlink-outline" : "link-outline"}
+                      name={(selectedIngredientId === "" || currIngredientStore === "-") ? "unlink-outline" : "link-outline"}
                       size={18}
                       onPress={() => {
                         if (selectedIngredientId !== "") {
                           setSelectedIngredientId("")
                           setBrandDropdownOpen(false)
-                          setCurrIngredientStore("Misc");
+                          setCurrIngredientStore("-");
                           setSelectedIngredientData({
-                            ["Misc"]: {
+                            ["-"]: {
                               "brand": "", 
                               "calContainer": "", 
                               "calServing": "", 
@@ -880,7 +912,7 @@ const ExtraIngredientsModal = ({
                           onPress={() => changeStore()} 
                           className="flex items-center justify-center max-h-[30px] p-[3px]"
                         >
-                          {(currIngredientStore === "Misc") ? (
+                          {(currIngredientStore === "-") ? (
                             <Text>-</Text>
                           ) : (
                             <View className="w-full h-full justify-center items-center rounded-r-md z-0">
@@ -928,10 +960,12 @@ const ExtraIngredientsModal = ({
                             onChangeText={(value) => {
                               setSelectedIngredientData((prev) => {
                                 const updated = { ...prev }; 
-                                updated[currIngredientStore]["link"] = value.replace("Check out this product from ALDI. ", "");
+                                updated[currIngredientStore]["link"] = value.replace("Check out this product from ALDI. ", "").replace("Check out this product from ALDI ", "");
                                 return updated;
                               })
                             }}
+                            onFocus={() => setKeyboardType("details")}
+                            onBlur={() => setKeyboardType("")}
                           />
                         </View>
                       </View>
@@ -943,11 +977,15 @@ const ExtraIngredientsModal = ({
                         <View className="flex flex-row">
                           <TextInput
                             value={selectedIngredientData[currIngredientStore]?.["brand"]}
-                            onChangeText={(value) => filterBrandList(currIngredientStore, value)}
+                            onChangeText={(value) => filterBrandList(currIngredientStore, value, brandLists)}
                             placeholder="brand"
                             placeholderTextColor={colors.zinc500}
                             className={`flex w-full bg-theme200 border-[1px] border-zinc400 text-[14px] text-center leading-[17px] ${filteredBrandLists?.[currIngredientStore]?.map(brand => brand.value).includes(selectedIngredientData[currIngredientStore]?.["brand"]) ? "text-mauve800" : "text-black"} ${(selectedIngredientData[currIngredientStore]?.["brand"] === "") && "italic"} ${(selectedIngredientId !== "") ? "rounded-[5px]" : brandDropdownOpen  ? "rounded-t-[5px] border-b-0" : "rounded-[5px]"}`}
-                            onFocus={() => setBrandDropdownOpen(true)}
+                            onFocus={() => {
+                              setBrandDropdownOpen(true)
+                              setKeyboardType("details")
+                            }}
+                            onBlur={() => setKeyboardType("")}
                             editable={selectedIngredientId === ""}
                           />
                         </View>
@@ -961,7 +999,7 @@ const ExtraIngredientsModal = ({
                               color={colors.zinc700}
                               onPress={() => {
                                 if (brandDropdownOpen) { setBrandDropdownOpen(false); }
-                                else { filterBrandList(currIngredientStore, selectedIngredientData[currIngredientStore]["brand"]) }
+                                else { filterBrandList(currIngredientStore, selectedIngredientData[currIngredientStore]["brand"], brandLists) }
                               }}
                             />
                           </View>
@@ -975,7 +1013,7 @@ const ExtraIngredientsModal = ({
                               size={15}
                               color={colors.zinc450}
                               onPress={() => {
-                                filterBrandList(currIngredientStore, "")
+                                filterBrandList(currIngredientStore, "", brandLists)
                                 setBrandDropdownOpen(false)
                               }}
                             />
@@ -992,7 +1030,7 @@ const ExtraIngredientsModal = ({
                                   className="flex flex-row justify-center items-center p-2.5 border-b-[1px] border-zinc300"
                                   style={{ backgroundColor: item.bgColor }}
                                   onPress={() => {
-                                    filterBrandList(currIngredientStore, item.value)
+                                    filterBrandList(currIngredientStore, item.value, brandLists)
                                     setBrandDropdownOpen(false)
                                   }}
                                 >
@@ -1021,7 +1059,7 @@ const ExtraIngredientsModal = ({
 
 
                     {/* SERVING SECTION */}
-                    <View className="flex flex-col w-5/6">
+                    <View className={`flex flex-col w-5/6 ${(keyboardType === "details" && isKeyboardOpen) && "mb-[175px]"}`}>
 
                       {/* Serving Size */}
                       <View className="flex flex-row justify-between items-center mb-4">
@@ -1038,7 +1076,6 @@ const ExtraIngredientsModal = ({
                             placeholder="0 0/0"
                             placeholderTextColor={colors.zinc400}
                             value={selectedIngredientData[currIngredientStore]?.["servingSize"]}
-                            editable={selectedIngredientId === ""}
                             onChangeText={(value) => {
                               setSelectedIngredientData((prev) => {
                                 const updated = { ...prev }; 
@@ -1046,6 +1083,9 @@ const ExtraIngredientsModal = ({
                                 return updated;
                               })
                             }}
+                            onFocus={() => setKeyboardType("details")}
+                            onBlur={() => setKeyboardType("")}
+                            editable={selectedIngredientId === ""}
                           />
 
                           {/* Units */}
@@ -1056,7 +1096,8 @@ const ExtraIngredientsModal = ({
                               placeholderTextColor={colors.zinc400}
                               value={selectedIngredientData[currIngredientStore]?.["unit"]}
                               onChangeText={(value) => filterUnits(value)}
-                              onBlur={() => setUnitDropdownOpen(false)}
+                              onFocus={() => setKeyboardType("details")}
+                              onBlur={() => setKeyboardType("")}
                               editable={selectedIngredientId === ""}
                             />
 
@@ -1119,7 +1160,6 @@ const ExtraIngredientsModal = ({
                           placeholder="0 0/0"
                           placeholderTextColor={colors.zinc400}
                           value={selectedIngredientData[currIngredientStore]?.["servingContainer"]}
-                          editable={selectedIngredientId === ""}
                           onChangeText={(value) => {
                             setSelectedIngredientData((prev) => {
                               const updated = { ...prev }; 
@@ -1127,6 +1167,9 @@ const ExtraIngredientsModal = ({
                               return updated;
                             })
                           }}
+                          onFocus={() => setKeyboardType("details")}
+                          onBlur={() => setKeyboardType("")}
+                          editable={selectedIngredientId === ""}
                         />
                       </View>
 
@@ -1144,7 +1187,6 @@ const ExtraIngredientsModal = ({
                           placeholder="0"
                           placeholderTextColor={colors.zinc400}
                           value={selectedIngredientData[currIngredientStore]?.["calServing"]}
-                          editable={selectedIngredientId === ""}
                           onChangeText={ (value) => {
                             setSelectedIngredientData((prev) => {
                               const updated = { ...prev }; 
@@ -1152,6 +1194,9 @@ const ExtraIngredientsModal = ({
                               return updated;
                             })
                           }}
+                          onFocus={() => setKeyboardType("details")}
+                          onBlur={() => setKeyboardType("")}
+                          editable={selectedIngredientId === ""}
                         />
                       </View>
 
@@ -1180,7 +1225,6 @@ const ExtraIngredientsModal = ({
                             placeholder="0.00"
                             placeholderTextColor={colors.zinc400}
                             value={selectedIngredientData[currIngredientStore]?.["priceContainer"]}
-                            editable={selectedIngredientId === ""}
                             onChangeText={(value) => {
                               setSelectedIngredientData((prev) => {
                                 const updated = { ...prev }; 
@@ -1188,6 +1232,9 @@ const ExtraIngredientsModal = ({
                                 return updated;
                               })
                             }}
+                            onFocus={() => setKeyboardType("details")}
+                            onBlur={() => setKeyboardType("")}
+                            editable={selectedIngredientId === ""}
                           />
                         </View>
                       </View>

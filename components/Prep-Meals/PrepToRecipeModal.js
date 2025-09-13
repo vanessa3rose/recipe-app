@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 
 // UI components
-import { Modal, View, Text, TextInput, TouchableOpacity, Keyboard, ScrollView, Image } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, Keyboard, ScrollView, Image, FlatList } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
 // visual effects
@@ -13,6 +13,7 @@ import colors from '../../assets/colors';
 
 // store lists
 import storeKeys from '../../assets/storeKeys';
+import storeLabels from '../../assets/storeLabels';
 import storeImages from '../../assets/storeImages';
 
 // fractions
@@ -35,7 +36,7 @@ const db = getFirestore(app);
 const PrepToRecipeModal = ({
   prepData, ingredientsSnapshot, recipesSnapshot, modalVisible, closeModal
 }) => {
-
+  
 
   ///////////////////////////////// KEYBOARD /////////////////////////////////
 
@@ -754,31 +755,64 @@ const PrepToRecipeModal = ({
                     {/* Ingredient Dropdown */}
                     {(ingredientDropdownOpen && !isKeyboardOpen) && (
                       <View className="absolute left-[8px] right-[50px] bottom-[100%] border-x-0.5 border-t-0.5 bg-zinc500 rounded-t-[5px] max-h-[200px] z-50">
-                        <ScrollView>
-                          {filteredIngredientData.map((item, index) => (
-                            <TouchableOpacity
-                              key={index}
-                              onPress={() => pickIngredient(item)}
-                              className={`p-2.5 ${(index === 0) && "rounded-t-[5px]"} ${(item.ingredientName === searchIngredientName) && "bg-zinc600"} ${(index < filteredIngredientData.length - 1) && "border-b-[1px] border-zinc600"}`}
-                            >
-                              {/* name */}
-                              <Text className="text-[13px] mr-4 text-white font-semibold">
-                                {item.ingredientName}
-                              </Text>
-                              
-                              {/* selected indicator */}
-                              {(item.ingredientName === searchIngredientName) && (
-                                <View className="flex-1 mt-2 mb-3 absolute right-1 items-center justify-center">
-                                  <Icon
-                                    name="checkmark"
-                                    color="black"
-                                    size={18}
-                                  />
+                        <FlatList
+                          data={filteredIngredientData}
+                          keyExtractor={(_, index) => index.toString()}
+                          renderItem={({ item, index }) => {
+                            return (
+                              <TouchableOpacity
+                                key={index}
+                                onPress={() => pickIngredient(item)}
+                                className={`p-2.5 ${(index === 0) && "rounded-t-[5px]"} ${(item.ingredientName === searchIngredientName) && "bg-zinc600"} ${(index < filteredIngredientData.length - 1) && "border-b-[1px] border-zinc600"}`}
+                              >
+                                {/* name */}
+                                <Text className="text-[13px] mr-4 text-white font-semibold">
+                                  {item.ingredientName}
+                                </Text>
+                          
+                                {/* details */}
+                                <View className="flex flex-row pt-1 justify-between items-end">
+                                  {/* price / cal */}
+                                  <Text className="text-[10.5px] text-mauve100 italic font-bold">
+                                    {`${(Math.min(...storeKeys
+                                        .map(store => item.ingredientData[store].priceContainer / (item.ingredientData[store].calContainer === "0" ? item.ingredientData[store].totalYield : item.ingredientData[store].calContainer))
+                                        .filter(calc => !isNaN(calc))
+                                      ) * 100).toFixed(4)}￠ / cal`}
+                                  </Text>
+        
+                                  {/* the store */}
+                                  <Text className="text-[10px] text-mauve200 font-bold">
+                                    {`${storeLabels[
+                                      storeKeys.indexOf(storeKeys.reduce(
+                                        (minStore, store) => {
+                                          const val = item.ingredientData[store].priceContainer / item.ingredientData[store].calContainer;
+                                          return (!isNaN(val) &&
+                                            (minStore === null ||
+                                              val < item.ingredientData[minStore].priceContainer / item.ingredientData[minStore].calContainer))
+                                            ? store
+                                            : minStore;
+                                        },
+                                        null
+                                      ))
+                                    ].toUpperCase()}`}
+                                  </Text>
                                 </View>
-                              )}
-                            </TouchableOpacity>
-                          ))}
-                        </ScrollView>
+                                
+                                {/* selected indicator */}
+                                {(item.ingredientName === searchIngredientName) && (
+                                  <View className="flex-1 mt-2 mb-3 absolute right-1 items-center justify-center">
+                                    <Icon
+                                      name="checkmark"
+                                      color="black"
+                                      size={18}
+                                    />
+                                  </View>
+                                )}
+                              </TouchableOpacity>
+                            );
+                          }}
+                          style={{ maxHeight: 200 }}
+                        />
                       </View>
                     )}
                   </View>
@@ -1255,8 +1289,11 @@ const PrepToRecipeModal = ({
                 {/* Ingredient Dropdown */}
                 {ingredientDropdownOpen && (
                  <View className="absolute w-full bottom-[100%] border-x-0.5 border-t-0.5 bg-zinc350 rounded-t-[5px] max-h-[200px] z-50">
-                    <ScrollView>
-                      {filteredIngredientData.map((item, index) => (
+                  <FlatList
+                    data={filteredIngredientData}
+                    keyExtractor={(_, index) => index.toString()}
+                    renderItem={({ item, index }) => {
+                      return (
                         <TouchableOpacity
                           key={index}
                           onPress={() => pickIngredient(item)}
@@ -1266,6 +1303,34 @@ const PrepToRecipeModal = ({
                           <Text className="text-[13px] mr-4">
                             {item.ingredientName}
                           </Text>
+                          
+                          {/* details */}
+                          <View className="flex flex-row pt-1 justify-between items-end">
+                            {/* price / cal */}
+                            <Text className="text-[10.5px] text-mauve700 italic font-bold">
+                              {`${(Math.min(...storeKeys
+                                  .map(store => item.ingredientData[store].priceContainer / (item.ingredientData[store].calContainer === "0" ? item.ingredientData[store].totalYield : item.ingredientData[store].calContainer))
+                                  .filter(calc => !isNaN(calc))
+                                ) * 100).toFixed(4)}￠ / cal`}
+                            </Text>
+  
+                            {/* the store */}
+                            <Text className="text-[10px] text-mauve900 font-bold">
+                              {`${storeLabels[
+                                storeKeys.indexOf(storeKeys.reduce(
+                                  (minStore, store) => {
+                                    const val = item.ingredientData[store].priceContainer / item.ingredientData[store].calContainer;
+                                    return (!isNaN(val) &&
+                                      (minStore === null ||
+                                        val < item.ingredientData[minStore].priceContainer / item.ingredientData[minStore].calContainer))
+                                      ? store
+                                      : minStore;
+                                  },
+                                  null
+                                ))
+                              ].toUpperCase()}`}
+                            </Text>
+                          </View>
                           
                           {/* selected indicator */}
                           {(item.ingredientName === searchIngredientName) && (
@@ -1278,8 +1343,10 @@ const PrepToRecipeModal = ({
                             </View>
                           )}
                         </TouchableOpacity>
-                      ))}
-                    </ScrollView>
+                        );
+                      }}
+                      style={{ maxHeight: 150 }}
+                    />
                   </View>
                 )}
       

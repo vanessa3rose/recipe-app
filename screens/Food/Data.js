@@ -1198,8 +1198,16 @@ export default function Data ({ isSelectedTab }) {
             {(dataLength > 0) && (
               <View className="flex flex-row absolute bottom-1.5 justify-between px-2 w-full">
                   
-                {/* Number of Ingredients */}
-                <View className="flex flex-row justify-center items-center h-full">
+                <View className="flex flex-row space-x-2 justify-center items-center h-full">
+                  {/* Clear Current */}
+                  <Icon
+                    name="reload"
+                    size={14}
+                    color={colors.zinc200}
+                    onPress={() => filterIngredientData(ingredientsSnapshot, "", recipeIds, spotlightIds, 1)}
+                  />
+
+                  {/* Number of Ingredients */}
                   <Text className="text-center text-[13px] leading italic font-medium text-zinc300">
                     {dataLength}
                   </Text>

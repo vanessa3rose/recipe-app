@@ -7,11 +7,15 @@ import { useNavigationState } from '@react-navigation/native';
 // UI components
 import { View, Text, ScrollView, TouchableOpacity} from 'react-native';
 
+// visual effects
+import Icon from 'react-native-vector-icons/Ionicons';
+import colors from '../../assets/colors';
+
 // modals
 import MealOverviewModal from '../../components/Planning/MealOverviewModal';
 
 // initialize firebase app
-import { getFirestore, collection, getDocs, getDoc, doc } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, getDoc, doc, updateDoc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
 
@@ -114,6 +118,7 @@ export default function Details ({ isSelectedTab }) {
     const prep = await getDoc(doc(db, 'GLOBALS', 'prep'));
     
     // stores it
+    setShowUnfinished(prep.data().unfinished)
     setPrepsIds(prep.data().preps.map((doc) => doc.id));
     setPrepsCompleted(prep.data().preps.map((doc) => doc.completed));
   }
@@ -158,14 +163,16 @@ export default function Details ({ isSelectedTab }) {
 
             // if the current meal prep id is stores in the plan's lunch
             if (planData.meals.lunch.prepId === prepIds[i]) { 
-              remaining[i] = remaining[i] - 1;                          // decrement the number of remaining preps
-              dates[i].push(formatDateExtended(planId) + "  LUNCH");    // store the date
+              // decrement the number of remaining preps and store the date
+              remaining[i] = planId > today.dateString ? remaining[i] - 1 : remaining[i];
+              dates[i].push(formatDateExtended(planId) + "  LUNCH");
             }
 
             // if the current meal prep id is stores in the plan's dinner
             if (planData.meals.dinner.prepId === prepIds[i]) { 
-              remaining[i] = remaining[i] - 1;                          // decrement the number of remaining preps
-              dates[i].push(formatDateExtended(planId) + "  DINNER");   // store the date
+              // decrement the number of remaining preps and store the date
+              remaining[i] = planId > today.dateString ? remaining[i] - 1 : remaining[i];                          
+              dates[i].push(formatDateExtended(planId) + "  DINNER");
             }
           }
         });
@@ -173,8 +180,13 @@ export default function Details ({ isSelectedTab }) {
     
       // sets the states
       setCurrAvailable(available);
+      setFilteredAvailable(available.filter((_, idx) => showUnfinished ? true : prepsCompleted?.[prepsIds?.indexOf(prepData[idx].id)]));
+      
       setCurrRemaining(remaining);
+      setFilteredRemaining(remaining.filter((_, idx) => showUnfinished ? true : prepsCompleted?.[prepsIds?.indexOf(prepData[idx].id)]));
+      
       setCurrDates(dates);
+      setFilteredDates(dates.filter((_, idx) => showUnfinished ? true : prepsCompleted?.[prepsIds?.indexOf(prepData[idx].id)]));
     }
   }
 
@@ -194,9 +206,29 @@ export default function Details ({ isSelectedTab }) {
 
     // only opens the modal and stores data if there is data
     if (prepData !== null) {
-      setMealModalData(prepData[index]);
+      setMealModalData(prepData.filter(prep => (showUnfinished ? true : prepsCompleted?.[prepsIds?.indexOf(prep.id)]))[index]);
       setMealModalVisible(true);
     }
+  }
+  
+
+  ///////////////////////////////// UNFINISHED /////////////////////////////////
+  
+  const [showUnfinished, setShowUnfinished] = useState(false);
+
+  const [filteredRemaining, setFilteredRemaining] = useState([]);
+  const [filteredAvailable, setFilteredAvailable] = useState([]);
+  const [filteredDates, setFilteredDates] = useState([]);
+
+  // to change the unfinished status (overall) in global
+  const changeUnfinished = async () => {
+    await updateDoc(doc(db, 'GLOBALS', 'prep'), { 'unfinished': !showUnfinished });
+    setShowUnfinished(!showUnfinished);
+
+    // changes the filtered remaining and available amounts
+    setFilteredAvailable(currAvailable.filter((_, idx) => !showUnfinished ? true : prepsCompleted?.[prepsIds?.indexOf(prepData[idx].id)]));
+    setFilteredRemaining(currRemaining.filter((_, idx) => !showUnfinished ? true : prepsCompleted?.[prepsIds?.indexOf(prepData[idx].id)]));
+    setFilteredDates(currDates.filter((_, idx) => !showUnfinished ? true : prepsCompleted?.[prepsIds?.indexOf(prepData[idx].id)]));
   }
   
 
@@ -208,7 +240,7 @@ export default function Details ({ isSelectedTab }) {
     <View className="flex-1 items-center justify-center bg-zinc100 border-0.5 space-y-7">      
 
       {/* Grid */}
-      <View className="flex flex-col justify-start items-center w-11/12 bg-zinc700 border-2 border-black">
+      <View className="flex flex-col h-5/6 w-11/12 bg-zinc700 border-2 border-black">
 
         {/* HEADER */}
         <View className="flex flex-row justify-center items-center bg-theme900 w-full h-[50px] border-b-2">
@@ -227,7 +259,10 @@ export default function Details ({ isSelectedTab }) {
             </Text>
             {/* calculates the total number of recipes */}
             <Text className="text-white text-[12px] text-center italic">
-              {currRemaining.reduce((sum, num) => (num > 0 ? sum + num : sum), 0)}{" / "}{currAvailable.reduce((sum, num) => sum + num, 0)}{" left"}
+              {filteredRemaining.reduce((sum, num) => (num > 0 ? sum + num : sum), 0)}
+              {" / "}
+              {filteredAvailable.reduce((sum, num) => (num > 0 ? sum + num : sum), 0)}
+              {" left"}
             </Text>
           </View>
 
@@ -244,100 +279,94 @@ export default function Details ({ isSelectedTab }) {
 
 
         {/* SCROLLABLE CONTENT */}
-        <View className="flex h-4/5 mt-[0.5px]">
+        <View className="flex-1 mt-[0.5px]">
           {prepData.length > 0
           ?
-          <ScrollView
-            className="mt[70px]"
-            vertical
-            scrollEventThrottle={16}
-            contentContainerStyle={{ flexDirection: 'col' }}
-          >
-
-            {/* maps over the list of all meal preps */}
-            {prepData.map((data, index) => (
-              <View
-                key={index}
-                className="flex flex-row justify-center items-center w-full h-[70px] border-b-[1px] border-black"
-              >
-                {/* Meal Prep Name & Modal */}
-                <TouchableOpacity
-                  onPress={() => displayMeal(index)}
-                  activeOpacity={0.6}
-                  className={`flex flex-col justify-center items-center w-1/3 h-full px-1 ${(prepsCompleted === null || prepsCompleted?.[prepsIds?.indexOf(data.id)]) ? "bg-theme700" : "bg-mauve800"}`}
+            <ScrollView>
+              {/* maps over the list of all meal preps */}
+              {prepData.filter(prep => (showUnfinished ? true : prepsCompleted?.[prepsIds?.indexOf(prep.id)])).map((data, index) => (
+                <View
+                  key={index}
+                  className="flex flex-row justify-center items-center w-full h-[70px] border-b-[1px] border-black"
                 >
-                  <Text className="text-white text-[12px] font-bold text-center">
-                    {data.prepName}
-                  </Text>
-                </TouchableOpacity>
-
-
-                {/* Amounts */}
-                <View className="bg-zinc350 justify-center items-center w-1/4 h-full space-y-1.5">
-                  
-                  {/* available */}
-                  <View>
-                    <Text className="text-[12px] font-semibold">
-                      {(currAvailable[index] !== undefined && currAvailable[index].length !== 0) ? currAvailable[index] : "0"} {"available"}
+                  {/* Meal Prep Name & Modal */}
+                  <TouchableOpacity
+                    onPress={() => displayMeal(index)}
+                    activeOpacity={0.6}
+                    className={`flex flex-col justify-center items-center w-1/3 h-full px-1 ${(prepsCompleted === null || prepsCompleted?.[prepsIds?.indexOf(data.id)]) ? "bg-theme700" : "bg-mauve800"}`}
+                  >
+                    <Text className="text-white text-[12px] font-bold text-center">
+                      {data.prepName}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
 
-                  {/* remaining */}
-                  <View>
-                    <Text className={`text-[12px] font-semibold ${(currRemaining[index] !== undefined && currRemaining[index] < 0) ? "text-mauve700" : (currRemaining[index] !== undefined && currRemaining[index] === 0) ? "text-yellow-700" : (currRemaining[index] !== undefined && currRemaining[index] > 0) ? "text-green-700" : "text-black"}`}>
-                      {(currRemaining[index] !== undefined && currRemaining[index].length !== 0) ? currRemaining[index] : "0"} {"remaining"}
-                    </Text>
-                  </View>
-                </View>
 
-                {/* List of Dates Used */}
-                {currDates[index] !== undefined && currDates[index].length !== 0 ? 
-                  <View className="bg-zinc400 justify-center py-1.5 items-left w-5/12 h-full">
+                  {/* Amounts */}
+                  <View className="bg-zinc350 justify-center items-center w-1/4 h-full space-y-1.5">
                     
-                    {/* scrollable */}
-                    <ScrollView
-                      vertical
-                      scrollEventThrottle={16}
-                      contentContainerStyle={{ flexDirection: 'row' }}
-                    >
-                      <Text className="pl-1.5">
-                        {currDates[index].map((date, idx) => {
-                          const parts = date.split("  "); // Split by double space
-                          const expanded = parts[0]?.trim() || date; // Text before the double space
-                          const meal = parts[1]?.trim() || ''; // Text after the double space
-                          
-                          // maps out "www m/d/yy TYPE"
-                          return (
-                            <Text key={idx} className="flex justify-center items-center">
-                              <Text className="flex text-[14px] font-semibold text-theme900">
-                                {"• "}
-                              </Text>
-                              <Text className="text-[12px]">
-                                {expanded}
-                              </Text>
-                              <Text className="flex text-[11px] font-semibold text-theme900">
-                                {'  '}{meal}
-                              </Text>
-                              <Text>
-                                {currDates[index][idx + 1] ? '\n' : ''}
-                              </Text>
-                            </Text>
-                          );
-                        })}
+                    {/* available */}
+                    <View>
+                      <Text className="text-[12px] font-semibold">
+                        {(filteredAvailable[index] !== undefined && filteredAvailable[index].length !== 0) ? filteredAvailable[index] : "0"} {"available"}
                       </Text>
-                    </ScrollView>
+                    </View>
+
+                    {/* remaining */}
+                    <View>
+                      <Text className={`text-[12px] font-semibold ${(filteredRemaining[index] !== undefined && filteredRemaining[index] < 0) ? "text-mauve700" : (filteredRemaining[index] !== undefined && filteredRemaining[index] === 0) ? "text-yellow-700" : (filteredRemaining[index] !== undefined && filteredRemaining[index] > 0) ? "text-green-700" : "text-black"}`}>
+                        {(filteredRemaining[index] !== undefined && filteredRemaining[index].length !== 0) ? filteredRemaining[index] : "0"} {"remaining"}
+                      </Text>
+                    </View>
                   </View>
-                : 
-                  // if there are no dates, simply a line
-                  <View className="bg-zinc400 justify-center py-1.5 items-center w-5/12 h-full">
-                    <Text className="text-[13px]">
-                      ───
-                    </Text>
-                  </View>
-                }
-              </View>
-            ))}
-          </ScrollView>
+
+                  {/* List of Dates Used */}
+                  {filteredDates[index] !== undefined && filteredDates[index].length !== 0 ? 
+                    <View className="bg-zinc400 justify-center py-1.5 items-left w-5/12 h-full">
+                      
+                      {/* scrollable */}
+                      <ScrollView
+                        vertical
+                        scrollEventThrottle={16}
+                        contentContainerStyle={{ flexDirection: 'row' }}
+                      >
+                        <Text className="pl-1.5">
+                          {filteredDates[index].map((date, idx) => {
+                            const parts = date.split("  "); // Split by double space
+                            const expanded = parts[0]?.trim() || date; // Text before the double space
+                            const meal = parts[1]?.trim() || ''; // Text after the double space
+                            
+                            // maps out "www m/d/yy TYPE"
+                            return (
+                              <Text key={idx} className="flex justify-center items-center">
+                                <Text className={`flex text-[14px] font-semibold ${(expanded.split(" ")[1] === `${today.month}/${today.day}/${today.year.toString().slice(-2)}`) ? "text-zinc800" : "text-theme900"}`}>
+                                  {"• "}
+                                </Text>
+                                <Text className={`text-[12px] ${(expanded.split(" ")[1] === `${today.month}/${today.day}/${today.year.toString().slice(-2)}`) && "line-through decoration-zinc800 italic text-mauve900"}`}>
+                                  {expanded}
+                                </Text>
+                                <Text className={`flex text-[11px] font-semibold ${(expanded.split(" ")[1] === `${today.month}/${today.day}/${today.year.toString().slice(-2)}`) ? "line-through decoration-zinc800 italic text-mauve900" : "text-theme900"}`}>
+                                  {'  '}{meal}
+                                </Text>
+                                <Text>
+                                  {filteredDates[index][idx + 1] ? '\n' : ''}
+                                </Text>
+                              </Text>
+                            );
+                          })}
+                        </Text>
+                      </ScrollView>
+                    </View>
+                  : 
+                    // if there are no dates, simply a line
+                    <View className="bg-zinc400 justify-center py-1.5 items-center w-5/12 h-full">
+                      <Text className="text-[13px]">
+                        ───
+                      </Text>
+                    </View>
+                  }
+                </View>
+              ))}
+            </ScrollView>
           :
             // if there are no current meal preps
             <View className="flex w-full h-full justify-center items-center">
@@ -347,6 +376,28 @@ export default function Details ({ isSelectedTab }) {
             </View>
           }
         </View>
+              
+
+        {/* UNFINISHED INDICATOR */}
+        {(prepData.length !== 0) && (
+          <View className="flex flex-row z-20 justify-center items-center space-x-3 bg-zinc900 border-t-2 mt-[-1px] pb-[2px] h-[30px]">
+
+            {/* text */}
+            <Text className="font-bold text-[12px] text-zinc300 italic">
+              {showUnfinished ? "SHOWING UNFINISHED" : "HIDING UNFINISHED"}
+            </Text>
+
+            {/* toggle button */}
+            <View className="justify-center items-center" style={ showUnfinished ? null : { transform: [{ scaleX: -1 }] } }>
+              <Icon
+                name="toggle"
+                size={20}
+                color={colors.zinc100}
+                onPress={() => changeUnfinished()}
+              />
+            </View>
+          </View>
+        )}
 
 
         {/* Modal to Display a Meal */}

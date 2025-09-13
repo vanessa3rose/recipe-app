@@ -1567,8 +1567,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   color={colors.zinc500}
                   onPress={() => {
                     // retrieves the name of the recipe taken from
-                    if (selectedSpotlightData !== null && selectedSpotlightData.recipeId !== null) {
-                      setRecipeKeywordQuery(recipeList.find((recipe) => recipe.id === data.recipeId).recipeName)
+                    if (selectedSpotlightData !== null && selectedSpotlightData.recipeId !== null && recipeList.find((recipe) => recipe.id === data.recipeId)) {
+                      setRecipeKeywordQuery(recipeList.find((recipe) => recipe.id === data.recipeId)?.recipeName)
                     } else if (selectedSpotlightData !== null && selectedSpotlightData.recipeId === null) {
                       setRecipeKeywordQuery("");
                     }

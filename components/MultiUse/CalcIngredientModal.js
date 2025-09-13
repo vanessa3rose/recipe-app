@@ -129,7 +129,7 @@ const CalcIngredientModal = ({
   const calcAmountFraction = (frac) => {
     if (totalYield !== 0 && frac !== 0) {
       const total = new Fractional(totalYield).numerator / new Fractional(totalYield).denominator;
-      const improper = new Fraction(total / frac).simplify(1 / 100);   
+      const improper = new Fraction(total / frac).simplify(1 / 1000);   
       const mixed = new Fractional(improper.toFraction()).toString();
       setCalcAmount(mixed);
     }
@@ -389,9 +389,9 @@ const CalcIngredientModal = ({
               {/* GENERAL AMOUNTS */}
               <View className="flex flex-row w-full justify-center items-center px-3">
                 {/* headers */}
-                <View className="flex flex-col justify-center items-center py-1 space-y-1">
+                <View className="flex w-5/6 flex-col justify-center items-center py-1 space-y-1">
                   <Text className="w-full py-1 px-2 text-right text-[12px] font-medium text-theme800 bg-zinc300 border-l-[1px] border-y-[1px] border-zinc350">
-                    AMOUNT IN OTHER SELECTED RECIPES
+                    AMOUNT IN OTHER MEAL PREPS
                   </Text>
                   <Text className="w-full py-1 px-2 text-right text-[12px] font-medium text-theme800 bg-zinc300 border-l-[1px] border-y-[1px] border-zinc350">
                     AMOUNT PER CONTAINER

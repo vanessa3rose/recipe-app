@@ -119,8 +119,14 @@ export default function CurrentFood ({ isSelectedTab }) {
   // gets the snapshot of preps and calculates the overall number of meal preps
   const updatePreps = async () => {
     
+    // the preps snapshot
     const snapshot = await getDocs(collection(db, 'PREPS'));
     setPrepsSnapshot(snapshot);
+
+    // the unfinished status
+    const prep = await getDoc(doc(db, 'GLOBALS', 'prep'));
+    const unfinished = prep.data().unfinished;
+    const details = prep.data().preps;
 
     let totalPreps = 0;
     
@@ -130,7 +136,10 @@ export default function CurrentFood ({ isSelectedTab }) {
           
       // adds the current multiplicity if valid
       if (prepData.currentIds && Array.isArray(prepData.currentIds)) {
-        totalPreps = totalPreps + prepData.prepMult;
+        // checks unfinished
+        if (unfinished || details.find(data => data.id === prepDoc.id)?.completed) {
+          totalPreps = totalPreps + prepData.prepMult;
+        }
       }
     });
 
@@ -352,7 +361,7 @@ export default function CurrentFood ({ isSelectedTab }) {
       ]);
 
       // finds the index of the new current and scrolls to the correct y value
-      const scrollY = currents.map(current => current.ingredientName).indexOf(searchIngredientQuery) * ITEM_HEIGHT;
+      const scrollY = (currents.map(current => current.ingredientName).indexOf(searchIngredientQuery) - 2) * ITEM_HEIGHT;
       if (verticalScrollRef.current) { verticalScrollRef.current.scrollTo({ y: scrollY, animated: false }); }
         
       // clears the search
@@ -694,7 +703,7 @@ export default function CurrentFood ({ isSelectedTab }) {
     const currents = await loadCurrents();
 
     // finds the index of the new current and scrolls to the correct y value
-    const scrollY = currents.map(current => current.ingredientName).indexOf(newId) * ITEM_HEIGHT;
+    const scrollY = (currents.map(current => current.ingredientName).indexOf(newId) - 2) * ITEM_HEIGHT;
     if (verticalScrollRef.current) { verticalScrollRef.current.scrollTo({ y: scrollY, animated: false }); }
   };
 
@@ -779,30 +788,32 @@ export default function CurrentFood ({ isSelectedTab }) {
   
   // helper function to merge the lists of store shopping lists
   const mergeShoppingLists = async () => {
+    const miscStoreKeys = ["-", ...storeKeys];
     
     // the object of all shopping lists, stacked on top of each other
     const allData = {};
-    for (const storeKey of storeKeys) {
+    for (const storeKey of miscStoreKeys) {
       allData[storeKey] = await getShoppingListWithStore("list" + storeKey, storeKey);
     }
     
     // concatenates all the list's keys together
     const mergedList = {
-      amountNeeded: storeKeys.map(storeKey => allData[storeKey].amountNeeded).flat(),
-      brand: storeKeys.map(storeKey => allData[storeKey].brand).flat(),
-      check: storeKeys.map(storeKey => allData[storeKey].check).flat(),
-      costTotal: storeKeys.map(storeKey => allData[storeKey].costTotal).flat(),
-      costUnit: storeKeys.map(storeKey => allData[storeKey].costUnit).flat(),
-      id: storeKeys.map(storeKey => allData[storeKey].id).flat(),
-      included: storeKeys.map(storeKey => allData[storeKey].included).flat(),
-      link: storeKeys.map(storeKey => allData[storeKey].link).flat(),
-      name: storeKeys.map(storeKey => allData[storeKey].name).flat(),
-      notes: storeKeys.map(storeKey => allData[storeKey].notes).flat(),
-      store: storeKeys.map(storeKey => allData[storeKey].store).flat(),
-      totalYield: storeKeys.map(storeKey => allData[storeKey].totalYield).flat(),
-      types: storeKeys.map(storeKey => allData[storeKey].types).flat(),
-      unit: storeKeys.map(storeKey => allData[storeKey].unit).flat(),
-      yieldNeeded: storeKeys.map(storeKey => allData[storeKey].yieldNeeded).flat()
+      amountNeeded: miscStoreKeys.map(storeKey => allData[storeKey].amountNeeded).flat(),
+      brand: miscStoreKeys.map(storeKey => allData[storeKey].brand).flat(),
+      check: miscStoreKeys.map(storeKey => allData[storeKey].check).flat(),
+      costTotal: miscStoreKeys.map(storeKey => allData[storeKey].costTotal).flat(),
+      costUnit: miscStoreKeys.map(storeKey => allData[storeKey].costUnit).flat(),
+      id: miscStoreKeys.map(storeKey => allData[storeKey].id).flat(),
+      included: miscStoreKeys.map(storeKey => allData[storeKey].included).flat(),
+      link: miscStoreKeys.map(storeKey => allData[storeKey].link).flat(),
+      name: miscStoreKeys.map(storeKey => allData[storeKey].name).flat(),
+      notes: miscStoreKeys.map(storeKey => allData[storeKey].notes).flat(),
+      store: miscStoreKeys.map(storeKey => allData[storeKey].store).flat(),
+      totalYield: miscStoreKeys.map(storeKey => allData[storeKey].totalYield).flat(),
+      types: miscStoreKeys.map(storeKey => allData[storeKey].types).flat(),
+      unit: miscStoreKeys.map(storeKey => allData[storeKey].unit).flat(),
+      yieldNeeded: miscStoreKeys.map(storeKey => allData[storeKey].yieldNeeded).flat(),
+      data: miscStoreKeys.map(storeKey => allData[storeKey].data).flat(),
     };
 
     return mergedList;
@@ -823,8 +834,8 @@ export default function CurrentFood ({ isSelectedTab }) {
     for (let i = 0; i < combinedData.id.length; i++) {
       const index = ingredientIds.indexOf(combinedData.id[i]);
       
-      // only imports the ingredients with a needed yield (from spotlights with a mult of > 0) and that are included
-      if (combinedData.yieldNeeded[i] !== 0 && new Fractional(combinedData.yieldNeeded[i]).numerator !== undefined && combinedData.included[i]) {
+      // only imports the ingredients with a needed yield (from spotlights with a mult of > 0) and that are included & checked off
+      if (combinedData.yieldNeeded[i] !== 0 && new Fractional(combinedData.yieldNeeded[i]).numerator !== undefined && combinedData.included[i] && combinedData.check[i]) {
 
         // if the current ingredient of the combined list is in the current list
         if (index !== -1 && combinedData.store[i] === ingredientStores[index]) {
@@ -864,13 +875,14 @@ export default function CurrentFood ({ isSelectedTab }) {
           const data = docSnap.exists() ? docSnap.data() : null;
           
           // stores overall data
-          const overallData = {
-            '-': { calServing: "", servingSize: "", unit: "" },
-            ...data.ingredientData,
-          };
+          const overallData = 
+            data !== null ? {
+              '-': { calServing: "", servingSize: "", unit: "" },
+              ...data.ingredientData,
+            } : combinedData.data[i];
           
           // adds the current ingredient, since it is new
-          await currentAdd(combinedData.id[i], overallData, combinedData.name[i], combinedData.store[i], data.ingredientTypes, showArchive, {
+          await currentAdd(combinedData.id[i], overallData, combinedData.name[i], combinedData.store[i], data?.ingredientTypes || [], showArchive, {
             check: amountTotal.toString() === "0", 
             amountTotal: amountTotal.toString(), 
             amountLeft: amountLeft.toString(), 
@@ -880,7 +892,7 @@ export default function CurrentFood ({ isSelectedTab }) {
         }
       }
     }
-
+    
     // stores the ids that were changed
     setNewIds(combinedData.id);
 
@@ -1100,7 +1112,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                         <TouchableOpacity 
                           activeOpacity={0.75}
                           onPress={() => openViewModal(index)}
-                          className={`flex items-start justify-center w-2/5 z-10 border-b-0.5 border-r-0.5 border-r-theme900 pl-1 pr-[5px] ${(curr.ingredientId === "" && newIds.indexOf(curr.ingredientName) !== -1) ? "bg-zinc500 border-b-zinc700" : newIds.indexOf(curr.ingredientId) === -1 ? "bg-theme600 border-b-theme900" : "bg-zinc500 border-b-zinc700"}`}
+                          className={`flex items-start justify-center w-2/5 z-10 border-b-0.5 border-r-0.5 border-r-theme900 pl-1 pr-[6px] ${(curr.ingredientId === "" && newIds.indexOf(curr.ingredientName) !== -1) ? "bg-zinc500 border-b-zinc700" : newIds.indexOf(curr.ingredientId) === -1 ? "bg-theme600 border-b-theme900" : "bg-zinc500 border-b-zinc700"}`}
                         >
                           <Text className="text-white text-[12px]">
                             {(curr && curr.ingredientData) ? curr.ingredientName : ""}
@@ -1265,6 +1277,16 @@ export default function CurrentFood ({ isSelectedTab }) {
         {(currentList.length !== 0) && (
           <View className={`flex flex-row z-20 ${(currentList.filter(current => current.archive === showArchive).length > 0) && "mr-[20px]"} justify-center items-center space-x-3 bg-zinc900 border-t-2 mt-[-1px] pb-[2px] h-[30px]`}>
             
+            {/* reset button */}
+            <View className="absolute left-0 h-full w-1/12 justify-center items-center">
+              <Icon
+                name="reload"
+                color={colors.zinc300}
+                size={14}
+                onPress={() => setNewIds([])}
+              />
+            </View>
+
             {/* text */}
             <Text className="font-bold text-[12px] text-zinc300 italic">
               {showArchive ? "SHOWING ARCHIVE" : "HIDING ARCHIVE"}
