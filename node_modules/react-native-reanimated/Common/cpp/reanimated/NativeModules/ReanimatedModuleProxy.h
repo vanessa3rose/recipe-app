@@ -23,6 +23,7 @@
 #endif // RCT_NEW_ARCH_ENABLED
 
 #include <memory>
+#include <set>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -150,7 +151,7 @@ class ReanimatedModuleProxy
   std::string obtainPropFromShadowNode(
       jsi::Runtime &rt,
       const std::string &propName,
-      const ShadowNode::Shared &shadowNode);
+      const std::shared_ptr<const ShadowNode> &shadowNode);
 
 #ifdef IS_REANIMATED_EXAMPLE_APP
   std::function<std::string()> createRegistriesLeakCheck();
@@ -227,12 +228,15 @@ class ReanimatedModuleProxy
   std::shared_ptr<UIManager> uiManager_;
   std::shared_ptr<LayoutAnimationsProxy> layoutAnimationsProxy_;
 
-  std::vector<std::pair<ShadowNode::Shared, std::unique_ptr<jsi::Value>>>
+  std::vector<
+      std::pair<std::shared_ptr<const ShadowNode>, std::unique_ptr<jsi::Value>>>
       operationsInBatch_; // TODO: refactor std::pair to custom struct
 
   std::shared_ptr<PropsRegistry> propsRegistry_;
   std::shared_ptr<ReanimatedCommitHook> commitHook_;
   std::shared_ptr<ReanimatedMountHook> mountHook_;
+  std::set<SurfaceId> layoutAnimationFlushRequests_;
+  bool layoutAnimationRenderRequested_;
 
   std::vector<Tag> tagsToRemove_; // from `propsRegistry_`
 #else

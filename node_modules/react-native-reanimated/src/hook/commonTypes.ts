@@ -27,13 +27,18 @@ export interface Descriptor {
   shadowNodeWrapper: ShadowNodeWrapper;
 }
 
+export type MaybeObserverCleanup = (() => void) | undefined;
+
+export type AnimatedRefObserver = (tag: number | null) => MaybeObserverCleanup;
+
 export interface AnimatedRef<T extends Component> {
   (component?: T):
     | number // Paper
     | ShadowNodeWrapper // Fabric
     | HTMLElement; // web
   current: T | null;
-  getTag: () => number;
+  observe: (observer: AnimatedRefObserver) => void;
+  getTag?: () => number | null;
 }
 
 // Might make that type generic if it's ever needed.
@@ -44,10 +49,10 @@ export type AnimatedRefOnUI = {
   (): number | ShadowNodeWrapper | null;
   /**
    * @remarks
-   *   `viewName` is required only on iOS with Paper and it's value is null on
-   *   other platforms.
+   *   `viewName` is required only on iOS/macOS with Paper and is undefined on
+   *   other platforms
    */
-  viewName: SharedValue<string | null>;
+  viewName?: SharedValue<string | null>;
 };
 
 type ReanimatedPayload = {
@@ -107,6 +112,7 @@ export interface JestAnimatedStyleHandle<
   jestAnimatedValues:
     | MutableRefObject<AnimatedStyle<Style>>
     | MutableRefObject<AnimatedProps>;
+  toJSON: () => string;
 }
 
 export type UseAnimatedStyleInternal<Style extends DefaultStyle> = (

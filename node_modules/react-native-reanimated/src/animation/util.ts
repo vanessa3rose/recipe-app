@@ -54,6 +54,7 @@ const LAYOUT_ANIMATION_SUPPORTED_PROPS = {
   globalOriginY: true,
   opacity: true,
   transform: true,
+  backgroundColor: true,
 };
 
 type LayoutAnimationProp = keyof typeof LAYOUT_ANIMATION_SUPPORTED_PROPS;
@@ -283,6 +284,8 @@ function decorateAnimation<T extends AnimationObject | StyleLayoutAnimation>(
       res.push(animation[i].current);
     });
 
+    animation.unroundedCurrent = res;
+
     // We need to clamp the res values to make sure they are in the correct RGBA range
     clampRGBA(res as ParsedColorArray);
 
@@ -295,11 +298,11 @@ function decorateAnimation<T extends AnimationObject | StyleLayoutAnimation>(
     animation: Animation<AnimationObject>,
     timestamp: Timestamp
   ): boolean => {
-    const RGBACurrent = toLinearSpace(convertToRGBA(animation.current));
     const res: Array<number> = [];
     let finished = true;
-    tab.forEach((i, index) => {
-      animation[i].current = RGBACurrent[index];
+    // We must restore nonscale current to ever end the animation.
+    animation.current = animation.nonscaledCurrent;
+    tab.forEach((i) => {
       const result = animation[i].onFrame(animation[i], timestamp);
       // We really need to assign this value to result, instead of passing it directly - otherwise once "finished" is false, onFrame won't be called
       finished = finished && result;
@@ -308,7 +311,7 @@ function decorateAnimation<T extends AnimationObject | StyleLayoutAnimation>(
 
     // We need to clamp the res values to make sure they are in the correct RGBA range
     clampRGBA(res as ParsedColorArray);
-
+    animation.nonscaledCurrent = res;
     animation.current = rgbaArrayToRGBAColor(
       toGammaSpace(res as ParsedColorArray)
     );
