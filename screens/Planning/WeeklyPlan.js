@@ -867,8 +867,8 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       const planData = planDoc.data();
       const planId = planDoc.id;
       
-      // if the current plan's date is on or after today
-      if (planId >= today.dateString) {
+      // if the current plan's date is after today
+      if (planId > today.dateString) {
 
         // if the meal prep is found at lunch and/or dinner of the date, decrement remaining
         if (planData.meals.lunch.prepId === currPrepId) { remaining = remaining - 1; }

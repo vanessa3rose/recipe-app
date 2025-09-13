@@ -640,7 +640,7 @@ const ModIngredientModal = ({
                   onChangeText={(value) => {
                     setLink((prev) => {
                       const updated = { ...prev }; 
-                      updated[store] = value.replace("Check out this product from ALDI. ", "");
+                      updated[store] = value.replace("Check out this product from ALDI. ", "").replace("Check out this product from ALDI ", "");
                       return updated;
                     })
                   }}
@@ -781,7 +781,6 @@ const ModIngredientModal = ({
                               placeholderTextColor={colors.zinc400}
                               value={unit[store]}
                               onChangeText={(value) => filterUnits(value, store)}
-                              onBlur={() => setUnitDropdownOpen(false)}
                             />
 
                             {/* dropdown */}

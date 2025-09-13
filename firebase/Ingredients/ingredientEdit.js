@@ -124,15 +124,19 @@ const ingredientEdit = async ({
           
               // calculates the next store based on the brands that are and are not empty
               const currStore = recipeData.ingredientStores[index];
-              let nextStore = currStore;
+              
+              // only does so if the current brand isn't valid
+              if (recipeData.ingredientData[index][currStore].brand === "") {
+                let nextStore = currStore;
 
-              for (let i = 1; i <= storeKeys.length; i++) {
-                if (recipeData.ingredientData[index][storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length]].brand !== "") {
-                  nextStore = storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length];
-                  break;
+                for (let i = 1; i <= storeKeys.length; i++) {
+                  if (recipeData.ingredientData[index][storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length]].brand !== "") {
+                    nextStore = storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length];
+                    break;
+                  }
                 }
+                recipeData.ingredientStores[index] = nextStore;
               }
-              recipeData.ingredientStores[index] = nextStore;
 
             // if the current ingredient is not valid, clear its values
             } else {
@@ -242,15 +246,19 @@ const ingredientEdit = async ({
           
               // calculates the next store based on the brands that are and are not empty
               const currStore = spotlightData.ingredientStores[index];
-              let nextStore = currStore;
 
-              for (let i = 1; i <= storeKeys.length; i++) {
-                if (spotlightData.ingredientData[index][storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length]].brand !== "") {
-                  nextStore = storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length];
-                  break;
+              // only does so if the current brand isn't valid
+              if (spotlightData.ingredientData[index][currStore].brand === "") {
+                let nextStore = currStore;
+
+                for (let i = 1; i <= storeKeys.length; i++) {
+                  if (spotlightData.ingredientData[index][storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length]].brand !== "") {
+                    nextStore = storeKeys[(storeKeys.indexOf(currStore) + i) % storeKeys.length];
+                    break;
+                  }
                 }
+                spotlightData.ingredientStores[index] = nextStore;
               }
-              spotlightData.ingredientStores[index] = nextStore;
 
             // if the current ingredient is not valid, clear its values
             } else {
