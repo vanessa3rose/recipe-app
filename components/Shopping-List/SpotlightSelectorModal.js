@@ -198,7 +198,7 @@ const SpotlightSelectorModal = ({
         <View className="flex w-3/4 py-4 px-2 mb-[50px] bg-zinc200 rounded-xl border-[1px] border-zinc-400 z-50">
 
           {/* HEADER */}
-          <View className="flex flex-row items-center justify-around">
+          <View className="flex flex-row items-center justify-between px-5">
 
             {/* ingredient name */}
             <Text className="font-bold text-[20px] text-center text-black">

@@ -196,7 +196,7 @@ const DeleteIngredientModal = ({
 
 
 
-          <View className="flex flex-row justify-around pt-8">
+          <View className="flex flex-row space-x-10 justify-center pt-8">
 
             {/* Delete Button */}
             <TouchableOpacity

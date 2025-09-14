@@ -56,7 +56,7 @@ const RadioWarningModal = ({
             </View>
 
 
-          <View className="flex flex-row justify-around pt-8">
+          <View className="flex flex-row space-x-8 justify-center pt-8">
 
             {/* Delete Button */}
             <TouchableOpacity

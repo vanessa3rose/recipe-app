@@ -72,38 +72,38 @@ const DeletePrepModal = ({
           </View>
 
           {/* BUTTONS */}
-          <View className="flex flex-row px-3 justify-center items-center mb-1">
-            <View className="flex flex-col w-4/5 justify-center items-center space-y-1">
+          <View className="flex flex-row justify-center items-center mb-1 space-x-5">
+            <View className="flex flex-col justify-center items-end space-y-1">
 
               {/* Save */}
-              <View className="flex flex-row w-full items-center space-x-1">
+              <View className="flex flex-row items-center space-x-1">
+                <Text className="text-[14px] text-theme700 font-semibold">
+                  SAVE AS RECIPE
+                </Text>
                 <Icon
                   name={savePrep ? "checkbox" : "square-outline"}
                   color={colors.zinc600}
                   size={20}
                   onPress={() => setSavePrep(!savePrep)}
                 />
-                <Text className="text-[14px] text-theme700 font-semibold">
-                  SAVE AS RECIPE
-                </Text>
               </View>
 
               {/* Delete */}
-              <View className="flex flex-row  w-full items-center space-x-1">
+              <View className="flex flex-row items-center space-x-1">
+                <Text className="text-[14px] text-theme700 font-semibold">
+                  DELETE MEAL PREP
+                </Text>
                 <Icon
                   name={deletePrep ? "checkbox" : "square-outline"}
                   color={colors.zinc600}
                   size={20}
                   onPress={() => setDeletePrep(!deletePrep)}
                 />
-                <Text className="text-[14px] text-theme700 font-semibold">
-                  DELETE MEAL PREP
-                </Text>
               </View>
             </View>
 
             {/* Proceed */}
-            <View className="flex w-1/5 justify-center items-end">
+            <View className="flex justify-center items-end">
               <Icon
                 name="checkmark-done-circle"
                 color={colors.zinc800}

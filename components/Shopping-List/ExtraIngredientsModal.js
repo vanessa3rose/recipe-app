@@ -73,9 +73,15 @@ const ExtraIngredientsModal = ({
   useEffect(() => {
     if (modalVisible) {
       populateIngredients();
-      populateExtras();
     }
   }, [modalVisible]);
+  
+  // when the modal opens, load in the lists of extras
+  useEffect(() => {
+    if (extras) {
+      populateExtras();
+    }
+  }, [extras]);
   
   
   ///////////////////////////////// INGREDIENTS /////////////////////////////////
@@ -543,7 +549,7 @@ const ExtraIngredientsModal = ({
         <View className={`flex flex-col w-3/4 py-4 px-2 bg-zinc200 rounded-xl border-[1px] border-zinc-400 z-50 ${(keyboardType === "amt" && isKeyboardOpen) ? "mb-[150px]" : "mb-[50px]"}`}>
 
           {/* HEADER */}
-          <View className="flex flex-row items-center justify-around">
+          <View className="flex flex-row items-center justify-between px-5">
 
             {/* ingredient name */}
             <Text className="font-bold text-[20px] text-center text-black">
@@ -708,7 +714,7 @@ const ExtraIngredientsModal = ({
             <View className="flex flex-col space-y-3 justify-center items-center">
             
               {/* TOP ROW */}
-              <View className="flex flex-row w-3/4 items-center justify-between pr-[5px]">
+              <View className="flex flex-row w-[225px] items-center justify-between pr-[5px]">
     
                 {/* Type Picker */}
                 <View className="flex w-[160px] z-0 bg-zinc350 border-0.5 border-zinc400">

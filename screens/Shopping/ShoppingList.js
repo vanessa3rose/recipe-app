@@ -319,6 +319,7 @@ export default function ShoppingList ({ isSelectedTab }) {
         
         // collected the new combined list of ids
         const combinedIdList = combinedList.map(item => item.id);
+        const combinedExtraList = combinedList.map(item => item.extra);
 
         // empty arrays to populate the combined check, included, and notes lists
         const combinedCheckList = [];
@@ -346,7 +347,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                 const currSnap = snapshots[currStore];
                 const currIdList = currSnap.data().id;
                 const currCheckList = currSnap.data().check;
-                const currIncludedList = extraList[idx] ? true : currSnap.data().included;
+                const currIncludedList = combinedExtraList[idx] ? true : currSnap.data().included;
                 const currNotesList = currSnap.data().notes;
 
                 const currIndex = currIdList.indexOf(id);
@@ -364,14 +365,14 @@ export default function ShoppingList ({ isSelectedTab }) {
             // if not found in any store, use defaults
             if (!found) {
               combinedCheckList.push(false);
-              combinedIncludedList.push(extraList[idx] ? true : false);
+              combinedIncludedList.push(combinedExtraList[idx] ? true : false);
               combinedNotesList.push("");
             }
 
           // otherwise, use defaults
           } else {
             combinedCheckList.push(false);
-            combinedIncludedList.push(extraList[idx] ? true : false);
+            combinedIncludedList.push(combinedExtraList[idx] ? true : false);
             combinedNotesList.push("");
           }
         });
@@ -425,7 +426,7 @@ export default function ShoppingList ({ isSelectedTab }) {
           groupedData.included = [];
           groupedData.notes = [];
         }
-        
+
         // adds the update operation to the batch
         batch.update(doc(db, 'SHOPPING', `list${storeKey}`), groupedData);
 
@@ -915,7 +916,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                             { // IF THE INGREDIENT IS EXTRA
                             store.extra
                             ?
-                              <View className="flex flex-row border-b-[1px] w-full h-[60px]">
+                              <View className={`flex flex-row border-b-[1px] w-full h-[60px] ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-mauve300") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-mauve400") }`}>
 
                                 {/* Specifics */}
                                 <View className={`flex w-[30px] justify-center items-center ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc500" : "bg-mauve700"} space-y-[4px] border-r-0.5`}>
@@ -958,7 +959,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                                   contentContainerStyle={{ flexDirection: 'column', minWidth: 500 }}
                                   showsHorizontalScrollIndicator={false}
                                 >
-                                  <View className={`flex flex-col border-b-[1px] h-[60px] space-y-1 ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-mauve300") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-mauve400") } items-center justify-center`} key={`middle${index}`}>
+                                  <View className={`flex border-b-[1px] h-[60px] space-y-1 ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-mauve300") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-mauve400") } items-center justify-center`} key={`middle${index}`}>
                                     
                                     {/* to open the detailed recipe list */}
                                     <View className="w-full space-y-1">
@@ -1023,10 +1024,10 @@ export default function ShoppingList ({ isSelectedTab }) {
                             // IF THE INGREDIENT IS INCLUDED
                             : allStoreIncluded[selectedStore][index] 
                             ? 
-                              <View className="flex flex-row border-b-[1px] w-full h-[60px]">
+                              <View className={`flex flex-row border-b-[1px] w-full h-[60px] ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-theme400") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-theme500") }`}>
 
                                 {/* Specifics */}
-                                <View className={`flex w-[30px] justify-center items-center ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc500" : "bg-theme700"} space-y-[4px] border-r-0.5`}>
+                                <View className={`flex h-full w-[30px] justify-center items-center ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc500" : "bg-theme700"} space-y-[4px] border-r-0.5`}>
                                   
                                   {/* BUTTONS */}
                                   <View className="flex flex-col space-y-[3px]">
@@ -1059,7 +1060,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                                 
                                 {/* INGREDIENT NAME */}
                                 <View
-                                  className={`flex w-[125px] justify-center items-center border-r-2 border-black ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc600" : "bg-theme800"}`}
+                                  className={`flex h-full w-[125px] justify-center items-center border-r-2 border-black ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc600" : "bg-theme800"}`}
                                 >
                                   {/* Linking */}
                                   <Text 
@@ -1078,7 +1079,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                                   contentContainerStyle={{ flexDirection: 'column', minWidth: 500 }}
                                   showsHorizontalScrollIndicator={false}
                                 >
-                                  <View className={`flex flex-col border-b-[1px] h-[60px] space-y-1 ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-theme400") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-theme500") } items-center justify-center`} key={`middle${index}`}>
+                                  <View className={`flex border-b-[1px] h-[60px] space-y-1 ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-theme400") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-theme500") } items-center justify-center`} key={`middle${index}`}>
                                     
                                     {/* to open the detailed recipe list */}
                                     <TouchableOpacity

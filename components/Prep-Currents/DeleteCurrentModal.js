@@ -63,7 +63,7 @@ const DeleteCurrentModal = ({
             </Text>
           }
 
-          <View className="flex flex-row justify-around pt-7">
+          <View className="flex flex-row justify-center space-x-10 pt-7">
 
             {/* Delete Button */}
             <TouchableOpacity

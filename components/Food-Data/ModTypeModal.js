@@ -847,10 +847,10 @@ const ModTypeModal = ({
 
 
           {/* TO VIEW CHANGED INGREDIENTS */}
-          <View className="flex flex-row mt-3 justify-around items-center">
+          <View className="flex flex-row mt-3 justify-center items-center mx-3 space-x-4">
             
             {/* filtering for modified */}
-            <View className="flex flex-row space-x-2 px-3 bg-zinc100 border-[1px] border-zinc300 py-1">
+            <View className="flex-1 flex-row justify-center space-x-2 px-3 bg-zinc100 border-[1px] border-zinc300 py-1">
               <Text className="italic text-zinc500 text-[12px]">
                 only show modified ingredients
               </Text>
@@ -865,7 +865,7 @@ const ModTypeModal = ({
             </View>
 
             {/* number of ingredients shown */}
-            <Text className="text-[12px] font-semibold text-theme700">
+            <Text className="w-[50px] text-center text-[12px] font-semibold text-theme700">
               {filteredData.length}
             </Text>
           </View>
