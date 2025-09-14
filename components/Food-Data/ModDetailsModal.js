@@ -4,26 +4,13 @@
 import React, { useState, useEffect } from 'react';
 
 // UI components
-import { Modal, View, Text, TouchableOpacity, TextInput, ScrollView } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-
-// visual effects
-import Icon from 'react-native-vector-icons/Ionicons';
-import colors from '../../assets/colors';
-
-// validation
-import capitalizeInput from '../Validation/capitalizeInput';
+import { Modal, View, Text, TouchableOpacity } from 'react-native';
 
 // modals
 import ModNameModal from './ModNameModal';
 import ModTypeModal from './ModTypeModal';
 import ModBrandModal from './ModBrandModal';
 import ModUnitModal from './ModUnitModal';
-
-// initialize firebase app
-import { getFirestore, doc, writeBatch } from 'firebase/firestore';
-import { app } from '../../firebase.config';
-const db = getFirestore(app);
 
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
@@ -62,9 +49,7 @@ const ModDetailsModal = ({
           {(detail === "") && (
             <>
               {/* HEADER */}
-              <View className="flex flex-row justify-between px-4">
-
-                {/* title */}
+              <View className="flex flex-row justify-center px-4">
                 <Text className="font-bold text-[18px] text-center text-black">
                   BATCH DETAIL EDITOR
                 </Text>

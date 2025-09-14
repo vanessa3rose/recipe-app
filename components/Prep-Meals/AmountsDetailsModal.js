@@ -50,14 +50,14 @@ const AmountsDetailsModal = ({
             <View className="flex flex-row justify-center items-center">
 
               {/* text */}
-              <View className="flex justify-center items-center w-[45%]">
+              <View className="flex justify-center items-center w-[140px]">
                 <Text className="flex w-full pr-5 leading-10 text-[14px] text-right font-semibold text-theme700">
                     AMOUNT LEFT
                 </Text>
               </View>
 
               {/* data */}
-              <View className="flex border-0.5 border-r-0.5 border-zinc700 w-[55%]">
+              <View className="flex-1 border-0.5 border-r-0.5 border-zinc700">
                 <Text className="flex w-full leading-7 text-center text-[12px] text-black bg-theme200">
                     {data.amountLeft} {extractUnit(data.ingredientData[data.ingredientStore].unit, data.amountLeft)}
                 </Text>
@@ -69,14 +69,14 @@ const AmountsDetailsModal = ({
             <View className="flex flex-row justify-center items-center">
 
               {/* text */}
-              <View className="flex justify-center items-center w-[45%]">
+              <View className="flex justify-center items-center w-[140px]">
                 <Text className="flex w-full pr-5 leading-10 text-[14px] text-right font-semibold text-theme700">
                     AMOUNT TOTAL
                 </Text>
               </View>
 
               {/* data */}
-              <View className="flex border-0.5 border-r-0.5 border-zinc700 w-[55%]">
+              <View className="flex-1 border-0.5 border-r-0.5 border-zinc700">
                 <Text className="flex w-full leading-7 text-center text-[12px] text-black bg-theme200">
                   {data.amountTotal === "" ? "?" : data.amountTotal} {extractUnit(data.ingredientData[data.ingredientStore].unit, data.amountTotal)}
                 </Text>

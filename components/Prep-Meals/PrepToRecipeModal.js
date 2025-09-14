@@ -601,7 +601,7 @@ const PrepToRecipeModal = ({
 
               {/* back button if editing */}
               {(editIngredientIndex !== -1 || showFindRecipe) && (
-                <View className="flex w-1/12">
+                <View className="flex absolute left-0 w-[30px]">
                   <Icon
                     name="arrow-back"
                     size={24}
@@ -615,7 +615,7 @@ const PrepToRecipeModal = ({
               )}
 
               {/* Title */}
-              <Text className={`${(editIngredientIndex === -1 && !showFindRecipe) ? "text-center" : "pr-2 text-center"} w-full text-black font-bold py-1 text-[18px]`}>
+              <Text className={`${(editIngredientIndex !== -1 || showFindRecipe) ? "mx-[30px]" : "w-full"} text-center text-black font-bold py-1 text-[18px]`}>
                 {prepData?.prepName || ""}
               </Text>
             </View>

@@ -1036,6 +1036,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       id,
       selected: newSelected[spotlightsIds.indexOf(id)],
     }));
+    console.log(spotlightsData)
       
     // stores the change
     updateDoc(doc(db, 'GLOBALS', 'shopping'), { spotlights: spotlightsData });
@@ -1481,7 +1482,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
 
       {/* RECIPE FILTERING SECTION */}
-      <View className="flex flex-row w-11/12 justify-center items-center mb-[20px]">
+      <View className="flex flex-row w-11/12 h-[15%] mb-1 justify-center items-center">
         
         {/* KEYWORD INPUT */}
         <View className="flex flex-col justify-center items-center w-full space-y-[5px]">
@@ -1567,8 +1568,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   color={colors.zinc500}
                   onPress={() => {
                     // retrieves the name of the recipe taken from
-                    if (selectedSpotlightData !== null && selectedSpotlightData.recipeId !== null && recipeList.find((recipe) => recipe.id === data.recipeId)) {
-                      setRecipeKeywordQuery(recipeList.find((recipe) => recipe.id === data.recipeId)?.recipeName)
+                    if (selectedSpotlightData !== null && selectedSpotlightData.recipeId !== null && recipeList.find((recipe) => recipe.id === selectedSpotlightData?.recipeId)) {
+                      setRecipeKeywordQuery(recipeList.find((recipe) => recipe.id === selectedSpotlightData.recipeId)?.recipeName)
                     } else if (selectedSpotlightData !== null && selectedSpotlightData.recipeId === null) {
                       setRecipeKeywordQuery("");
                     }
@@ -1681,7 +1682,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
 
       {/* SPOTLIGHT CARD SECTION */}
-      <View className={`w-11/12 ${(selectedSpotlightId && currIngredientStores.filter(store => store !== "").length > 0) && "mr-[20px]"} border-[1px] border-black bg-black ${(isKeyboardOpen && keyboardType === "ingredient search") ? "z-0" : ""}`}>
+      <View className={`w-11/12 max-h-[70%] ${(selectedSpotlightId && currIngredientStores.filter(store => store !== "").length > 0) && "mr-[20px]"} border-[1px] border-black bg-black ${(isKeyboardOpen && keyboardType === "ingredient search") ? "z-0" : ""}`}>
 
         {/* TITLE ROW */}
         <View className="flex-row border-b-[1px]">
@@ -1866,7 +1867,6 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
         {/* 12 INGREDIENTS GRID */}
         <ScrollView 
           className="flex flex-col z-10 bg-zinc700 max-h-[360px]"
-          scrollEnabled={keyboardType === "" && isKeyboardOpen}
           onScroll={syncScroll}
         >
 
@@ -2095,7 +2095,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
       {/* INGREDIENT FILTERING SECTION */}
       {(selectedSpotlightData !== null) && (
-        <View className="flex flex-row mt-[20px] space-x-2 px-2">
+        <View className="flex flex-row h-[15%] mt-1 space-x-2 px-2 justify-center items-center">
 
           {/* Left Boxes */}
           <View className="flex flex-col items-center justify-center pr-[5px] ml-[-5px]">
@@ -2174,7 +2174,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
           </View>
 
           {/* Ingredient Search */}
-          <View className="flex flex-row w-[45%] h-[70px]">
+          <View className="flex w-[45%] h-[70px]">
 
             {/* MOCK text input */}
             <TouchableOpacity 

@@ -5,7 +5,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useNavigationState } from '@react-navigation/native';
 
 // UI components
-import { View, Text, ScrollView, FlatList, TextInput, Linking, Keyboard, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TextInput, Linking, Keyboard, TouchableOpacity } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { Picker } from '@react-native-picker/picker';
 
@@ -671,9 +671,9 @@ export default function Data ({ isSelectedTab }) {
       <View className={`flex-1 pl-4 ${filteredData?.length === 0 ? 'pr-4' : 'pr-2'} overflow-x-auto`}>
 
         {/* FILTER ROW */}
-        <View className="flex-row justify-center items-center px-2 w-full">
+        <View className="flex-row justify-center items-center w-full">
           {/* BLANK FILTERING */}
-          <View className="w-1/12 justify-center items-center">
+          <View className="w-[25px] justify-center items-center">
             <Icon
               name={emptyFiltering}
               color={emptyFiltering === "filter-circle-outline" ? 'black' : colors.theme600}
@@ -683,314 +683,309 @@ export default function Data ({ isSelectedTab }) {
           </View>
 
           {/* INGREDIENT FILTERING */}
-          <View className="flex flex-row py-2 pr-2 items-center justify-center">
+          <View className="flex w-full mx-[-30px] px-[35px] flex-col py-2 pr items-center justify-center">
+            {/* normal */}
+            <View className="flex w-full h-[40px] justify-center">
 
-            {/* Filter Input */}
-            <View className="flex flex-col w-11/12">
+              {/* Exact vs Include filtering */}
+              <TouchableOpacity 
+                className={`absolute left-4 z-10 bg-zinc200 rounded-sm px-[0.5px] ${exactFiltering ? "border-t-2 border-t-zinc200 border-b-2 border-b-mauve500 py-[1px]" : "py-[3px]"}`}
+                activeOpacity={1}
+                onPress={() => setExactFiltering(!exactFiltering)}
+              >
+                <Icon
+                  name="text-outline"
+                  size={20}
+                  color={colors.mauve500}
+                />
+              </TouchableOpacity>
 
-              {/* normal */}
-              <View className="flex h-[40px] justify-center">
+              {/* input */}
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={`search for ${filterType}`}
+                placeholderTextColor={colors.zinc400}
+                className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc350 pl-8 pr-[60px] text-[16px] leading-[18px] ml-2.5"
+                onFocus={() => setKeyboardType("")}
+              />
+
+              <View className="absolute right-1 flex flex-row">
+
+                {/* Type Search Button */}
+                {(ingredientsSnapshot?.docs?.length > 0) && (
+                  <Icon 
+                    size={24}
+                    color={colors.theme400}
+                    name="list-circle"
+                    onPress={() => setDetailsModalVisible(true)}
+                  />
+                )}
+
+                {/* Clear Button */}
+                <Icon 
+                  size={24}
+                  color="black"
+                  name="close-outline"
+                  onPress={() => setSearchQuery("")}
+                />
+              </View>
+
+              {/* Show Exclusion Button */}
+              {!showExclusion && (
+                <View className="absolute bottom-[-13px] left-[1.5px] rotate-45">
+                  <Icon
+                    name="trending-down-outline"
+                    size={25}
+                    color={colors.zinc500}
+                    onPress={() => setShowExclusion(true)}
+                  />
+                </View>
+              )}
+            </View>
+
+            {/* exclude */}
+            {showExclusion && (
+              <View className="flex w-full h-[30px] justify-center">
 
                 {/* Exact vs Include filtering */}
                 <TouchableOpacity 
-                  className={`absolute left-4 z-10 bg-zinc200 rounded-sm px-[0.5px] ${exactFiltering ? "border-t-2 border-t-zinc200 border-b-2 border-b-mauve500 py-[1px]" : "py-[3px]"}`}
+                  className={`absolute left-[18px] z-20 bg-zinc300 rounded-sm px-[0.5px] ${exactExclusionFiltering ? "border-t-[1px] border-t-zinc200 border-b-[1px] border-b-mauve600" : "py-[1px]"}`}
                   activeOpacity={1}
-                  onPress={() => setExactFiltering(!exactFiltering)}
+                  onPress={() => setExactExclusionFiltering(!exactExclusionFiltering)}
                 >
                   <Icon
                     name="text-outline"
-                    size={20}
-                    color={colors.mauve500}
+                    size={16}
+                    color={colors.mauve600}
                   />
                 </TouchableOpacity>
 
                 {/* input */}
                 <TextInput
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholder={`search for ${filterType}`}
+                  value={excludeQuery}
+                  onChangeText={setExcludeQuery}
+                  placeholder={`exclude from search`}
                   placeholderTextColor={colors.zinc400}
-                  className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc350 pl-8 pr-[60px] text-[16px] leading-[18px] ml-2.5"
+                  className={`flex-1 text-zinc800 bg-zinc100 rounded-[5px] border-[1px] italic border-zinc350 pl-8 pr-[60px] text-[14px] leading-[16px] ml-2.5 z-10 ${(excludeQuery !== "") && "line-through decoration-mauve500"}`}
                   onFocus={() => setKeyboardType("")}
                 />
 
-                <View className="absolute right-1 flex flex-row">
-
-                  {/* Type Search Button */}
-                  {(ingredientsSnapshot?.docs?.length > 0) && (
-                    <Icon 
-                      size={24}
-                      color={colors.theme400}
-                      name="list-circle"
-                      onPress={() => setDetailsModalVisible(true)}
-                    />
-                  )}
-
-                  {/* Clear Button */}
+                {/* Clear Button */}
+                <View className="absolute right-1 flex flex-row z-20">
                   <Icon 
                     size={24}
                     color="black"
                     name="close-outline"
-                    onPress={() => setSearchQuery("")}
+                    onPress={() => setExcludeQuery("")}
                   />
                 </View>
 
-                {/* Show Exclusion Button */}
-                {!showExclusion && (
-                  <View className="absolute bottom-[-13px] left-[1.5px] rotate-45">
-                    <Icon
-                      name="trending-down-outline"
-                      size={25}
-                      color={colors.zinc500}
-                      onPress={() => setShowExclusion(true)}
-                    />
-                  </View>
-                )}
+                {/* collapse section */}
+                <View className="absolute top-[-2px] left-[-4px] z-0 rotate-90">
+                  <Icon
+                    name="return-down-back-outline"
+                    size={20}
+                    color={colors.zinc600}
+                    onPress={() => setShowExclusion(false)}
+                  />
+                </View>
               </View>
-
-              {/* exclude */}
-              {showExclusion && (
-                <View className="flex h-[30px] justify-center">
-
-                  {/* Exact vs Include filtering */}
-                  <TouchableOpacity 
-                    className={`absolute left-[18px] z-20 bg-zinc300 rounded-sm px-[0.5px] ${exactExclusionFiltering ? "border-t-[1px] border-t-zinc200 border-b-[1px] border-b-mauve600" : "py-[1px]"}`}
-                    activeOpacity={1}
-                    onPress={() => setExactExclusionFiltering(!exactExclusionFiltering)}
-                  >
-                    <Icon
-                      name="text-outline"
-                      size={16}
-                      color={colors.mauve600}
-                    />
-                  </TouchableOpacity>
-
-                  {/* input */}
-                  <TextInput
-                    value={excludeQuery}
-                    onChangeText={setExcludeQuery}
-                    placeholder={`exclude from search`}
-                    placeholderTextColor={colors.zinc400}
-                    className={`flex-1 text-zinc800 bg-zinc100 rounded-[5px] border-[1px] italic border-zinc350 pl-8 pr-[60px] text-[14px] leading-[16px] ml-2.5 z-10 ${(excludeQuery !== "") && "line-through decoration-mauve500"}`}
-                    onFocus={() => setKeyboardType("")}
-                  />
-
-                  {/* Clear Button */}
-                  <View className="absolute right-1 flex flex-row z-20">
-                    <Icon 
-                      size={24}
-                      color="black"
-                      name="close-outline"
-                      onPress={() => setExcludeQuery("")}
-                    />
-                  </View>
-
-                  {/* collapse section */}
-                  <View className="absolute top-[-2px] left-[-4px] z-0 rotate-90">
-                    <Icon
-                      name="return-down-back-outline"
-                      size={20}
-                      color={colors.zinc600}
-                      onPress={() => setShowExclusion(false)}
-                    />
-                  </View>
-                </View>
-              )}
-            </View>
-
-            {/* Add Button */}
-            <View className="flex w-1/12 justify-center items-end">
-              <Icon 
-                size={24}
-                color="black"
-                name="add-circle"
-                onPress={() => {
-                  setAddingType(selectedType);
-                  setModModalVisible(true);
-                }}
-              />
-            </View>
+            )}
           </View>
-        </View>
 
-        {/* SORTING ROW */}
-        <View className="relative w-full pt-2">
-
-          {/* Frozen Sorting Icon */}
-          <View className="w-[125px] flex items-center absolute pt-2">
-            <Icon
-              size={20}
+          {/* Add Button */}
+          <View className="flex w-[25px] justify-center items-center">
+            <Icon 
+              size={24}
               color="black"
-              name={ingredientSort}
-              onPress={() => changeSortCol(ingredientSort, setIngredientSort, 'ingredientName')}
+              name="add-circle"
+              onPress={() => {
+                setAddingType(selectedType);
+                setModModalVisible(true);
+              }}
             />
           </View>
-              
-          {/* Scrollable Sorting Row */}
-          <ScrollView
-            ref={sortScrollRef}
-            horizontal
-            className="ml-[125px] mr-10 relative z-10"
-            scrollEnabled={false}
-          >
-            <View className="w-[90px] flex items-center">
-              <Icon
-                size={20}
-                color="black"
-                name={brandSort}
-                onPress={() => changeSortCol(brandSort, setBrandSort, 'brand')}
-              />
-            </View>
-            <View className="w-[100px] flex items-center">
-              <Icon
-                size={20}
-                color="black"
-                name={servingSizeSort}
-                onPress={() => changeSortCol(servingSizeSort, setServingSizeSort, 'servingSize')}
-              />
-            </View>
-            <View className="w-[90px] flex items-center">
-              <Icon
-                size={20}
-                color="black"
-                name={servingContainerSort}
-                onPress={() => changeSortCol(servingContainerSort, setServingContainerSort, 'servingContainer')}
-              />
-            </View>
-            <View className="w-[100px] flex items-center">
-              <Icon
-                size={20}
-                color="black"
-                name={servingYieldSort}
-                onPress={() => changeSortCol(servingYieldSort, setServingYieldSort, 'totalYield')}
-              />
-            </View>
-            <View className="w-[90px] flex items-center">
-              <Icon
-                size={20}
-                color="black"
-                name={calServingSort}
-                onPress={() => changeSortCol(calServingSort, setCalServingSort, 'calServing')}
-              />
-            </View>
-            <View className="w-[90px] flex items-center">
-              <Icon
-                size={20}
-                color="black"
-                name={calContainerSort}
-                onPress={() => changeSortCol(calContainerSort, setCalContainerSort, 'calContainer')}
-              />
-            </View>
-            <View className="w-[90px] flex items-center">
-              <Icon
-                size={20}
-                color="black"
-                name={priceServingSort}
-                onPress={() => changeSortCol(priceServingSort, setPriceServingSort, 'priceServing')}
-              />
-            </View>
-            <View className="w-[90px] flex items-center">
-              <Icon
-                size={20}
-                color="black"
-                name={priceContainterSort}
-                onPress={() => changeSortCol(priceContainterSort, setPriceContainerSort, 'priceContainer')}
-              />
-            </View>
-          </ScrollView>
         </View>
 
+        <View className="flex-1 mt-2 flex-col w-full justify-center items-center">
+          {/* SORTING ROW */}
+          <View className="h-[25px] max-w-[893px] pt-2">
 
-        <View className="flex-1 flex-row h-5/6">
-
-          {/* MAIN CONTAINER */}
-          <View className="flex-1 mt-2 mb-1 border-2 border-black bg-zinc600 py-2 w-full">
-
-            {/* Store Dropdown */}
-            <View className="absolute w-[125px] h-[50px] bg-zinc800 border-r-2 border-b-2 border-zinc900 z-20">
-              <Picker
-                selectedValue={selectedStore}
-                onValueChange={(itemValue) => setSelectedStore(itemValue)}
-                style={{ height: 50, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, }}
-                itemStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
-              >
-                {storeLabels.map((label, index) => (
-                  <Picker.Item
-                    key={index}
-                    label={label.toUpperCase()}
-                    value={storeKeys[index]}
-                  />
-                ))}
-              </Picker>
+            {/* Frozen Sorting Icon */}
+            <View className="w-[125px] flex items-center absolute pt-2">
+              <Icon
+                size={20}
+                color="black"
+                name={ingredientSort}
+                onPress={() => changeSortCol(ingredientSort, setIngredientSort, 'ingredientName')}
+              />
             </View>
-
-            {/* Type Dropdown */}
-            <View className="absolute mt-[50px] w-[125px] h-[50px] bg-zinc800 border-r-2 border-b-2 border-black">
-              
-              {/* selection */}
-              <View className="z-10">
-                <DropDownPicker
-                  open={typeDropdownOpen}
-                  setOpen={setTypeDropdownOpen}
-                  value={selectedType}
-                  setValue={setSelectedType}
-                  items={typeList.length > 1 
-                    ? [
-                      { label: "all types", value: "-", labelStyle: { color: "white" } },
-                      ...typeList.map(item => ({
-                        label: item.value === 'CUSTOM' ? "no type" : item.label,
-                        value: item.value === 'CUSTOM' ? "" : item.label,
-                        labelStyle: item.value === 'CUSTOM' 
-                          ? { color: colors.zinc450, padding: 12.5, paddingLeft: 15, marginLeft: -10, marginRight: -50, backgroundColor: colors.zinc100 } 
-                          : { color: 'black',  marginRight: selectedType === item.value ? -5 : 0 } 
-                      }))
-                    ]
-                    : [{ label: 'no types available', value: 'none', labelStyle: { color: 'black' }, disabled: true }]
-                  }
-                  listItemContainerStyle={{ borderBottomWidth: 1, borderBottomColor: colors.zinc200, }}
-                  placeholder="all types" 
-                  placeholderStyle={{ fontWeight: 'bold' }}
-                  style={{ height: 50, backgroundColor: colors.zinc800, borderWidth: 0, borderBottomWidth: 2, justifyContent: 'center' }}
-                  dropDownContainerStyle={{ backgroundColor: 'white', }}
-                  textStyle={{ color: colors.theme100, fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
-                  listItemLabelStyle={{ textAlign: 'left', paddingLeft: 5, fontSize: 12, color: colors.zinc800, }}
-                  TickIconComponent={() => selectedType !== "-" && <Icon name="checkmark" size={18} color="black" /> }
-                  ArrowDownIconComponent={() => {
-                    return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
-                  }}
-                  ArrowUpIconComponent={() => {
-                    return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
-                  }}
+                
+            {/* Scrollable Sorting Row */}
+            <ScrollView
+              ref={sortScrollRef}
+              horizontal
+              className="ml-[125px] mr-10 relative z-10"
+              scrollEnabled={false}
+            >
+              <View className="w-[90px] flex items-center">
+                <Icon
+                  size={20}
+                  color="black"
+                  name={brandSort}
+                  onPress={() => changeSortCol(brandSort, setBrandSort, 'brand')}
                 />
               </View>
-              
-              {/* Frozen "all" Selection */}
-              {typeDropdownOpen && (
-                <TouchableOpacity
-                  className="w-full absolute z-40 mt-[50px] h-[40px] bg-zinc200 justify-center items-start pl-4 border-x-[1px] border-x-black border-b-[0.5px] border-b-zinc300"
-                  onPress={() => {
-                    setSelectedType("-")
-                    setTypeDropdownOpen(false);
-                  }}
-                >
-                  {/* label */}
-                  <Text className="text-theme600 text-[12px] font-bold">
-                    all types
-                  </Text>
+              <View className="w-[100px] flex items-center">
+                <Icon
+                  size={20}
+                  color="black"
+                  name={servingSizeSort}
+                  onPress={() => changeSortCol(servingSizeSort, setServingSizeSort, 'servingSize')}
+                />
+              </View>
+              <View className="w-[90px] flex items-center">
+                <Icon
+                  size={20}
+                  color="black"
+                  name={servingContainerSort}
+                  onPress={() => changeSortCol(servingContainerSort, setServingContainerSort, 'servingContainer')}
+                />
+              </View>
+              <View className="w-[100px] flex items-center">
+                <Icon
+                  size={20}
+                  color="black"
+                  name={servingYieldSort}
+                  onPress={() => changeSortCol(servingYieldSort, setServingYieldSort, 'totalYield')}
+                />
+              </View>
+              <View className="w-[90px] flex items-center">
+                <Icon
+                  size={20}
+                  color="black"
+                  name={calServingSort}
+                  onPress={() => changeSortCol(calServingSort, setCalServingSort, 'calServing')}
+                />
+              </View>
+              <View className="w-[90px] flex items-center">
+                <Icon
+                  size={20}
+                  color="black"
+                  name={calContainerSort}
+                  onPress={() => changeSortCol(calContainerSort, setCalContainerSort, 'calContainer')}
+                />
+              </View>
+              <View className="w-[90px] flex items-center">
+                <Icon
+                  size={20}
+                  color="black"
+                  name={priceServingSort}
+                  onPress={() => changeSortCol(priceServingSort, setPriceServingSort, 'priceServing')}
+                />
+              </View>
+              <View className="w-[90px] flex items-center">
+                <Icon
+                  size={20}
+                  color="black"
+                  name={priceContainterSort}
+                  onPress={() => changeSortCol(priceContainterSort, setPriceContainerSort, 'priceContainer')}
+                />
+              </View>
+            </ScrollView>
+          </View>
 
-                  {/* indicator */}
-                  {(selectedType === "-") && (
-                    <View className="absolute right-2">
-                      <Icon 
-                        name="checkmark" 
-                        size={18} 
-                        color="black" 
-                      />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
+          <View className="flex-1 flex-row h-5/6 max-w-[893px]">
+
+            {/* MAIN CONTAINER */}
+            <View className="flex-1 mt-2 mb-1 border-2 border-black bg-zinc600 py-2">
+
+              {/* Store Dropdown */}
+              <View className="absolute w-[125px] h-[50px] bg-zinc800 border-r-2 border-b-2 border-zinc900 z-20">
+                <Picker
+                  selectedValue={selectedStore}
+                  onValueChange={(itemValue) => setSelectedStore(itemValue)}
+                  style={{ height: 50, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, }}
+                  itemStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
+                >
+                  {storeLabels.map((label, index) => (
+                    <Picker.Item
+                      key={index}
+                      label={label.toUpperCase()}
+                      value={storeKeys[index]}
+                    />
+                  ))}
+                </Picker>
+              </View>
+
+              {/* Type Dropdown */}
+              <View className="absolute mt-[50px] w-[125px] h-[50px] bg-zinc800 border-r-2 border-b-2 border-black">
+                
+                {/* selection */}
+                <View className="z-10">
+                  <DropDownPicker
+                    open={typeDropdownOpen}
+                    setOpen={setTypeDropdownOpen}
+                    value={selectedType}
+                    setValue={setSelectedType}
+                    items={typeList.length > 1 
+                      ? [
+                        { label: "all types", value: "-", labelStyle: { color: "white" } },
+                        ...typeList.map(item => ({
+                          label: item.value === 'CUSTOM' ? "no type" : item.label,
+                          value: item.value === 'CUSTOM' ? "" : item.label,
+                          labelStyle: item.value === 'CUSTOM' 
+                            ? { color: colors.zinc450, padding: 12.5, paddingLeft: 15, marginLeft: -10, marginRight: -50, backgroundColor: colors.zinc100 } 
+                            : { color: 'black',  marginRight: selectedType === item.value ? -5 : 0 } 
+                        }))
+                      ]
+                      : [{ label: 'no types available', value: 'none', labelStyle: { color: 'black' }, disabled: true }]
+                    }
+                    listItemContainerStyle={{ borderBottomWidth: 1, borderBottomColor: colors.zinc200, }}
+                    placeholder="all types" 
+                    placeholderStyle={{ fontWeight: 'bold' }}
+                    style={{ height: 50, backgroundColor: colors.zinc800, borderWidth: 0, borderBottomWidth: 2, justifyContent: 'center' }}
+                    dropDownContainerStyle={{ backgroundColor: 'white', }}
+                    textStyle={{ color: colors.theme100, fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
+                    listItemLabelStyle={{ textAlign: 'left', paddingLeft: 5, fontSize: 12, color: colors.zinc800, }}
+                    TickIconComponent={() => selectedType !== "-" && <Icon name="checkmark" size={18} color="black" /> }
+                    ArrowDownIconComponent={() => {
+                      return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
+                    }}
+                    ArrowUpIconComponent={() => {
+                      return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
+                    }}
+                  />
+                </View>
+                
+                {/* Frozen "all" Selection */}
+                {typeDropdownOpen && (
+                  <TouchableOpacity
+                    className="w-full absolute z-40 mt-[50px] h-[40px] bg-zinc200 justify-center items-start pl-4 border-x-[1px] border-x-black border-b-[0.5px] border-b-zinc300"
+                    onPress={() => {
+                      setSelectedType("-")
+                      setTypeDropdownOpen(false);
+                    }}
+                  >
+                    {/* label */}
+                    <Text className="text-theme600 text-[12px] font-bold">
+                      all types
+                    </Text>
+
+                    {/* indicator */}
+                    {(selectedType === "-") && (
+                      <View className="absolute right-2">
+                        <Icon 
+                          name="checkmark" 
+                          size={18} 
+                          color="black" 
+                        />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
 
               {/* Scrollable */}
               <ScrollView
@@ -1099,236 +1094,236 @@ export default function Data ({ isSelectedTab }) {
                 </View>
               </ScrollView>
 
-            {/* Scrollable Content */}
-            {filteredData.length > 0 
-            ?
-              <ScrollView
-                className="mt-[100px] mb-[25px]"
-                ref={verticalScrollRef}
-                vertical
-                onScroll={syncVerticalScroll}
-                scrollEventThrottle={16}
-                contentContainerStyle={{ flexDirection: 'row' }}
-              >
-                {/* Fixed First Column */}
-                <View className="w-[125px]">
-                  {filteredData?.map((ingredient, index) => (
-                    <View 
-                      key={index} 
-                      className={`border-b-0.5 border-b-theme600 border-r-2 h-[${ITEM_HEIGHT}px] ${currIngredientName === ingredient.ingredientName ? "border-r-zinc500" : "border-r-theme600"} ${index % 2 !== 0 ? (currIngredientName === ingredient.ingredientName ? 'bg-zinc450' : 'bg-theme400') : (currIngredientName === ingredient.ingredientName ? 'bg-zinc350' : 'bg-theme300')} w-[125px] flex justify-center items-center`}
-                    >
-                      {/* name */}
-                      <Text
-                        className={`text-center font-bold text-white text-[12px] px-2 ${ingredient.link && "underline"}`}
-                        onPress={ ingredient.link ? () => Linking.openURL(ingredient.link) : undefined }
-                      >
-                        {ingredient.ingredientName}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Scrollable Columns */}
+              {/* Scrollable Content */}
+              {filteredData.length > 0 
+              ?
                 <ScrollView
-                  ref={horizontalScrollRef}
-                  horizontal
-                  onScroll={syncHorizontalScroll}
+                  className="mt-[100px] mb-[25px]"
+                  ref={verticalScrollRef}
+                  vertical
+                  onScroll={syncVerticalScroll}
                   scrollEventThrottle={16}
+                  contentContainerStyle={{ flexDirection: 'row' }}
                 >
-                  <View>
-                  {filteredData?.map((ingredient, index) => (
-
-                    <View key={index} className={`flex-row h-[${ITEM_HEIGHT}px] ${index % 2 !== 0 ? 'bg-gray200' : 'bg-white'}`}>
-
-                      {/* Brand */}
-                      <View className="w-[90px] flex justify-center items-center p-2 border-r-2 border-zinc500">
-                        <Text className="text-[12px] -mx-1 text-center">{ingredient.brand}</Text>
+                  {/* Fixed First Column */}
+                  <View className="w-[125px]">
+                    {filteredData?.map((ingredient, index) => (
+                      <View 
+                        key={index} 
+                        className={`border-b-0.5 border-b-theme600 border-r-2 h-[${ITEM_HEIGHT}px] ${currIngredientName === ingredient.ingredientName ? "border-r-zinc500" : "border-r-theme600"} ${index % 2 !== 0 ? (currIngredientName === ingredient.ingredientName ? 'bg-zinc450' : 'bg-theme400') : (currIngredientName === ingredient.ingredientName ? 'bg-zinc350' : 'bg-theme300')} w-[125px] flex justify-center items-center`}
+                      >
+                        {/* name */}
+                        <Text
+                          className={`text-center font-bold text-white text-[12px] px-2 ${ingredient.link && "underline"}`}
+                          onPress={ ingredient.link ? () => Linking.openURL(ingredient.link) : undefined }
+                        >
+                          {ingredient.ingredientName}
+                        </Text>
                       </View>
-
-                      {/* Serving size + unit */}
-                      <View className="w-[100px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
-                        <Text className="text-[12px] text-center">{`${ingredient.servingSize} ${ingredient.unit}`}</Text>
-                      </View>
-
-                      {/* Serving container */}
-                      <View className="w-[90px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
-                        <Text className="text-[12px] text-center">{ingredient.servingContainer}</Text>
-                      </View>
-
-                      {/* Total yield */}
-                      <View className="w-[100px] flex justify-center items-center p-2 border-r-2 border-zinc500">
-                        <Text className="text-[12px] text-center">{`${ingredient.totalYield} ${ingredient.unit}`}</Text>
-                      </View>
-
-                      {/* Calories per serving */}
-                      <View className="w-[90px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
-                        <Text className="text-[12px] text-center">{ingredient.calServing}</Text>
-                      </View>
-
-                      {/* Calories per container */}
-                      <View className="w-[90px] flex justify-center items-center p-2 border-r-2 border-zinc500">
-                        <Text className="text-[12px] text-center">{ingredient.calContainer}</Text>
-                      </View>
-
-                      {/* Price per serving */}
-                      <View className="w-[90px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
-                        <Text className="text-[12px] text-center">{`${ingredient.priceServing !== "" ? "$" : ""}${ingredient.priceServing}`}</Text>
-                      </View>
-
-                      {/* Price per container */}
-                      <View className="w-[90px] flex justify-center items-center p-2">
-                        <Text className="text-[12px] text-center">{`${ingredient.priceServing !== "" ? "$" : ""}${ingredient.priceContainer}`}</Text>
-                      </View>
-                    </View>
-                  ))}
+                    ))}
                   </View>
+
+                  {/* Scrollable Columns */}
+                  <ScrollView
+                    ref={horizontalScrollRef}
+                    horizontal
+                    onScroll={syncHorizontalScroll}
+                    scrollEventThrottle={16}
+                  >
+                    <View>
+                    {filteredData?.map((ingredient, index) => (
+
+                      <View key={index} className={`flex-row h-[${ITEM_HEIGHT}px] ${index % 2 !== 0 ? 'bg-gray200' : 'bg-white'}`}>
+
+                        {/* Brand */}
+                        <View className="w-[90px] flex justify-center items-center p-2 border-r-2 border-zinc500">
+                          <Text className="text-[12px] -mx-1 text-center">{ingredient.brand}</Text>
+                        </View>
+
+                        {/* Serving size + unit */}
+                        <View className="w-[100px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
+                          <Text className="text-[12px] text-center">{`${ingredient.servingSize} ${ingredient.unit}`}</Text>
+                        </View>
+
+                        {/* Serving container */}
+                        <View className="w-[90px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
+                          <Text className="text-[12px] text-center">{ingredient.servingContainer}</Text>
+                        </View>
+
+                        {/* Total yield */}
+                        <View className="w-[100px] flex justify-center items-center p-2 border-r-2 border-zinc500">
+                          <Text className="text-[12px] text-center">{`${ingredient.totalYield} ${ingredient.unit}`}</Text>
+                        </View>
+
+                        {/* Calories per serving */}
+                        <View className="w-[90px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
+                          <Text className="text-[12px] text-center">{ingredient.calServing}</Text>
+                        </View>
+
+                        {/* Calories per container */}
+                        <View className="w-[90px] flex justify-center items-center p-2 border-r-2 border-zinc500">
+                          <Text className="text-[12px] text-center">{ingredient.calContainer}</Text>
+                        </View>
+
+                        {/* Price per serving */}
+                        <View className="w-[90px] flex justify-center items-center p-2 border-r-0.5 border-zinc500">
+                          <Text className="text-[12px] text-center">{`${ingredient.priceServing !== "" ? "$" : ""}${ingredient.priceServing}`}</Text>
+                        </View>
+
+                        {/* Price per container */}
+                        <View className="w-[90px] flex justify-center items-center p-2">
+                          <Text className="text-[12px] text-center">{`${ingredient.priceServing !== "" ? "$" : ""}${ingredient.priceContainer}`}</Text>
+                        </View>
+                      </View>
+                    ))}
+                    </View>
+                  </ScrollView>
                 </ScrollView>
-              </ScrollView>
-            :
-              // if there are no ingredients / filtering doesn't match any
-              <View className="flex w-full h-full pt-[50px] justify-center items-center">
-                <Text className="text-theme200 italic font-bold">
-                  NO INGREDIENTS AVAILABLE
-                </Text>
-              </View>
-            }
-
-
-            {/* PAGES */}
-            {(dataLength > 0) && (
-              <View className="flex flex-row absolute bottom-1.5 justify-between px-2 w-full">
-                  
-                <View className="flex flex-row space-x-2 justify-center items-center h-full">
-                  {/* Clear Current */}
-                  <Icon
-                    name="reload"
-                    size={14}
-                    color={colors.zinc200}
-                    onPress={() => filterIngredientData(ingredientsSnapshot, "", recipeIds, spotlightIds, 1)}
-                  />
-
-                  {/* Number of Ingredients */}
-                  <Text className="text-center text-[13px] leading italic font-medium text-zinc300">
-                    {dataLength}
+              :
+                // if there are no ingredients / filtering doesn't match any
+                <View className="flex w-full h-full pt-[50px] justify-center items-center">
+                  <Text className="text-theme200 italic font-bold">
+                    NO INGREDIENTS AVAILABLE
                   </Text>
                 </View>
+              }
 
-                {/* Page Selection */}
-                <View className="flex flex-row space-x-1">
-                  {/* Page Back */}
-                  {(Number(dataPage) > 1 && Number(dataPage) <= (Math.ceil(dataLength / NUM_PER_PAGE))) && (
-                    <View className="flex h-full justify-center">
-                      <Icon
-                        name="chevron-back"
-                        size={16}
-                        color={colors.zinc200}
-                        onPress={ !isNaN(Number(dataPage)) ? () => 
-                          filterIngredientData(ingredientsSnapshot, "", recipeIds, spotlightIds,
-                            (Number(dataPage) - 1).toString() // dataPage
-                          ) : undefined
-                        }
-                      />
-                    </View>
-                  )}
-                  
-                  {/* Page Number */}
-                  <View className="flex flex-row justify-center items-center h-full">
-                    <TextInput
-                      className="text-center text-[13px] italic font-medium text-zinc200"
-                      placeholderTextColor={colors.zinc400}
-                      value={dataPage}
-                      onChangeText={(value) => 
-                        filterIngredientData(ingredientsSnapshot, "", recipeIds, spotlightIds,
-                          // dataPage
-                          value === "" ||
-                          Number(value) >= 1 && Number(value) <= Math.ceil(dataLength / NUM_PER_PAGE) 
-                          ? value : dataPage
-                        )
-                      }
-                      onFocus={() => setKeyboardType("page")}
-                      onBlur={() => {
-                        setKeyboardType("");
-                        filterIngredientData(ingredientsSnapshot, "", recipeIds, spotlightIds,
-                          (dataPage === "" ? "1" : dataPage) // dataPage
-                        )
-                      }}
+
+              {/* PAGES */}
+              {(dataLength > 0) && (
+                <View className="flex flex-row absolute bottom-1.5 justify-between px-2 w-full">
+                    
+                  <View className="flex flex-row space-x-2 justify-center items-center h-full">
+                    {/* Clear Current */}
+                    <Icon
+                      name="reload"
+                      size={14}
+                      color={colors.zinc200}
+                      onPress={() => filterIngredientData(ingredientsSnapshot, "", recipeIds, spotlightIds, 1)}
                     />
-                    <Text className="text-center text-[13px] leading italic font-medium text-zinc200">
-                      {` / ${Math.ceil(dataLength / NUM_PER_PAGE) === 0 ? "1" : Math.ceil(dataLength / NUM_PER_PAGE)}`}
+
+                    {/* Number of Ingredients */}
+                    <Text className="text-center text-[13px] leading italic font-medium text-zinc300">
+                      {dataLength}
                     </Text>
                   </View>
-                  
-                  {/* Page Forward */}
-                  {(dataPage < Math.ceil(dataLength / NUM_PER_PAGE) && Math.ceil(dataLength / NUM_PER_PAGE) !== 0) && (
-                    <View className="flex h-full justify-center mr-[-4px]">
-                      <Icon
-                        name="chevron-forward"
-                        size={16}
-                        color={colors.zinc200}
-                        onPress={() => 
+
+                  {/* Page Selection */}
+                  <View className="flex flex-row space-x-1">
+                    {/* Page Back */}
+                    {(Number(dataPage) > 1 && Number(dataPage) <= (Math.ceil(dataLength / NUM_PER_PAGE))) && (
+                      <View className="flex h-full justify-center">
+                        <Icon
+                          name="chevron-back"
+                          size={16}
+                          color={colors.zinc200}
+                          onPress={ !isNaN(Number(dataPage)) ? () => 
+                            filterIngredientData(ingredientsSnapshot, "", recipeIds, spotlightIds,
+                              (Number(dataPage) - 1).toString() // dataPage
+                            ) : undefined
+                          }
+                        />
+                      </View>
+                    )}
+                    
+                    {/* Page Number */}
+                    <View className="flex flex-row justify-center items-center h-full">
+                      <TextInput
+                        className="text-center text-[13px] italic font-medium text-zinc200"
+                        placeholderTextColor={colors.zinc400}
+                        value={dataPage}
+                        onChangeText={(value) => 
                           filterIngredientData(ingredientsSnapshot, "", recipeIds, spotlightIds,
-                            (Number(dataPage) + 1).toString() // dataPage
+                            // dataPage
+                            value === "" ||
+                            Number(value) >= 1 && Number(value) <= Math.ceil(dataLength / NUM_PER_PAGE) 
+                            ? value : dataPage
                           )
                         }
+                        onFocus={() => setKeyboardType("page")}
+                        onBlur={() => {
+                          setKeyboardType("");
+                          filterIngredientData(ingredientsSnapshot, "", recipeIds, spotlightIds,
+                            (dataPage === "" ? "1" : dataPage) // dataPage
+                          )
+                        }}
                       />
+                      <Text className="text-center text-[13px] leading italic font-medium text-zinc200">
+                        {` / ${Math.ceil(dataLength / NUM_PER_PAGE) === 0 ? "1" : Math.ceil(dataLength / NUM_PER_PAGE)}`}
+                      </Text>
                     </View>
-                  )}
+                    
+                    {/* Page Forward */}
+                    {(dataPage < Math.ceil(dataLength / NUM_PER_PAGE) && Math.ceil(dataLength / NUM_PER_PAGE) !== 0) && (
+                      <View className="flex h-full justify-center mr-[-4px]">
+                        <Icon
+                          name="chevron-forward"
+                          size={16}
+                          color={colors.zinc200}
+                          onPress={() => 
+                            filterIngredientData(ingredientsSnapshot, "", recipeIds, spotlightIds,
+                              (Number(dataPage) + 1).toString() // dataPage
+                            )
+                          }
+                        />
+                      </View>
+                    )}
+                  </View>
                 </View>
-              </View>
-            )}
-          </View>
-
-
-          {/* Included in recipe/spotlight filtering */}
-          <TouchableOpacity
-            className={`mt-2 h-[100px] absolute right-0 justify-center items-center z-50 ${(filteredData.length === 0) && "bg-zinc900 border-l-2"}`}
-            onPress={() => setIncludedFiltering(includedFiltering === "remove" ? "link" : includedFiltering === "link" ? "unlink" : includedFiltering === "unlink" && "remove")}
-          >
-            <View className="rotate-90">
-              <Icon
-                name={includedFiltering}
-                size={includedFiltering === "remove" ? 25 : 20}
-                color={filteredData.length === 0 ? colors.mauve200 : colors.theme800}
-              />
+              )}
             </View>
-          </TouchableOpacity>
 
-          {/* Fixed Edit/Delete Column */}
-          <View className="flex pt-[120px] pb-4">
-            <ScrollView
-              className="right-[-1px] mb-[25px]"
-              vertical
-              ref={modScrollRef}
-              scrollEnabled={false}
+
+            {/* Included in recipe/spotlight filtering */}
+            <TouchableOpacity
+              className={`mt-2 h-[100px] absolute right-0 justify-center items-center z-50 ${(filteredData.length === 0) && "bg-zinc900 border-l-2"}`}
+              onPress={() => setIncludedFiltering(includedFiltering === "remove" ? "link" : includedFiltering === "link" ? "unlink" : includedFiltering === "unlink" && "remove")}
             >
-              {filteredData?.map((ingredient, index) => (
+              <View className="rotate-90">
+                <Icon
+                  name={includedFiltering}
+                  size={includedFiltering === "remove" ? 25 : 20}
+                  color={filteredData.length === 0 ? colors.mauve200 : colors.theme800}
+                />
+              </View>
+            </TouchableOpacity>
 
-                <View 
-                  key={index} 
-                  className={`w-[25px] h-[${ITEM_HEIGHT}px] flex justify-center items-center`}
-                >
-                  {/* Delete Button */}
-                  <Icon
-                    size={(new Set([...recipeIds, ...spotlightIds])).has(ingredient.id) ? 25 : 20}
-                    color={(new Set([...recipeIds, ...spotlightIds])).has(ingredient.id) ? colors.mauve600 : "black"}
-                    name={(new Set([...recipeIds, ...spotlightIds])).has(ingredient.id) ? "close-circle-outline" : "close"}
-                    onPress={() => openDeleteModal(ingredient.id)}
-                    className="mt-6"
-                  />
+            {/* Fixed Edit/Delete Column */}
+            <View className="flex pt-[120px] pb-4">
+              <ScrollView
+                className="right-[-1px] mb-[25px]"
+                vertical
+                ref={modScrollRef}
+                scrollEnabled={false}
+              >
+                {filteredData?.map((ingredient, index) => (
 
-                  {/* Edit Button */}
-                  <Icon
-                    size={20}
-                    color="black"
-                    name="ellipsis-horizontal-outline"
-                    onPress={() => openEditModal(ingredient.id)}
-                  />
-                </View>
-              ))}
-            </ScrollView>
+                  <View 
+                    key={index} 
+                    className={`w-[25px] h-[${ITEM_HEIGHT}px] flex justify-center items-center`}
+                  >
+                    {/* Delete Button */}
+                    <Icon
+                      size={(new Set([...recipeIds, ...spotlightIds])).has(ingredient.id) ? 25 : 20}
+                      color={(new Set([...recipeIds, ...spotlightIds])).has(ingredient.id) ? colors.mauve600 : "black"}
+                      name={(new Set([...recipeIds, ...spotlightIds])).has(ingredient.id) ? "close-circle-outline" : "close"}
+                      onPress={() => openDeleteModal(ingredient.id)}
+                      className="mt-6"
+                    />
+
+                    {/* Edit Button */}
+                    <Icon
+                      size={20}
+                      color="black"
+                      name="ellipsis-horizontal-outline"
+                      onPress={() => openEditModal(ingredient.id)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
           </View>
         </View>
-
 
         {/* Modal that appears to modify types / brands / units */}
         {detailsModalVisible && (

@@ -6,7 +6,6 @@ import { useNavigationState } from '@react-navigation/native';
 
 // UI components
 import { View, Text, ScrollView, TextInput, TouchableOpacity, FlatList, Linking, Keyboard, Image } from 'react-native';
-import DropDownPicker from 'react-native-dropdown-picker';
 import { Picker } from '@react-native-picker/picker';
 
 // visual effects
@@ -1251,7 +1250,7 @@ export default function Recipes ({ isSelectedTab }) {
     <View className="flex-1 items-center justify-center bg-zinc200 border-0.5">
 
       {/* RECIPE FILTERING SECTION */}
-      <View className="flex flex-row w-full justify-center items-center mb-[20px]">
+      <View className="flex flex-row w-full h-[15%] mb-1 justify-center items-center">
         
         {/* KEYWORD INPUT */}
         <View className="flex flex-col w-2/3 space-y-[5px]">
@@ -1360,7 +1359,7 @@ export default function Recipes ({ isSelectedTab }) {
 
 
       {/* RECIPE CARD SECTION */}
-      <View className={`w-11/12 ${selectedRecipeId ? "mr-[20px]" : ""} bg-zinc100 border-[1px] border-black ${(isKeyboardOpen && keyboardType === "ingredient search") ? "z-0" : ""}`}>
+      <View className={`w-11/12 max-h-[70%] ${selectedRecipeId ? "mr-[20px]" : ""} bg-zinc100 border-[1px] border-black ${(isKeyboardOpen && keyboardType === "ingredient search") ? "z-0" : ""}`}>
 
         {/* TITLE ROW */}
         <View className="flex-row bg-theme800 border-b-[1px]">
@@ -1501,7 +1500,6 @@ export default function Recipes ({ isSelectedTab }) {
         {/* 12 INGREDIENTS GRID */}
         <ScrollView 
           className="flex flex-col z-10 bg-zinc700 max-h-[360px]"
-          scrollEnabled={keyboardType === "" && isKeyboardOpen}
           onScroll={syncScroll}
         >
 
@@ -1845,7 +1843,7 @@ export default function Recipes ({ isSelectedTab }) {
 
       {/* INGREDIENT FILTERING SECTION */}
       {(selectedRecipeData !== null) && (
-        <View className="flex flex-row mt-[20px] space-x-2 px-2">
+        <View className="flex flex-row h-[15%] mt-1 space-x-2 px-2 justify-center items-center">
 
           {/* Left Boxes */}
           <View className="flex flex-col items-center justify-center pr-[5px] ml-[-5px]">

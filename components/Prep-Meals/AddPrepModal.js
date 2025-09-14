@@ -275,7 +275,7 @@ const AddPrepModal = ({
           <>
         
           {/* HEADER */}
-          <View className="flex-row justify-between w-11/12">
+          <View className="flex-row justify-between mr-6">
 
             {/* Arrow Indicating Other Option */}
             <View className="absolute left-1 justify-center items-center h-full">
@@ -307,7 +307,7 @@ const AddPrepModal = ({
 
 
             {/* BUTTONS */}
-            <View className="flex flex-row w-1/6 ml-4 items-center justify-center space-x-[-4px]">
+            <View className="flex flex-row w-1/6 ml-3 items-center justify-end space-x-[-4px]">
               
               {/* Check */}
               <Icon 

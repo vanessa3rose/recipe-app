@@ -1309,7 +1309,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
       {/* NOTES SECTION */}
       {(selectedPrepData !== null) && (
-        <View className="flex flex-row w-5/6 justify-center items-center mb-[20px]">
+        <View className="flex flex-row w-5/6 h-[13.5%] mb-1 justify-center items-center">
           <View className="bg-zinc200 w-full h-[50px]">
 
             {/* text input */}
@@ -1368,7 +1368,7 @@ export default function MealPrep ({ isSelectedTab }) {
       )}
 
       {/* PREP CARD SECTION */}
-      <View className={`flex flex-row space-x-0.5 ${(selectedPrepData && selectedPrepData.currentData.indexOf(null) !== -1) ? "mx-1" : "justify-center items-center"}`}>
+      <View className={`flex flex-row max-h-[70%] space-x-0.5 ${(selectedPrepData && selectedPrepData.currentData.indexOf(null) !== -1) ? "mx-1" : "justify-center items-center"}`}>
        
         {/* Main Section */}
         <View className="w-11/12 border-[1px] border-black bg-black">
@@ -1497,6 +1497,29 @@ export default function MealPrep ({ isSelectedTab }) {
                     </View>
                   )}
                 </View>
+          
+                {/* Selected Button */}
+                {(prepsIds !== null && selectedPrepId !== null) && (
+                  <View className="absolute right-2 w-1/12 h-[50px] items-end justify-center">
+                    {/* Signifier */}
+                    <View className="absolute z-40">
+                      <Icon
+                        name={prepsCompleted[prepsIds.indexOf(selectedPrepId)] ? "heart-circle" : "heart-dislike-circle"}
+                        size={24}
+                        color={colors.zinc900}
+                        onPress={() => changeCompleted()}
+                      />
+                    </View>
+                    {/* Background */}
+                    <View className="absolute z-30">
+                      <Icon
+                        name="ellipse"
+                        size={24}
+                        color={colors.zinc300}
+                      />
+                    </View>
+                  </View>
+                )}
               </View>
 
               {/* Multiplicity */}
@@ -1556,29 +1579,6 @@ export default function MealPrep ({ isSelectedTab }) {
               )}
             </View>
           </View>
-          
-          {/* Selected Button */}
-          {(prepsIds !== null && selectedPrepId !== null) && (
-            <View className="absolute w-5/6 bg-zinc100">
-              {/* Signifier */}
-              <View className="absolute right-4 w-1/12 h-[50px] items-end justify-center z-40">
-                <Icon
-                  name={prepsCompleted[prepsIds.indexOf(selectedPrepId)] ? "heart-circle" : "heart-dislike-circle"}
-                  size={24}
-                  color={colors.zinc900}
-                  onPress={() => changeCompleted()}
-                />
-              </View>
-              {/* Background */}
-              <View className="absolute right-4 w-1/12 h-[50px] items-end justify-center z-30">
-                <Icon
-                  name="ellipse"
-                  size={24}
-                  color={colors.zinc300}
-                />
-              </View>
-            </View>
-          )}
         
           {/* HEADER ROW */}
           <View className="w-full flex flex-row h-[30px] bg-theme900 border-b-[1px] z-20">
@@ -1587,21 +1587,21 @@ export default function MealPrep ({ isSelectedTab }) {
                 {/* ingredient header */}
                 <View className="flex items-center justify-center w-5/12 border-r-0.5">
                     <Text className="text-white text-xs font-bold">
-                        INGREDIENT
+                      INGREDIENT
                     </Text>
                 </View>
 
                 {/* amount header */}
                 <View className="flex items-center justify-center w-1/3 border-r-0.5">
                     <Text className="text-white text-xs font-bold">
-                        AMOUNT
+                      AMOUNT
                     </Text>
                 </View>
 
                 {/* details header */}
                 <View className="flex items-center justify-center w-1/4">
                     <Text className="text-white text-xs font-bold">
-                        DETAILS
+                      DETAILS
                     </Text>
                 </View>
               </>
@@ -1612,10 +1612,8 @@ export default function MealPrep ({ isSelectedTab }) {
           {/* 12 INGREDIENTS GRID */}
           <ScrollView 
             className="flex flex-col z-10 bg-zinc700 max-h-[360px]"
-            scrollEnabled={isKeyboardOpen}
             onScroll={syncScroll}
           >
-
             {Array.from({ length: 12 }, (_, index) => (
               <View key={`frozen-${index}`} className="flex flex-row h-[30px] bg-white">
                 
@@ -1831,7 +1829,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
       {/* CURRENT INGREDIENT SELECTION SECTION */}
       {selectedPrepData !== null && (
-        <View className="flex flex-row mt-[20px]">
+        <View className="flex flex-row h-[16.5%] mt-1 items-center justify-center">
 
           {/* Left Boxes */}
           <View className="flex flex-col pr-[10px] items-center justify-center">
