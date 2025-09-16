@@ -26,12 +26,15 @@ export default function Details ({ isSelectedTab }) {
   
 
   ///////////////////////////////// NAVIGATION LOGIC /////////////////////////////////
+  
+  const firstLoad = useRef(true);
 
   // if the tab has changed, refresh the data from the globals
   useEffect(() => {
     
-    if (isSelectedTab) {
-      updatePreps();
+    if (isSelectedTab && !firstLoad.current) {
+      onNav();
+      firstLoad.current = false;
     }
   }, [isSelectedTab])
 
@@ -44,13 +47,88 @@ export default function Details ({ isSelectedTab }) {
     // if the page has changed to the current one, refetch the current data from the globals
     if (isSelectedTab && previousIndexRef !== null && previousIndexRef.current !== currentIndex && currentIndex === 2) {
       setTimeout(() => {
-        updatePreps();
+        onNav();
+        firstLoad.current = false;
       }, 1000);
     }
 
     // updates the ref to the new index
     previousIndexRef.current = currentIndex;
   }, [currentIndex]);
+
+
+  // on navigation
+  const onNav = async () => {
+
+    // processes meal preps
+    const querySnapshot = await getDocs(collection(db, 'PREPS'));
+    const prepsArray = querySnapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => a.prepName.localeCompare(b.prepName));
+    setPrepData(prepsArray);
+
+                
+    // gets current global prep info and stores it
+    const prep = await getDoc(doc(db, 'GLOBALS', 'prep'));
+    const unfinished = prep.data().unfinished;
+    setShowUnfinished(unfinished);
+    const ids = prep.data().preps.map((doc) => doc.id);
+    setPrepsIds(ids);
+    const completed = prep.data().preps.map((doc) => doc.completed);
+    setPrepsCompleted(completed);
+
+    
+    // to calculate the amounts
+    if (prepsArray) {
+      const prepIds = prepsArray.map((prep) => prep.id);
+
+      // for calculations of the three prior states
+      const available = prepsArray.map((prep) => (prep.prepMult !== "" ? prep.prepMult : 0));
+      let remaining = prepsArray.map((prep) => (prep.prepMult !== "" ? prep.prepMult : 0));
+      const dates = available.map(() => []);
+      
+      // gets all current ingredient data
+      const plansSnapshot = await getDocs(collection(db, 'PLANS'));
+
+      // loops over the meal preps and weekly plans
+      for (let i = 0; i < available.length; i++) {
+        plansSnapshot.forEach(async (planDoc) => {
+
+          // gets the current plan data
+          const planData = planDoc.data();
+          const planId = planDoc.id;
+          
+          // if the date of the current plan is on or after today
+          if (planId >= today.dateString) {
+
+            // if the current meal prep id is stores in the plan's lunch
+            if (planData.meals.lunch.prepId === prepIds[i]) { 
+              // decrement the number of remaining preps and store the date
+              remaining[i] = planId > today.dateString ? remaining[i] - 1 : remaining[i];
+              dates[i].push(formatDateExtended(planId) + "  LUNCH");
+            }
+
+            // if the current meal prep id is stores in the plan's dinner
+            if (planData.meals.dinner.prepId === prepIds[i]) { 
+              // decrement the number of remaining preps and store the date
+              remaining[i] = planId > today.dateString ? remaining[i] - 1 : remaining[i];                          
+              dates[i].push(formatDateExtended(planId) + "  DINNER");
+            }
+          }
+        });
+      }
+    
+      // sets the states
+      setCurrAvailable(available);
+      setFilteredAvailable(available.filter((_, idx) => unfinished ? true : completed?.[ids?.indexOf(prepsArray[idx].id)]));
+      
+      setCurrRemaining(remaining);
+      setFilteredRemaining(remaining.filter((_, idx) => unfinished ? true : completed?.[ids?.indexOf(prepsArray[idx].id)]));
+      
+      setCurrDates(dates);
+      setFilteredDates(dates.filter((_, idx) => unfinished ? true : completed?.[ids?.indexOf(prepsArray[idx].id)]));
+    }
+  }
 
   
   ///////////////////////////////// DATES /////////////////////////////////
@@ -95,33 +173,6 @@ export default function Details ({ isSelectedTab }) {
   const [prepData, setPrepData] = useState([]);
   const [prepsIds, setPrepsIds] = useState(null);
   const [prepsCompleted, setPrepsCompleted] = useState(null);
-
-  // updates the current list of meal preps
-  const updatePreps = async () => {
-
-    // gets the collection of meal preps
-    const querySnapshot = await getDocs(collection(db, 'PREPS'));
-
-    // reformats each one
-    const prepsArray = querySnapshot.docs.map((doc) => {
-      const formattedPrep = {
-        id: doc.id,
-        ... doc.data(),
-      };
-      return formattedPrep;
-    })
-    .sort((a, b) => a.prepName.localeCompare(b.prepName)); // sorts by prepName alphabetically
-
-    setPrepData(prepsArray);
-                
-    // gets current global prep info
-    const prep = await getDoc(doc(db, 'GLOBALS', 'prep'));
-    
-    // stores it
-    setShowUnfinished(prep.data().unfinished)
-    setPrepsIds(prep.data().preps.map((doc) => doc.id));
-    setPrepsCompleted(prep.data().preps.map((doc) => doc.completed));
-  }
   
 
   ///////////////////////////////// MULTIPLICITY /////////////////////////////////
@@ -129,71 +180,6 @@ export default function Details ({ isSelectedTab }) {
   const [currAvailable, setCurrAvailable] = useState([]);   // the amounts available from the multiplicity
   const [currRemaining, setCurrRemaining] = useState([]);   // the amounts remaining from the number of times each prep is listed
   const [currDates, setCurrDates] = useState([]);           // the future dates the preps are listed under
-
-  // to calculate the amounts available and remaining of the provided meal prep
-  const calcCurrAmounts = async (currPrepData) => {
-    
-    // if the meal prep is valid
-    if (currPrepData) {
-
-      // the meal prep ids
-      const prepIds = currPrepData.map((prep) => prep.id);
-
-      // for calculations of the three prior states
-      const available = currPrepData.map((prep) => (prep.prepMult !== "" ? prep.prepMult : 0));
-      let remaining = currPrepData.map((prep) => (prep.prepMult !== "" ? prep.prepMult : 0));
-      const dates = available.map(() => []);
-      
-      // gets all current ingredient data
-      const plansCollectionRef = collection(db, 'PLANS');
-      const plansSnapshot = await getDocs(plansCollectionRef);
-
-      // loops over the meal preps
-      for (let i = 0; i < available.length; i++) {
-
-        // loops over all weekly plans
-        plansSnapshot.forEach(async (planDoc) => {
-
-          // gets the current plan data
-          const planData = planDoc.data();
-          const planId = planDoc.id;
-          
-          // if the date of the current plan is on or after today
-          if (planId >= today.dateString) {
-
-            // if the current meal prep id is stores in the plan's lunch
-            if (planData.meals.lunch.prepId === prepIds[i]) { 
-              // decrement the number of remaining preps and store the date
-              remaining[i] = planId > today.dateString ? remaining[i] - 1 : remaining[i];
-              dates[i].push(formatDateExtended(planId) + "  LUNCH");
-            }
-
-            // if the current meal prep id is stores in the plan's dinner
-            if (planData.meals.dinner.prepId === prepIds[i]) { 
-              // decrement the number of remaining preps and store the date
-              remaining[i] = planId > today.dateString ? remaining[i] - 1 : remaining[i];                          
-              dates[i].push(formatDateExtended(planId) + "  DINNER");
-            }
-          }
-        });
-      }
-    
-      // sets the states
-      setCurrAvailable(available);
-      setFilteredAvailable(available.filter((_, idx) => showUnfinished ? true : prepsCompleted?.[prepsIds?.indexOf(prepData[idx].id)]));
-      
-      setCurrRemaining(remaining);
-      setFilteredRemaining(remaining.filter((_, idx) => showUnfinished ? true : prepsCompleted?.[prepsIds?.indexOf(prepData[idx].id)]));
-      
-      setCurrDates(dates);
-      setFilteredDates(dates.filter((_, idx) => showUnfinished ? true : prepsCompleted?.[prepsIds?.indexOf(prepData[idx].id)]));
-    }
-  }
-
-  // calls the previous function when the meal prep data is modified
-  useEffect(() => {
-    calcCurrAmounts(prepData);
-  }, [prepData])
   
   
   ///////////////////////////////// MEAL MODAL /////////////////////////////////

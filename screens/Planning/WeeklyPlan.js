@@ -41,9 +41,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   useEffect(() => {
     
     if (isSelectedTab) {
-      setSelectedPrepId(null);
-      updatePreps();
-      fetchGlobalPlan();
+      onNav();
     }
   }, [isSelectedTab])
 
@@ -56,65 +54,156 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     // if the page has changed to the current one, refetch the current data from the globals
     if (isSelectedTab && previousIndexRef !== null && previousIndexRef.current !== currentIndex && currentIndex === 2) {
       setTimeout(() => {
-        setSelectedPrepId(null);
-        updatePreps();
-        fetchGlobalPlan();
+        onNav();
       }, 1000);
     }
 
     // updates the ref to the new index
     previousIndexRef.current = currentIndex;
   }, [currentIndex]);
+
+
+  // on navigation
+  const onNav = async () => {
+    
+    // initial data for the week
+    const data = [null, null, null, null, null, null, null];
+
+    // gets the collection of meal preps
+    const prepSnapshot = await getDocs(collection(db, 'PREPS'));
+    const prepsArray = prepSnapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => a.prepName.localeCompare(b.prepName));
+    setPrepData(prepsArray);
+
+
+
+    // gets all weekly plan data
+    const planSnapshot = await getDocs(collection(db, 'PLANS'));
+    setPlansSnapshot(planSnapshot);
+
+    // helper functions / code
+    const filterAndPad = (arr, included, padValue = "") => arr.filter((_, i) => included.includes(i)).concat(Array(12 - included.length).fill(padValue));
+    const prepMap = new Map(prepsArray.map(prep => [prep.id, prep]));
+    
+    // initializes Firestore batch to loop over plans with
+    const batch = writeBatch(db);
+    planSnapshot.forEach(async (planDoc) => {
+      
+      // if the date is on or past today
+      if (planDoc.id >= today.dateString) {
+        const planData = planDoc.data();
+
+        // finds the lunch and dinner in the planData
+        const lunchPrep = prepMap.get(planData.meals.lunch.prepId);
+        const dinnerPrep = prepMap.get(planData.meals.dinner.prepId);
+        let lunchData = lunchPrep ? (({ id, ...rest }) => rest)(lunchPrep) : planData.meals.lunch.prepData;
+        let dinnerData = dinnerPrep ? (({ id, ...rest }) => rest)(dinnerPrep) : planData.meals.dinner.prepData;
+
+        // filters out any non-included currents in the lunch data
+        if (lunchPrep) {
+          // the list of included (or blank) indices
+          const includedLunch = lunchData.currentIncluded.map((included, index) => included !== false ? index : null).filter(index => index !== null)
+          // the newly formatted prep data
+          lunchData = {
+            ...lunchData,
+            currentAmounts: filterAndPad(lunchData.currentAmounts, includedLunch, ""),
+            currentCals: filterAndPad(lunchData.currentCals, includedLunch, ""),
+            currentData: filterAndPad(lunchData.currentData, includedLunch, null),
+            currentIds: filterAndPad(lunchData.currentIds, includedLunch, ""),
+            currentIncluded: filterAndPad(lunchData.currentIncluded, includedLunch, ""),
+            currentPrices: filterAndPad(lunchData.currentPrices, includedLunch, ""),
+          }
+        }
+
+        // filters out any non-included currents in the dinner data
+        if (dinnerPrep) {
+          // the list of included (or blank) indices
+          const includedDinner = dinnerData.currentIncluded.map((included, index) => included !== false ? index : null).filter(index => index !== null)
+          // the newly formatted prep data
+          dinnerData = {
+            ...dinnerData,
+            currentAmounts: filterAndPad(dinnerData.currentAmounts, includedDinner, ""),
+            currentCals: filterAndPad(dinnerData.currentCals, includedDinner, ""),
+            currentData: filterAndPad(dinnerData.currentData, includedDinner, null),
+            currentIds: filterAndPad(dinnerData.currentIds, includedDinner, ""),
+            currentIncluded: filterAndPad(dinnerData.currentIncluded, includedDinner, ""),
+            currentPrices: filterAndPad(dinnerData.currentPrices, includedDinner, ""),
+          }
+        }
+        
+        // the data for the current date
+        const docData = {
+          date: planDoc.id,
+          meals: {
+            lunch: {
+              prepId: planData.meals.lunch.prepId,          
+              prepData: lunchData,
+            },
+            dinner: {
+              prepId: planData.meals.dinner.prepId,         
+              prepData: dinnerData,
+            },
+          },
+          ...(planData?.snacks && { snacks: planData?.snacks }),
+        };
+        
+        // stores the data in the week's state if the date matches
+        for (let i = 0; i < 7; i++) {
+          if (weekRange[i].toLocaleDateString('en-CA') === planDoc.id) {
+            data[i] = docData;
+          }
+        }
+
+        // adds update to batch
+        batch.update(doc(db, 'PLANS', planDoc.id), docData);
+      }
+    })
+    
+    // commits the batch and sets the week data
+    await batch.commit();
+    setWeekData(data);
+    
+    // resets the available and remaining amounts
+    if (selectedPrepId) {
+      calcRemaining(selectedPrepId, prepMap.get(selectedPrepId));
+    } else {
+      setCurrAvailable(0);
+      setCurrRemaining(0);
+    }
+
+
+    // gets the global preps and stores dropdown items & completed
+    const prepGlobal = await getDoc(doc(db, 'GLOBALS', 'prep')); 
+    if (prepGlobal.exists()) {
+      setGlobalCompleted(prepGlobal.data().preps); 
+      fetchDropdownItems(prepGlobal.data().preps, prepsArray);
+    }
+    
+
+    // gets the global weekly plan document
+    const planGlobal = ((await getDoc(doc(db, 'GLOBALS', 'plan'))));
+    // if the data is not null, calculate the week range of the global date
+    if (planGlobal?.data()?.selectedDate) {
+      calculateWeekRange(planGlobal.data().selectedDate);
+      setGlobalDate(planGlobal.data().selectedDate);
+      setSelectedList(planGlobal.data().selectedList); 
+    // otherwise, calculate the week range of today
+    } else {
+      calculateWeekRange({ dateString: new Date().toISOString().split('T')[0] });
+    }
+  }
   
 
   ///////////////////////////////// GLOBALS /////////////////////////////////
 
   const [globalDate, setGlobalDate] = useState(today);
-  const [globalCompleted, setGlobalCompleted] = useState(null)
-
-  // gets the weekly plan document data from the globals collection
-  const fetchGlobalPlan = async () => {
-    
-    try {
-
-      // gets the global weekly plan document
-      const planDoc = ((await getDoc(doc(db, 'GLOBALS', 'plan'))));
-      if (planDoc.exists()) {
-
-        // if the data is not null, calculate the week range of the global date
-        if (planDoc.data().selectedDate) {
-          calculateWeekRange(planDoc.data().selectedDate);
-          setGlobalDate(planDoc.data().selectedDate);
-          setSelectedList((planDoc).data().selectedList); 
-
-        // otherwise, calculate the week range of today
-        } else {
-          calculateWeekRange({ dateString: new Date().toISOString().split('T')[0] });
-        }
-
-      } else {
-        console.error('No such document in Firestore!');
-      }
-    } catch (error) {
-      console.error('Error fetching meal prep document:', error);
-    }
-  };
+  const [globalCompleted, setGlobalCompleted] = useState(null);
 
   // to change the data of the prep document under the global collection
   const changeGlobalPlan = async (date) => {
     setGlobalDate(date); // stores the new date in the state
     updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedDate: date });
-  }
-
-  // gets the list of preps that are completed
-  const fetchGlobalPreps = async (prepsArray) => {
-    const prepDoc = await getDoc(doc(db, 'GLOBALS', 'prep')); 
-
-    // gets dropdown items and stores completed
-    if (prepDoc.exists()) {
-      setGlobalCompleted(prepDoc.data().preps); 
-      fetchDropdownItems(prepDoc.data().preps, prepsArray);
-    }
   }
 
 
@@ -709,137 +798,8 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   const [plansSnapshot, setPlansSnapshot] = useState(null);
 
   // the selected meal prep from the dropdown
-  const [selectedPrepId, setSelectedPrepId] = useState("");
+  const [selectedPrepId, setSelectedPrepId] = useState(null);
   const [prepData, setPrepData] = useState([]);
-
-  // updates the current list of meal preps
-  const updatePreps = async () => {
-    try {
-    
-      // initial data for the week
-      const data = [null, null, null, null, null, null, null];
-
-      // gets the collection of meal preps
-      const querySnapshot = await getDocs(collection(db, 'PREPS'));
-
-      // reformats each one
-      const prepsArray = querySnapshot.docs.map((doc) => {
-        const formattedPrep = {
-          id: doc.id,
-          ... doc.data(),
-        };
-        return formattedPrep;
-      })
-      .sort((a, b) => a.prepName.localeCompare(b.prepName)); // sorts by prepName alphabetically
-
-      setPrepData(prepsArray);
-
-      // gets the ids
-      const prepIds = prepsArray.map((prep) => prep.id);
-      
-      // gets all weekly plan data
-      const snapshot = await getDocs(collection(db, 'PLANS'));
-      setPlansSnapshot(snapshot);
-
-      // initializes Firestore batch
-      const batch = writeBatch(db);
-
-      // loops over all weekly plans
-      snapshot.forEach(async (planDoc) => {
-
-        // if the date is on or past today
-        if (planDoc.id >= today.dateString) {
-          const planData = planDoc.data();
-
-          // finds the index of the lunch and dinner in the planData
-          const lunchIndex = prepIds.indexOf(planData.meals.lunch.prepId);
-          const dinnerIndex = prepIds.indexOf(planData.meals.dinner.prepId);
-
-          // filters out any non-included currents in the lunch data
-          let lunchData = lunchIndex === -1 ? planData.meals.lunch.prepData : (({ id, ...rest }) => rest)(prepsArray[lunchIndex]);
-          if (lunchIndex !== -1) {
-            
-            // the list of included (or blank) indices
-            const includedLunch = lunchData.currentIncluded.map((included, index) => included !== false ? index : null).filter(index => index !== null)
-            // the newly formatted prep data
-            lunchData = {
-              ...lunchData,
-              currentAmounts: lunchData.currentAmounts.filter((_, index) => includedLunch.includes(index)).concat(Array(12 - includedLunch.length).fill("")),
-              currentCals: lunchData.currentCals.filter((_, index) => includedLunch.includes(index)).concat(Array(12 - includedLunch.length).fill("")),
-              currentData: lunchData.currentData.filter((_, index) => includedLunch.includes(index)).concat(Array(12 - includedLunch.length).fill(null)),
-              currentIds: lunchData.currentIds.filter((_, index) => includedLunch.includes(index)).concat(Array(12 - includedLunch.length).fill("")),
-              currentIncluded: lunchData.currentIncluded.filter((_, index) => includedLunch.includes(index)).concat(Array(12 - includedLunch.length).fill("")),
-              currentPrices: lunchData.currentPrices.filter((_, index) => includedLunch.includes(index)).concat(Array(12 - includedLunch.length).fill("")),
-            }
-          }
-
-          // filters out any non-included currents in the dinner data
-          let dinnerData = dinnerIndex === -1 ? planData.meals.dinner.prepData : (({ id, ...rest }) => rest)(prepsArray[dinnerIndex]);
-          if (dinnerIndex !== -1) {
-
-            // the list of included (or blank) indices
-            const includedDinner = dinnerData.currentIncluded.map((included, index) => included !== false ? index : null).filter(index => index !== null)
-            // the newly formatted prep data
-            dinnerData = {
-              ...dinnerData,
-              currentAmounts: dinnerData.currentAmounts.filter((_, index) => includedDinner.includes(index)).concat(Array(12 - includedDinner.length).fill("")),
-              currentCals: dinnerData.currentCals.filter((_, index) => includedDinner.includes(index)).concat(Array(12 - includedDinner.length).fill("")),
-              currentData: dinnerData.currentData.filter((_, index) => includedDinner.includes(index)).concat(Array(12 - includedDinner.length).fill(null)),
-              currentIds: dinnerData.currentIds.filter((_, index) => includedDinner.includes(index)).concat(Array(12 - includedDinner.length).fill("")),
-              currentIncluded: dinnerData.currentIncluded.filter((_, index) => includedDinner.includes(index)).concat(Array(12 - includedDinner.length).fill("")),
-              currentPrices: dinnerData.currentPrices.filter((_, index) => includedDinner.includes(index)).concat(Array(12 - includedDinner.length).fill("")),
-            }
-          }
-          
-          // the data for the current date
-          const docData = {
-            date: planDoc.id,
-            meals: {
-              lunch: {
-                prepId: planData.meals.lunch.prepId,          
-                prepData: lunchData,
-              },
-              dinner: {
-                prepId: planData.meals.dinner.prepId,         
-                prepData: dinnerData,
-              },
-            },
-            ...(planData?.snacks && { snacks: planData?.snacks }),
-          };
-          
-          // stores the data in the week's state if the date matches
-          for (let i = 0; i < 7; i++) {
-            if (weekRange[i].toLocaleDateString('en-CA') === planDoc.id) {
-              data[i] = docData;
-            }
-          }
-
-          // adds update to batch
-          batch.update(doc(db, 'PLANS', planDoc.id), docData);
-        }
-      });
-
-      // commits the batch
-      await batch.commit();
-      
-      // sets the week data
-      setWeekData(data);
-
-      // resets the available and remaining amounts
-      if (selectedPrepId && selectedPrepId !== "") {
-        calcRemaining(selectedPrepId, prepsArray[(prepsArray.map((prep) => prep.id)).indexOf(selectedPrepId)]);
-      } else {
-        setCurrAvailable(0);
-        setCurrRemaining(0);
-      }
-
-      // gets the global preps
-      fetchGlobalPreps(prepsArray);
-
-    } catch (error) {
-      console.error('Error updating preps:', error);
-    }
-  }
 
 
   ///////////////////////////////// MULTIPLICITY /////////////////////////////////
@@ -1561,7 +1521,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           <View className="flex flex-col bg-zinc300 py-1 px-1 mr-2 rounded">    
 
             {/* Submit */}
-            {(selectedPrepId !== null && selectedPrepId !== "") && (
+            {(selectedPrepId) && (
               <Icon
                 name="checkmark-circle"
                 size={20}
@@ -1631,7 +1591,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
 
         {/* Amounts Section */}
-        {(selectedPrepId !== null && selectedPrepId !== "") && (
+        {(selectedPrepId) && (
           <TouchableOpacity
             className="flex flex-col justify-evenly items-left pl-2 ml-3 w-[27.5%] h-[45px] bg-theme700 rounded border-[1.5px] border-theme900"
             onPress={() => displayPrep(selectedPrepId)}
@@ -1639,12 +1599,12 @@ export default function WeeklyPlan ({ isSelectedTab }) {
             
             {/* available */}
             <Text className="text-white text-[11px] font-bold italic">
-              {"AVAILABLE: "}{selectedPrepId !== null ? currAvailable : "0"}
+              {"AVAILABLE: "}{selectedPrepId ? currAvailable : "0"}
             </Text>
 
             {/* remaining */}
             <Text className="text-white text-[11px] font-bold italic">
-              {"REMAINING: "}{selectedPrepId !== null ? currRemaining : "0"}
+              {"REMAINING: "}{selectedPrepId ? currRemaining : "0"}
             </Text>
 
             {/* 'x' button - to clear selection */}
@@ -1654,7 +1614,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                 size={16}
                 color="white"
                 onPress={() => {
-                  setSelectedPrepId("");
+                  setSelectedPrepId(null);
                   setCurrAvailable(0);
                   setCurrRemaining(0);
                 }}
@@ -1664,8 +1624,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         )}
 
         {/* Selected Checkbox */}
-        {(selectedPrepId !== null && selectedPrepId !== "" 
-          && weekData.filter(data => data?.meals?.lunch?.prepId === selectedPrepId).length + weekData.filter(data => data?.meals?.dinner?.prepId === selectedPrepId).length !== 0) 
+        {(selectedPrepId && weekData.filter(data => data?.meals?.lunch?.prepId === selectedPrepId).length + weekData.filter(data => data?.meals?.dinner?.prepId === selectedPrepId).length !== 0) 
         && (
           <View className="flex pl-1">
             <Icon

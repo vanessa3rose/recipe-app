@@ -74,10 +74,7 @@ export default function MealPrep ({ isSelectedTab }) {
   useEffect(() => {
     
     if (isSelectedTab) {
-      updateCurrents();
-      fetchIngredientsAndRecipes();
-      refreshPreps();
-      fetchGlobalPrep();
+      onNav();
     }
   }, [isSelectedTab])
 
@@ -90,16 +87,81 @@ export default function MealPrep ({ isSelectedTab }) {
     // if the page has changed to the current one, refetch the current data from the globals
     if (isSelectedTab && previousIndexRef !== null && previousIndexRef.current !== currentIndex && currentIndex === 1) {
       setTimeout(() => {
-        updateCurrents();
-        fetchIngredientsAndRecipes();
-        refreshPreps();
-        fetchGlobalPrep();
+        onNav();
       }, 1000);
     }
 
     // updates the ref to the new index
     previousIndexRef.current = currentIndex;
   }, [currentIndex]);
+
+
+  // when navigating
+  const onNav = async () => {
+    
+    // processes meal preps
+    const prepSnapshot = await getDocs(collection(db, 'PREPS'));
+    const prepsArray = prepSnapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => a.prepName.localeCompare(b.prepName));
+    setPrepList(prepsArray);
+            
+
+    // gets the overall global prep info
+    const prepGlobal = await getDoc(doc(db, 'GLOBALS', 'prep'));
+    setPrepsIds(prepGlobal.data().preps.map((doc) => doc.id));
+    setPrepsCompleted(prepGlobal.data().preps.map((doc) => doc.completed));
+
+    // gets the specific global prep info
+    const prepId = prepGlobal?.data()?.id;
+    if (prepId) {
+
+      // gets the prep data
+      const prepDoc = prepSnapshot.docs.find(doc => doc.id === prepId);
+      const prepData = prepDoc?.data() || null;
+      
+      setSelectedPrepId(prepId);
+      setSelectedPrepData(prepData);
+
+      if (prepData) {
+        // finds the first empty ingredient
+        setSelectedCurrentIndex(prepData.currentData.findIndex(x => !x) + 1 || 1);
+        // sets the note
+        setSelectedNote(prepData.prepNote);
+        // updates the amounts of each current ingredient left
+        updateEnoughLeft(prepData);
+        // sets the current amounts and multiplicities
+        setCurrCurrentAmounts(prepData.currentAmounts);
+        setCurrPrepMult(prepData.prepMult);
+        
+        // if there are amounts of ingredients, update them
+        if (prepData.currentAmounts) {
+          let calcData = calcAmounts(prepData);
+          updateEnoughLeft(calcData);
+          await updateDoc(doc(db, 'PREPS', prepId), calcData);
+          setSelectedPrepData({ ...calcData });
+        }
+      }
+    }
+
+
+    // gets the collection of current ingredients
+    const currentSnapshot = await getDocs(collection(db, 'CURRENTS'));
+    const currents = currentSnapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
+
+    setCurrentData(currents);
+    filterOptions(currents);
+    setCurrentsSnapshot(currentSnapshot);
+
+    
+    // gets the collections of ingredients and recipes
+    const ingredients = await getDocs(collection(db, 'INGREDIENTS'));
+    setIngredientsSnapshot(ingredients);
+    const recipes = await getDocs(collection(db, 'RECIPES'));
+    setRecipesSnapshot(recipes);
+  }
 
 
   ///////////////////////////////// GETTING MEAL PREP DATA /////////////////////////////////
@@ -121,79 +183,20 @@ export default function MealPrep ({ isSelectedTab }) {
       setCurrentDropdownOpen(false);
     }
   }, [prepDropdownOpen]);
-  
-  
-  // gets the meal prep document data from the globals collection
-  const fetchGlobalPrep = async () => {
-    
-    try {
 
-      // gets the global meal prep document
-      const globalDoc = (await getDoc(doc(db, 'GLOBALS', 'prep')));
-      if (globalDoc.exists()) {
-
-        let prepId = globalDoc.data().id;
-        if (prepId) {
-
-          // gets the recipe data
-          const prepDoc = (await getDoc(doc(db, 'PREPS', prepId)));
-          if (prepDoc.exists()) {
-            let data = prepDoc.data();
-            
-            // loops over the 12 ingredients backwards to find the first empty one
-            for (let i = 11; i >= 0; i--) {
-              if (!data.currentData[i]) {
-                setSelectedCurrentIndex(i + 1);
-              }
-            }
-
-            // sets the id and data in the state
-            setSelectedPrepId(prepId);
-            setSelectedPrepData(data);
-
-            // sets the note
-            setSelectedNote(data ? data.prepNote : "");
-
-            // updates the amounts of each current ingredient left
-            updateEnoughLeft(data);
-            
-            // sets the current amounts and multiplicities
-            setCurrCurrentAmounts(data.currentAmounts);
-            setCurrPrepMult(data.prepMult);
-          }
-
-        // otherwise, store default values
-        } else {
-
-          // sets the id and data in the state
-          setSelectedPrepId(null);
-          setSelectedPrepData(null);
-
-          setCurrCurrentAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
-          setCurrPrepMult(0);
-          setSelectedCurrentIndex(1);
-        }
-
-        // reload settings
-        reloadPrep(prepId);
-      }
-      
-    } catch (error) {
-      console.error('Error fetching meal prep document:', error);
-    }
-  };
 
   // to change the data of the prep document under the global collection
-  const reloadPrep = async (selectedPrepId) => {
+  const reloadPrep = async (prepId) => {
+    setSelectedPrepId(prepId);
     
     // as long as a recipe was collected
-    if (selectedPrepId) {
+    if (prepId) {
       
       // stores the prep data in the firebase
-      updateDoc(doc(db, 'GLOBALS', 'prep'), { id: selectedPrepId });
+      updateDoc(doc(db, 'GLOBALS', 'prep'), { id: prepId });
 
       // gets the current data
-      const docSnap = await getDoc(doc(db, 'PREPS', selectedPrepId));
+      const docSnap = await getDoc(doc(db, 'PREPS', prepId));
       const data = docSnap.exists() ? docSnap.data() : null;
       
       // sets the current prep card placeholders
@@ -218,7 +221,7 @@ export default function MealPrep ({ isSelectedTab }) {
         updateEnoughLeft(calcData);
 
         // updates the collection data
-        await updateDoc(doc(db, 'PREPS', selectedPrepId), calcData);
+        await updateDoc(doc(db, 'PREPS', prepId), calcData);
     
         // updates the selected data
         setSelectedPrepData({ ...calcData });
@@ -237,13 +240,6 @@ export default function MealPrep ({ isSelectedTab }) {
       updateDoc(doc(db, 'GLOBALS', 'prep'), { id: null });
     }
   }
-  
-  // fetches the data of the selected prep when the selected prep changes
-  useEffect(() => {
-    if (isSelectedTab) {
-      reloadPrep(selectedPrepId);
-    }
-  }, [selectedPrepId]);
 
 
   // helper function to refresh the list of preps
@@ -355,7 +351,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
       // clears data
       setSelectedPrepData(null);
-      setSelectedPrepId(null);
+      reloadPrep(null);
 
       // reload settings if the modal wasn't canceled
       refreshPreps();
@@ -710,7 +706,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
     // stores the data
     setSelectedPrepData(prepData);
-    setSelectedPrepId(docId);
+    reloadPrep(docId);
     setCurrCurrentAmounts(prepData.currentAmounts);
     setCurrPrepMult(prepData.prepMult);
     setSelectedNote("");
@@ -789,7 +785,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
       // restores data
       setSelectedPrepData(null);
-      setSelectedPrepId(null);
+      reloadPrep(null);
     }
   };
     
@@ -1171,23 +1167,11 @@ export default function MealPrep ({ isSelectedTab }) {
   const [recipeModalVisible, setRecipeModalVisible] = useState(false);
   const [ingredientsSnapshot, setIngredientsSnapshot] = useState(null);
   const [recipesSnapshot, setRecipesSnapshot] = useState(null);
-
-  // called when tab is switched to load in the ingredients and recipes
-  const fetchIngredientsAndRecipes = async () => {
-    
-    // gets the collections of ingredients and recipes
-    const ingredients = await getDocs(collection(db, 'INGREDIENTS'));
-    const recipes = await getDocs(collection(db, 'RECIPES'));
-
-    // stores the data
-    setIngredientsSnapshot(ingredients);
-    setRecipesSnapshot(recipes);
-  }
   
   const navigation = useNavigation();
 
   // to submit the recipe modal
-  const closeRecipeModal = (confirmed) => {
+  const closeRecipeModal = async (confirmed) => {
 
     // to close the modal
     setRecipeModalVisible(false);
@@ -1195,7 +1179,14 @@ export default function MealPrep ({ isSelectedTab }) {
     // if the checkmark was selected
     if (confirmed) {
       setTimeout(navigation.navigate('FOOD', { screen: 'Recipes' }), 2000);
-      fetchIngredientsAndRecipes();
+    
+      // gets the collections of ingredients and recipes
+      const ingredients = await getDocs(collection(db, 'INGREDIENTS'));
+      const recipes = await getDocs(collection(db, 'RECIPES'));
+
+      // stores the data
+      setIngredientsSnapshot(ingredients);
+      setRecipesSnapshot(recipes);
     }
 
     // if deleting after saving the recipe
@@ -1403,7 +1394,7 @@ export default function MealPrep ({ isSelectedTab }) {
                   modalVisible={modModalVisible} 
                   closeModal={closeModModal} 
                   editingId={selectedPrepId}
-                  setEditingId={setSelectedPrepId}
+                  setEditingId={(value) => reloadPrep(value)}
                   editingData={selectedPrepData}
                   setEditingData={setSelectedPrepData}
                   defaultName={""}
@@ -1456,7 +1447,7 @@ export default function MealPrep ({ isSelectedTab }) {
                       {/* blank selector */}
                       <TouchableOpacity
                         className={`h-[${ITEM_HEIGHT}px] w-full bg-zinc200 border-b-0.5 border-zinc400`}
-                        onPress={() => {setSelectedPrepId(null); setPrepDropdownOpen(false)}}
+                        onPress={() => {reloadPrep(null); setPrepDropdownOpen(false)}}
                       />
                       {/* prep selector */}
                       <ScrollView ref={dropdownScrollRef}>
@@ -1465,7 +1456,7 @@ export default function MealPrep ({ isSelectedTab }) {
                             key={index}
                             className={`border-b-0.5 border-zinc350 justify-center items-center h-[${ITEM_HEIGHT}px] ${(prep?.id === selectedPrepId) && "bg-zinc100"}`}
                             onPress={() => {
-                              setSelectedPrepId(prep.id);
+                              reloadPrep(prep.id);
                               setPrepDropdownOpen(false);
                             }}
                           >
