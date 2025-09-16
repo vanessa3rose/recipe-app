@@ -78,14 +78,15 @@ export default function CurrentFood ({ isSelectedTab }) {
 
 
   ///////////////////////////////// NAVIGATION LOGIC /////////////////////////////////
+    
+    const firstLoad = useRef(true);
 
   // when the tab is changed to CurrentFood
   useEffect(() => {
     
-    if (isSelectedTab) {
-      updateIngredients();
-      updatePreps();
-      loadCurrents();
+    if (isSelectedTab && !firstLoad.current) {
+      onNav();
+      firstLoad.current = false;
     }
   }, [isSelectedTab])
 
@@ -99,9 +100,8 @@ export default function CurrentFood ({ isSelectedTab }) {
     // if the page has changed to the current one, refetch the ingredients and current data from the globals
     if (isSelectedTab && previousIndexRef !== null && previousIndexRef.current !== currentIndex && currentIndex === 1) {      
       setTimeout(() => {
-        updateIngredients();
-        updatePreps();
-        loadCurrents();
+        onNav();
+        firstLoad.current = false;
       }, 1000);
     }
 
@@ -110,30 +110,26 @@ export default function CurrentFood ({ isSelectedTab }) {
   }, [currentIndex]);
 
 
-  ///////////////////////////////// GETTING PREP DATA /////////////////////////////////
+  // when navigating
+  const onNav = async () => {
 
-  // for accessing the preps data
-  const [numPreps, setNumPreps] = useState(0);
-  const [prepsSnapshot, setPrepsSnapshot] = useState(null);
+    // loads in the currents
+    loadCurrents();
 
-  // gets the snapshot of preps and calculates the overall number of meal preps
-  const updatePreps = async () => {
     
-    // the preps snapshot
-    const snapshot = await getDocs(collection(db, 'PREPS'));
-    setPrepsSnapshot(snapshot);
+    // gets the prep snapshots
+    const prepSnapshot = await getDocs(collection(db, 'PREPS'));
+    setPrepsSnapshot(prepSnapshot);
 
     // the unfinished status
     const prep = await getDoc(doc(db, 'GLOBALS', 'prep'));
     const unfinished = prep.data().unfinished;
     const details = prep.data().preps;
-
     let totalPreps = 0;
     
     // loops over all meal preps
-    snapshot.forEach((prepDoc) => {
+    prepSnapshot.forEach((prepDoc) => {
       const prepData = prepDoc.data();
-          
       // adds the current multiplicity if valid
       if (prepData.currentIds && Array.isArray(prepData.currentIds)) {
         // checks unfinished
@@ -145,7 +141,22 @@ export default function CurrentFood ({ isSelectedTab }) {
 
     // stores the calculated value in the state
     setNumPreps(totalPreps);
-  };
+
+
+    // gets the ingredients and stores them
+    const ingredientSnapshot = await getDocs(collection(db, 'INGREDIENTS'));
+    const ingredients = ingredientSnapshot.docs.map(doc => (
+      { id: doc.id, ...doc.data() }
+    )).sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
+    setIngredientData(ingredients);
+  }
+
+
+  ///////////////////////////////// GETTING PREP DATA /////////////////////////////////
+
+  // for accessing the preps data
+  const [numPreps, setNumPreps] = useState(0);
+  const [prepsSnapshot, setPrepsSnapshot] = useState(null);
 
 
   ///////////////////////////////// GETTING INGREDIENT DATA /////////////////////////////////
@@ -165,21 +176,6 @@ export default function CurrentFood ({ isSelectedTab }) {
 
   // for ingredient dropdown
   const [ingredientDropdownOpen, setIngredientDropdownOpen] = useState(false);
-
-  // gets the list of ingredients
-  const updateIngredients = async () => {
-
-    // gets the data
-    const snapshot = await getDocs(collection(db, 'INGREDIENTS'));
-    const data = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    }))
-    .sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
-
-    // stores it
-    setIngredientData(data);
-  };
 
   // when the ingredient data changes, gets the list of types and filters it
   useEffect(() => {
@@ -419,37 +415,15 @@ export default function CurrentFood ({ isSelectedTab }) {
   // the store all of the current ingredients
   const loadCurrents = async () => {
     
-    // gets all of the current ingredients
+    // gets all of the currents
     const querySnapshot = await getDocs(collection(db, 'CURRENTS'));
+    const combinedData = querySnapshot.docs
+      .map(doc => ({ id: doc.id, data: doc.data() }))
+      .sort((a, b) => a.data.ingredientName.toLowerCase().localeCompare(b.data.ingredientName.toLowerCase()));
 
-    // to store the collected current ingredients
-    let allData = [];
-    let allIds = [];
-
-    // loops through the recipes and adds all data
-    querySnapshot.forEach((doc) => {
-      allIds.push(doc.id);
-      allData.push(doc.data());
-    });
-
-    // combines allData and allIds into a single array of objects
-    const combinedData = allData.map((data, index) => ({
-      id: allIds[index],
-      data: data,
-    }));
-  
-    // sorts the combined array based on ingredientName in allData
-    combinedData.sort((a, b) => {
-      const nameA = a.data.ingredientName.toLowerCase(); // Convert to lowercase for case-insensitive comparison
-      const nameB = b.data.ingredientName.toLowerCase();
-      if (nameA < nameB) return -1;
-      if (nameA > nameB) return 1;
-      return 0; // return 0 if they are equal
-    });
-  
-    // separates the sorted combinedData back into allData and allIds
-    allData = combinedData.map(item => item.data);
-    allIds = combinedData.map(item => item.id);
+    // extracts ids and data
+    const allIds = combinedData.map(item => item.id);
+    const allData = combinedData.map(item => item.data);
 
     // stores the collection
     setCurrentIds(allIds);

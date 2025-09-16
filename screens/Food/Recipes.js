@@ -77,13 +77,13 @@ export default function Recipes ({ isSelectedTab }) {
 
   ///////////////////////////////// NAVIGATION LOGIC /////////////////////////////////
 
+  const firstLoad = useRef(true);
+
   // when the tab is switched to recipes
   useEffect(() => {
-
-    if (isSelectedTab) {   
-      refreshRecipes();
-      fetchGlobalRecipe(); 
-      updateIngredients();
+    if (isSelectedTab && !firstLoad.current) {   
+      onNav();
+      firstLoad.current = false;
     }
   }, [isSelectedTab])
     
@@ -92,19 +92,82 @@ export default function Recipes ({ isSelectedTab }) {
 
   // if the screen has changed
   useEffect(() => {
-    
-    // if the page has changed to the current one, refetch the spotlight snapshot
+    // if the page has changed to the current one, refetch the recipe snapshot
     if (isSelectedTab && previousIndexRef !== null && previousIndexRef.current !== currentIndex && currentIndex === 3) {
       setTimeout(() => {
-        refreshRecipes();
-        fetchGlobalRecipe(); 
-        updateIngredients();
+        onNav();
+        firstLoad.current = false;
       }, 1000);
     }
 
     // updates the ref to the new index
     previousIndexRef.current = currentIndex;
   }, [currentIndex]);
+
+
+  // on navigation
+  const onNav = async () => {
+
+    // gets the recipes and their tags
+    const recipeSnapshot = await refreshRecipes();
+
+
+    // gets the global recipe id
+    const recipeGlobal = await getDoc(doc(db, 'GLOBALS', 'recipe'));
+    const recipeId = recipeGlobal?.data()?.id;
+    if (recipeId) {
+
+      // gets the recipe data
+      const recipeDoc = recipeSnapshot.docs.find(doc => doc.id === recipeId);
+      const recipeData = recipeDoc?.data() || null;
+            
+      setSelectedRecipeId(recipeId);
+      setSelectedRecipeData(recipeData);
+
+      if (recipeData) {
+        // finds the first empty ingredient
+        setSelectedIngredientIndex(recipeData.ingredientData.findIndex(x => !x) + 1 || 1);
+        // calculate the details and totals
+        let calcData = calcAmounts(recipeData);
+        // updates the data
+        await updateDoc(doc(db, 'RECIPES', recipeId), calcData);
+        setSelectedRecipeData({ ...calcData });
+        // stores values
+        setCurrIngredientAmounts(calcData.ingredientAmounts);
+      }
+    }
+    
+    
+    // stores ingredients
+    const ingredientSnapshot = await getDocs(collection(db, 'INGREDIENTS'));
+    setIngredientsSnapshot(ingredientSnapshot);
+
+    // collect all unique types into a Set
+    const typeSet = new Set();
+    ingredientSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      if (Array.isArray(data.ingredientTypes)) {
+        data.ingredientTypes
+          .filter(type => type !== undefined && type !== null)
+          .forEach(type => typeSet.add(type));
+      }
+    });
+    
+    // sorts the list of types from that data alphabetically
+    const ingredientTypes = [
+      { label: "ALL TYPES", value: "ALL TYPES" },
+      ...Array.from(typeSet)
+        .sort((a, b) => a.localeCompare(b))
+        .map(type => ({ label: type === "" ? "no type" : type, value: type, })),
+    ];
+    setIngredientTypeList(ingredientTypes);
+
+    // processes and filters ingredients
+    const ingredients = ingredientSnapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
+    setFilteredIngredientData(ingredients);
+  }
   
 
   ///////////////////////////////// GETTING INGREDIENT DATA /////////////////////////////////
@@ -134,46 +197,7 @@ export default function Recipes ({ isSelectedTab }) {
       setRecipeDropdownOpen(false);   // recipe dropdown
     }
   }, [ingredientDropdownOpen]);
-
   
-  // updates the current list of ingredients and ingredient types
-  const updateIngredients = async () => {
-    
-    // fetches and stores the full data
-    const querySnapshot = await getDocs(collection(db, 'INGREDIENTS'));
-    setIngredientsSnapshot(querySnapshot);
-    
-    // sorts the list of types from that data alphabetically
-    const ingredientTypeList = [
-      { label: "ALL TYPES", value: "ALL TYPES" },
-      ...[...new Set(
-        querySnapshot.docs
-          .flatMap(item => item.data().ingredientTypes)
-          .filter(type => type !== undefined && type !== null)
-      )]
-        .sort((a, b) => a.localeCompare(b))
-        .map(type => ({
-          label: type === "" ? "no type" : type, 
-          value: type,
-        })),
-    ];
-    
-    // sets the list of types
-    setIngredientTypeList(ingredientTypeList);
-
-    // extracts the ingredients
-    const ingredients = querySnapshot.docs.map((doc) => {
-      const formattedIngredient = {
-        id: doc.id,
-        ... doc.data()
-      }
-      return formattedIngredient;
-    })
-    .sort((a, b) => a.ingredientName.localeCompare(b.ingredientName)); // sort by ingredientName alphabetically
-
-    // filters the ingredient data based on the selected type
-    setFilteredIngredientData(ingredients);
-  }
 
   // filters the ingredients based on the "search for ingredient" text input
   const filterIngredientData = (ingredientQuery) => {
@@ -694,8 +718,6 @@ export default function Recipes ({ isSelectedTab }) {
 
   // closes other dropdowns when recipe dropdown is open
   useEffect(() => {
-    
-
     // only does so on opening, not closing
     if (recipeDropdownOpen) {
       setTagDropdownOpen(false);        // tag dropdown
@@ -703,95 +725,43 @@ export default function Recipes ({ isSelectedTab }) {
     }
   }, [recipeDropdownOpen]);
 
-  // gets the recipe document data from the globals collection
-  const fetchGlobalRecipe = async () => {
-    
-    try {
-
-      // gets the global recipe id
-      const globalDoc = await getDoc(doc(db, 'GLOBALS', 'recipe'));
-      if (globalDoc.exists()) {
-
-        let recipeId = globalDoc.data().id;
-        if (recipeId) {
-
-          // gets the recipe data
-          const recipeDoc = (await getDoc(doc(db, 'RECIPES', recipeId)));
-          if (recipeDoc.exists()) {
-            const recipeData = recipeDoc.data();
-
-            // loops over the 12 ingredients backwards to find the first empty one
-            for (let i = 11; i >= 0; i--) {
-              if (!recipeData.ingredientData[i]) {
-                setSelectedIngredientIndex(i + 1);
-              }
-            }
-            
-            setSelectedRecipeId(recipeId);     // stores the recipe id
-            setSelectedRecipeData(recipeData); // updates the selected recipe's data
-
-            // stores the ingredient amounts
-            if (recipeData && recipeData.ingredientAmounts) {
-              setCurrIngredientAmounts(recipeData.ingredientAmounts);
-            } else {
-              setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
-            }
-          }
-
-        // otherwise, store default values
-        } else {
-          setSelectedRecipeId(null);
-          setSelectedRecipeData(null);
-          setSelectedIngredientIndex(1);
-          setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
-        }
-
-        // reload settings
-        reloadRecipe(recipeId);
-      }
-
-    } catch (error) {
-      console.error('Error fetching recipe document:', error);
-    }
-  };
 
   // helper function to reload the selected recipe's data
-  const reloadRecipe = async (selectedRecipeId) => {
+  const reloadRecipe = async (recipeId) => {
+    setSelectedRecipeId(recipeId)
 
     // if a recipe is selected
-    if (selectedRecipeId) {
+    if (recipeId) {
 
       // stores the recipe data in the firebase
-      updateDoc(doc(db, 'GLOBALS', 'recipe'), { id: selectedRecipeId });
+      updateDoc(doc(db, 'GLOBALS', 'recipe'), { id: recipeId });
 
       // gets the data
-      const docSnap = await getDoc(doc(db, 'RECIPES', selectedRecipeId));
+      const docSnap = await getDoc(doc(db, 'RECIPES', recipeId));
+      const data = docSnap.exists() ? docSnap.data() : null;
 
-      // sets the recipe based on the given id and data
-      if (docSnap.exists()) {
-        data = docSnap.data();
-
-        // if there are amounts of ingredients, update them
-        if (data.ingredientAmounts) {
-          let calcData = calcAmounts(data);
-
-          // loops over the 12 ingredients backwards to find the first empty one
-          for (let i = 11; i >= 0; i--) {
-            if (!calcData.ingredientData[i]) {
-              setSelectedIngredientIndex(i + 1);
-            }
-          }
-
-          // updates the collection data
-          await updateDoc(doc(db, 'RECIPES', selectedRecipeId), calcData);
+      // if there are amounts of ingredients, update them
+      if (data.ingredientAmounts) {
       
-          // updates the selected data
-          setSelectedRecipeData({ ...calcData });
+        // calculate the details and totals
+        let calcData = calcAmounts(data);
+
+        // loops over the 12 ingredients backwards to find the first empty one
+        for (let i = 11; i >= 0; i--) {
+          if (!calcData.ingredientData[i]) {
+            setSelectedIngredientIndex(i + 1);
+          }
         }
+
+        // updates the collection data
+        await updateDoc(doc(db, 'RECIPES', recipeId), calcData);
+    
+        // updates the selected data
+        setSelectedRecipeData({ ...calcData });
       }
     
     // if a recipe is not selected, set default data
-    } else if (selectedRecipeData !== null) {
+    } else {
       setSelectedIngredientIndex(1);
       setSelectedRecipeData(null);
 
@@ -799,34 +769,37 @@ export default function Recipes ({ isSelectedTab }) {
       updateDoc(doc(db, 'GLOBALS', 'recipe'), { id: null });
     }
   }
-  
-  // fetches the data of the selected recipe when the selected recipe changes
-  useEffect(() => {
-    if (isSelectedTab) {
-      reloadRecipe(selectedRecipeId);
-    }
-  }, [selectedRecipeId]);
 
   
   // helper function to refresh the list of recipes
   const refreshRecipes = async () => {
-    
-    // gets the collection of recipes
-    const querySnapshot = await getDocs(collection(db, 'RECIPES'));
 
-    // reformats each one
-    const recipesArray = querySnapshot.docs.map((doc) => {
-      const formattedRecipe = {
-        id: doc.id,
-        ... doc.data(),
-      };
-      return formattedRecipe;
-    })
-    .sort((a, b) => a.recipeName.localeCompare(b.recipeName)); // sort by recipeName alphabetically
+    // to store the collected recipe tags
+    let allRecipeTags = new Set();
+
+    // processes recipes and their tags
+    const recipeSnapshot = await getDocs(collection(db, 'RECIPES'));
+    const recipesArray = recipeSnapshot.docs
+      .map(doc => {
+        const data = doc.data();
+        if (selectedRecipeId === doc.id) selectedRecipeData = data;
+        if (Array.isArray(data.recipeTags)) data.recipeTags.forEach(tag => allRecipeTags.add(tag));
+        return { id: doc.id, ...data };
+      })
+      .sort((a, b) => a.recipeName.localeCompare(b.recipeName));
 
     setRecipeList(recipesArray);
+    setSelectedRecipeData(selectedRecipeData);
 
-    fetchUniqueRecipeTags(querySnapshot);
+    // adds "NEW TAG" and sorts alphabetically
+    const tagsWithLabelsAndValues = [
+      "NEW TAG", ...[...allRecipeTags].sort((a, b) => a.localeCompare(b))
+    ].map(tag => ({ label: tag, value: tag }));
+    
+    // sets the list of recipe tags
+    setRecipeTagList(tagsWithLabelsAndValues);
+
+    return recipeSnapshot;
   };
 
 
@@ -970,45 +943,6 @@ export default function Recipes ({ isSelectedTab }) {
   
   const [editTagModalVisible, setEditTagModalVisible] = useState(false);      // for the edit tag modal
   const [selectedEditTag, setSelectedEditTag] = useState("");
-
-  // gets the unique list of tags based on the recipes in the system
-  const fetchUniqueRecipeTags = async (querySnapshot) => {
-    
-    try {
-  
-      // to store the collected recipe tags
-      let allRecipeTags = ["NEW TAG"];
-      
-      // loops through the recipes and adds all found tags
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (Array.isArray(data.recipeTags)) {
-          allRecipeTags.push(...data.recipeTags);
-        }
-      });
-  
-      // removes duplicates and sort alphabetically, excluding "NEW TAG"
-      const uniqueTags = [...new Set(allRecipeTags)];
-      const sortedTags = uniqueTags
-        .filter(tag => tag !== "NEW TAG") // Exclude "NEW TAG" from sorting
-        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })); // Case-insensitive sort
-  
-      // adds the "NEW TAG" at the start
-      sortedTags.unshift("NEW TAG");
-
-      // maps the sorted tags to an array of objects with label and value properties
-      const tagsWithLabelsAndValues = sortedTags.map(tag => ({
-        label: tag,
-        value: tag,
-      }));
-      
-      // sets the list of recipe tags
-      setRecipeTagList(tagsWithLabelsAndValues);
-      
-    } catch (error) {
-      console.error('Error fetching recipe tags:', error);
-    }
-  };
 
   // uses the previous function to update the tag list every time the tag dropdown is toggled
   useEffect(() => {
@@ -1420,7 +1354,7 @@ export default function Recipes ({ isSelectedTab }) {
                   {/* blank selector */}
                   <TouchableOpacity
                     className={`h-[${ITEM_HEIGHT}px] w-full bg-zinc200 border-b-0.5 border-zinc400`}
-                    onPress={() => {setSelectedRecipeId(null); setRecipeDropdownOpen(false)}}
+                    onPress={() => {reloadRecipe(null); setRecipeDropdownOpen(false)}}
                   />
                   {/* recipe selector */}
                   <ScrollView ref={dropdownScrollRef}>
@@ -1429,7 +1363,7 @@ export default function Recipes ({ isSelectedTab }) {
                         key={index}
                         className={`border-b-0.5 border-zinc350 justify-center items-center h-[${ITEM_HEIGHT}px] ${(recipe?.id === selectedRecipeId) && "bg-zinc100"}`}
                         onPress={() => {
-                          setSelectedRecipeId(recipe.id);
+                          reloadRecipe(recipe.id);
                           setRecipeDropdownOpen(false);
                         }}
                       >
@@ -1817,7 +1751,7 @@ export default function Recipes ({ isSelectedTab }) {
             modalVisible={newModalVisible} 
             closeModal={closeNewModal} 
             editingId={null}
-            setEditingId={setSelectedRecipeId}
+            setEditingId={(value) => reloadRecipe(value)}
             editingData={null}
             setEditingData={setSelectedRecipeData}
             defaultName={recipeList.length + 1}
@@ -1831,7 +1765,7 @@ export default function Recipes ({ isSelectedTab }) {
             modalVisible={editModalVisible} 
             closeModal={closeEditModal} 
             editingId={selectedRecipeId}
-            setEditingId={setSelectedRecipeId}
+            setEditingId={(value) => reloadRecipe(value)}
             editingData={selectedRecipeData}
             setEditingData={setSelectedRecipeData}
             defaultName={""}

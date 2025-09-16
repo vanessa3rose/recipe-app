@@ -83,10 +83,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   useEffect(() => {
     
     if (isSelectedTab) {
-      refreshSpotlights();
-      fetchGlobalSpotlight();
-      updateIngredients();
-      setRecipeDropdownOpen(false);
+      onNav();
     }
   }, [isSelectedTab])
 
@@ -99,16 +96,119 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     // if the page has changed to the current one, refetch the current data from the globals
     if (isSelectedTab && previousIndexRef !== null && previousIndexRef.current !== currentIndex && currentIndex === 0) {
       setTimeout(() => {
-        refreshSpotlights();
-        fetchGlobalSpotlight();
-        updateIngredients();
-        setRecipeDropdownOpen(false);}
-      , 1000);
+        onNav();
+      }, 1000);
     }
 
     // updates the ref to the new index
     previousIndexRef.current = currentIndex;
   }, [currentIndex]);
+
+
+  // when navigating
+  const onNav = async () => {
+    
+    // processes spotlights
+    const spotlightSnapshot = await getDocs(collection(db, 'SPOTLIGHTS'));
+    const spotlightsArray = spotlightSnapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => a.spotlightName.localeCompare(b.spotlightName));
+    setSpotlightList(spotlightsArray);
+
+
+    // gets the global spotlight id
+    const spotlightGlobal = await getDoc(doc(db, 'GLOBALS', 'spotlight'));
+    const spotlightId = spotlightGlobal?.data()?.id;
+    if (spotlightId) {
+
+      // gets the spotlight data
+      const spotlightDoc = spotlightSnapshot.docs.find(doc => doc.id === spotlightId);
+      const spotlightData = spotlightDoc?.data() || null;
+      
+      setSelectedSpotlightId(spotlightId);
+      setSelectedSpotlightData(spotlightData);
+
+
+      // to store the collected recipe tags
+      let allRecipeTags = new Set();
+
+      // processes recipes and their tags
+      const recipeSnapshot = await getDocs(collection(db, 'RECIPES'));
+      const recipesArray = recipeSnapshot.docs
+        .map(doc => {
+          const data = doc.data();
+          if (selectedRecipeId === doc.id) selectedRecipeData = data;
+          if (Array.isArray(data.recipeTags)) data.recipeTags.forEach(tag => allRecipeTags.add(tag));
+          return { id: doc.id, ...data };
+        })
+        .sort((a, b) => a.recipeName.localeCompare(b.recipeName));
+
+      setRecipeList(recipesArray);
+      setSelectedRecipeData(selectedRecipeData);
+
+      // adds "NEW TAG" and sorts alphabetically
+      const tagsWithLabelsAndValues = [
+        "NEW TAG", ...[...allRecipeTags].sort((a, b) => a.localeCompare(b))
+      ].map(tag => ({ label: tag, value: tag }));
+      
+      // sets the list of recipe tags
+      setRecipeTagList(tagsWithLabelsAndValues);
+
+
+      if (spotlightData) {    
+        // finds the first empty ingredient
+        setSelectedIngredientIndex(spotlightData.ingredientData.findIndex(x => !x) + 1 || 1);
+        // determines changed details
+        let calcData = calcAmounts(spotlightData);
+        determineEdited(calcData, recipesArray);
+        // updates the data
+        await updateDoc(doc(db, 'SPOTLIGHTS', spotlightId), calcData);
+        setSelectedSpotlightData({ ...calcData });
+        // stores values
+        setCurrIngredientAmounts(calcData.ingredientAmounts);
+        setCurrIngredientStores(calcData.ingredientStores);
+        setCurrSpotlightMult(calcData.spotlightMult);
+      }
+    }
+
+
+    // stores shopping data
+    const shoppingGlobal = await getDoc(doc(db, 'GLOBALS', 'shopping'));
+    const shoppingData = shoppingGlobal.data();
+    setSpotlightsIds(shoppingData.spotlights.map(doc => doc.id));
+    setSpotlightsSelected(shoppingData.spotlights.map(doc => doc.selected));
+
+
+    // stores ingredients
+    const ingredientSnapshot = await getDocs(collection(db, 'INGREDIENTS'));
+    setIngredientsSnapshot(ingredientSnapshot);
+
+    // collect all unique types into a Set
+    const typeSet = new Set();
+    ingredientSnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      if (Array.isArray(data.ingredientTypes)) {
+        data.ingredientTypes
+          .filter(type => type !== undefined && type !== null)
+          .forEach(type => typeSet.add(type));
+      }
+    });
+    
+    // sorts the list of types from that data alphabetically
+    const ingredientTypeList = [
+      { label: "ALL TYPES", value: "ALL TYPES" },
+      ...Array.from(typeSet)
+        .sort((a, b) => a.localeCompare(b))
+        .map(type => ({ label: type === "" ? "no type" : type, value: type, })),
+    ];
+    setIngredientTypeList(ingredientTypeList);
+
+    // processes and filters ingredients
+    const ingredients = ingredientSnapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
+    setFilteredIngredientData(ingredients);
+  }
 
 
   ///////////////////////////////// GETTING INGREDIENT DATA /////////////////////////////////
@@ -138,50 +238,10 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       setSpotlightDropdownOpen(false);         // spotlight dropdown
     }
   }, [ingredientDropdownOpen]);
-
-
-  // updates the current list of ingredients and ingredient types
-  const updateIngredients = async () => {
-
-    // fetches and stores the full data
-    const querySnapshot = await getDocs(collection(db, 'INGREDIENTS'));
-    setIngredientsSnapshot(querySnapshot);
-    
-    // sorts the list of types from that data alphabetically
-    const ingredientTypeList = [
-      { label: "ALL TYPES", value: "ALL TYPES" },
-      ...[...new Set(
-        querySnapshot.docs
-          .flatMap(item => item.data().ingredientTypes)
-          .filter(type => type !== undefined && type !== null)
-      )]
-        .sort((a, b) => a.localeCompare(b))
-        .map(type => ({
-          label: type === "" ? "no type" : type, 
-          value: type,
-        })),
-    ];
-
-    // sets the list of types
-    setIngredientTypeList(ingredientTypeList);
-
-    // extracts the ingredients
-    const ingredients = querySnapshot.docs.map((doc) => {
-      const formattedIngredient = {
-        id: doc.id,
-        ... doc.data()
-      }
-      return formattedIngredient;
-    })
-    .sort((a, b) => a.ingredientName.localeCompare(b.ingredientName)); // sort by ingredientName alphabetically
-
-    // filters the ingredient data based on the selected type
-    setFilteredIngredientData(ingredients);
-  }
   
 
   // filters the ingredients based on the "search for ingredient" text input
-  const filterIngredientData = (ingredientQuery) => {
+  const filterIngredientData = (ingredientQuery, dropdownOpen) => {
 
     let filtered = [];
     
@@ -216,7 +276,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     // sets the data and shows the dropdown list of ingredients if there are ingredients to show
     if (filtered.length !== 0) {
       setSearchIngredientQuery(ingredientQuery);
-      setIngredientDropdownOpen(true);
+      setIngredientDropdownOpen(dropdownOpen);
       setFilteredIngredientData(filtered);
     } else {
       setFilteredIngredientData(filteredIngredientData);
@@ -232,8 +292,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   // refilters when the type or store changes
   useEffect(() => {
     setSearchIngredientQuery("");
-    setIngredientDropdownOpen(false);
-    filterIngredientData(searchIngredientQuery);
+    filterIngredientData(searchIngredientQuery, false);
   }, [selectedIngredientType, selectedIngredientStore, ingredientsSnapshot]); 
 
   // decides the next store
@@ -275,10 +334,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     setSearchIngredientQuery("");
     setSelectedIngredientName("");
     setSelectedIngredientId("");
-    filterIngredientData("");
-
-    // closes the type dropdown
-    setIngredientDropdownOpen(false);
+    filterIngredientData("", false);
   }
 
   // for when the check button is selected next to the ingredient textinput
@@ -726,69 +782,6 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     reloadRecipe();
   }, [selectedRecipeId]);
 
-  // helper function to refresh the list of recipes
-  const refreshRecipes = async (spotlightData) => {
-
-    // gets the collection of recipes
-    const querySnapshot = await getDocs(collection(db, 'RECIPES'));
-
-    // reformats each one
-    const recipesArray = querySnapshot.docs.map((doc) => {
-      const formattedRecipe = {
-        id: doc.id,
-        ... doc.data(),
-      };
-      return formattedRecipe;
-    })
-    .sort((a, b) => a.recipeName.localeCompare(b.recipeName)); // sort by recipeName alphabetically
-
-    setRecipeList(recipesArray);
-
-  
-    // to store the collected recipe tags
-    let allRecipeTags = ["NEW TAG"];
-  
-    // loops through the recipes
-    querySnapshot.forEach((doc) => {
-
-      // resets selected data
-      const data = doc.data();
-      if (selectedRecipeId === doc.id) { setSelectedRecipeData(data); }
-
-      // adds all tags
-      if (Array.isArray(data.recipeTags)) { allRecipeTags.push(...data.recipeTags); }
-    });
-
-    // removes duplicates and sort alphabetically, excluding "NEW TAG"
-    const uniqueTags = [...new Set(allRecipeTags)];
-    const sortedTags = uniqueTags
-      .filter(tag => tag !== "NEW TAG") // Exclude "NEW TAG" from sorting
-      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })); // Case-insensitive sort
-
-    // adds the "NEW TAG" at the start
-    sortedTags.unshift("NEW TAG");
-
-    // maps the sorted tags to an array of objects with label and value properties
-    const tagsWithLabelsAndValues = sortedTags.map(tag => ({
-      label: tag,
-      value: tag,
-    }));
-    
-    // sets the list of recipe tags
-    setRecipeTagList(tagsWithLabelsAndValues);
-    
-
-    if (spotlightData) {    
-      // determines changed details
-      let calcData = calcAmounts(spotlightData);
-      determineEdited(calcData, recipesArray);
-      
-      // updates the data
-      await updateDoc(doc(db, 'SPOTLIGHTS', selectedSpotlightId), calcData);
-      setSelectedSpotlightData({ ...calcData });
-    }
-  };
-
 
   ///////////////////////////////// RECIPE FILTERING /////////////////////////////////
 
@@ -993,7 +986,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       updateDoc(doc(db, 'SPOTLIGHTS', docId), selectedData);
       
       // stores data
-      setSelectedSpotlightId(docId);
+      reloadSpotlight(docId);
       setSelectedSpotlightData(selectedData);
   
       // updates the list of selected spotlights and ids
@@ -1036,7 +1029,6 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       id,
       selected: newSelected[spotlightsIds.indexOf(id)],
     }));
-    console.log(spotlightsData)
       
     // stores the change
     updateDoc(doc(db, 'GLOBALS', 'shopping'), { spotlights: spotlightsData });
@@ -1067,113 +1059,51 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       setRecipeDropdownOpen(false);     // spotlight dropdown
     }
   }, [spotlightDropdownOpen]);
-  
-  
-  // gets the spotlight document data from the globals collection
-  const fetchGlobalSpotlight = async () => {
-    
-    try {
-    
-      // gets the global spotlight id
-      const globalDoc = await getDoc(doc(db, 'GLOBALS', 'spotlight'));
-      if (globalDoc.exists()) {
-        
-        let spotlightId = globalDoc.data().id;
-        if (spotlightId) {
-
-          // gets the spotlight data
-          const spotlightDoc = await getDoc(doc(db, 'SPOTLIGHTS', spotlightId));
-          if (spotlightDoc.exists()) {
-            const spotlightData = spotlightDoc.data();
-
-            // loops over the 12 ingredients backwards to find the first empty one
-            for (let i = 11; i >= 0; i--) {
-              if (!spotlightData.ingredientData[i]) {
-                setSelectedIngredientIndex(i + 1);
-              }
-            }
-            
-            setSelectedSpotlightId(spotlightId);
-            setSelectedSpotlightData(spotlightData);
-
-            // updates spotlight recipe data
-            refreshRecipes(spotlightData);
-
-            // if the data is not null
-            if (spotlightData) {
-              setCurrIngredientAmounts(spotlightData.ingredientAmounts);
-              setCurrIngredientStores(spotlightData.ingredientStores);
-              setCurrSpotlightMult(spotlightData.spotlightMult);
-
-            // otherwise, default values
-            } else {
-              setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
-              setCurrIngredientStores(["", "", "", "", "", "", "", "", "", "", "", ""]);
-              setCurrSpotlightMult(0);
-              setSelectedIngredientIndex(1);
-            }
-          }
-
-        // otherwise, store default values
-        } else {
-          setSelectedSpotlightId(null);
-          setSelectedSpotlightData(null);
-          setSelectedIngredientIndex(1);
-          setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
-          setCurrIngredientStores(["", "", "", "", "", "", "", "", "", "", "", ""]);
-          setCurrSpotlightMult(0);
-        }
-      }
-
-    } catch (error) {
-      console.error('Error fetching spotlight document:', error);
-    }
-  };
 
   // helper function to reload the selected spotlight's data
-  const reloadSpotlight = async (selectedSpotlightId) => {
+  const reloadSpotlight = async (spotlightId) => {
+    setSelectedSpotlightId(spotlightId);
     
     // if a spotlight is selected
-    if (selectedSpotlightId) {
+    if (spotlightId) {
 
       // stores the recipe data in the firebase
-      updateDoc(doc(db, 'GLOBALS', 'spotlight'), { id: selectedSpotlightId });
+      updateDoc(doc(db, 'GLOBALS', 'spotlight'), { id: spotlightId });
 
       // gets the data
-      const docSnap = await getDoc(doc(db, 'SPOTLIGHTS', selectedSpotlightId));
+      const docSnap = await getDoc(doc(db, 'SPOTLIGHTS', spotlightId));
+      const data = docSnap.exists() ? docSnap.data() : null;
 
-      // sets the spotlight based on the given id and data
-      if (docSnap.exists()) {
-        data = docSnap.data();
+      // sets the current spotlight card placeholders
+      setCurrIngredientStores(data.ingredientStores)
+      setCurrSpotlightMult(data.spotlightMult)
 
-        setCurrIngredientStores(data.ingredientStores)
-        setCurrSpotlightMult(data.spotlightMult)
-
-        // if there are amounts of ingredients, update them
-        if (data.ingredientAmounts) {
-          let calcData = calcAmounts(data);
-
-          // loops over the 12 ingredients backwards to find the first empty one
-          for (let i = 11; i >= 0; i--) {
-            if (!calcData.ingredientData[i]) {
-              setSelectedIngredientIndex(i + 1);
-            }
-          }
-
-          // determines changed stores
-          determineEdited(calcData, recipeList);
-
-          // updates the collection data
-          await updateDoc(doc(db, 'SPOTLIGHTS', selectedSpotlightId), calcData);
+      // if there are amounts of ingredients, update them
+      if (data.ingredientAmounts) {
       
-          // updates the selected data
-          setSelectedSpotlightData({ ...calcData });
+      // calculate the details and totals
+        let calcData = calcAmounts(data);
+
+        // loops over the 12 ingredients backwards to find the first empty one
+        for (let i = 11; i >= 0; i--) {
+          if (!calcData.ingredientData[i]) {
+            setSelectedIngredientIndex(i + 1);
+          }
         }
+
+        // determines changed stores
+        determineEdited(calcData, recipeList);
+
+        // updates the collection data
+        await updateDoc(doc(db, 'SPOTLIGHTS', spotlightId), calcData);
+    
+        // updates the selected data
+        setSelectedSpotlightData({ ...calcData });
       }
     
     // if a spotlight is not selected, set default data
     } else {
-      setSelectedSpotlightId(null);
+      reloadSpotlight(null);
       setSelectedSpotlightData(null);
       setSelectedIngredientIndex(1);
       setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
@@ -1184,13 +1114,6 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       updateDoc(doc(db, 'GLOBALS', 'spotlight'), { id: null });
     }
   }
-  
-  // fetches the data of the selected spotlight when the selected spotlight changes
-  useEffect(() => {
-    if (isSelectedTab) {
-      reloadSpotlight(selectedSpotlightId);
-    }
-  }, [selectedSpotlightId]);
 
 
   // helper function to refresh the list of spotlights
@@ -1235,7 +1158,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     const [docId, spotlightData] = await spotlightAdd({ numSpotlights: spotlightList.length });
     
     setSelectedSpotlightData(spotlightData);
-    setSelectedSpotlightId(docId);
+    reloadSpotlight(docId);
 
     // updates the list of selected spotlights and ids
     const newSelected = [...spotlightsSelected, false];
@@ -1298,7 +1221,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
       // restores data
       setSelectedSpotlightData(null);
-      setSelectedSpotlightId(null);
+      reloadSpotlight(null);
     }
   };
 
@@ -1714,7 +1637,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 modalVisible={modModalVisible} 
                 closeModal={closeModModal} 
                 editingId={selectedSpotlightId}
-                setEditingId={setSelectedSpotlightId}
+                setEditingId={(value) => reloadSpotlight(value)}
                 editingData={selectedSpotlightData}
                 setEditingData={setSelectedSpotlightData}
                 defaultName={""}
@@ -1755,7 +1678,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                     {/* blank selector */}
                     <TouchableOpacity
                       className={`h-[${ITEM_HEIGHT}px] w-full bg-zinc200 border-b-0.5 border-zinc400`}
-                      onPress={() => {setSelectedSpotlightId(null); setSpotlightDropdownOpen(false)}}
+                      onPress={() => {reloadSpotlight(null); setSpotlightDropdownOpen(false)}}
                     />
                     {/* spotlight selector */}
                     <ScrollView ref={dropdownScrollRef}>
@@ -1764,7 +1687,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                           key={index}
                           className={`border-b-0.5 border-zinc350 justify-center items-center h-[${ITEM_HEIGHT}px] ${(spotlight?.id === selectedSpotlightId) && "bg-zinc100"}`}
                           onPress={() => {
-                            setSelectedSpotlightId(spotlight.id);
+                            reloadSpotlight(spotlight.id);
                             setSpotlightDropdownOpen(false);
                           }}
                         >
@@ -2181,8 +2104,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               className="flex w-full h-full"
               onPress={() => { 
                 if (selectedSpotlightId !== null) {
-                  filterIngredientData(searchIngredientQuery);
-                  setIngredientDropdownOpen(false);
+                  filterIngredientData(searchIngredientQuery, false);
                   setKeyboardType("ingredient search");
                   setIsKeyboardOpen(true);
                   setRecipeDropdownOpen(false);
@@ -2293,10 +2215,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 name="chevron-up-outline"
                 size={20}
                 color="black"
-                onPress={() => {
-                  filterIngredientData(searchIngredientQuery);
-                  setIngredientDropdownOpen(true);
-                }}
+                onPress={() => filterIngredientData(searchIngredientQuery, true)}
               />
 
               {/* Clear */}
@@ -2371,15 +2290,14 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               {/* Filter TextInput */}
               <TextInput
                 value={searchIngredientQuery}
-                onChangeText={filterIngredientData}
+                onChangeText={(value) => filterIngredientData(value, true)}
                 placeholder="search for ingredient"
                 placeholderTextColor={colors.zinc400}
                 className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[17px] z-10`}
                 multiline={true}
                 blurOnSubmit={true}
                 onFocus={() => {
-                  filterIngredientData(searchIngredientQuery);
-                  setIngredientDropdownOpen(true);
+                  filterIngredientData(searchIngredientQuery, true);
                   setRecipeDropdownOpen(false);
                 }}
               />
@@ -2460,10 +2378,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   name="chevron-up-outline"
                   size={20}
                   color="black"
-                  onPress={() =>  {
-                    filterIngredientData(searchIngredientQuery);
-                    setIngredientDropdownOpen(true);
-                  }}
+                  onPress={() => filterIngredientData(searchIngredientQuery, true)}
                 />
 
                 {/* Clear */}

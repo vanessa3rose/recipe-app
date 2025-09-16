@@ -73,6 +73,7 @@ export default function ShoppingList ({ isSelectedTab }) {
     };
   }, [keyboardType]);
 
+
   ///////////////////////////////// NAVIGATION LOGIC /////////////////////////////////
 
   // if the tab has changed
@@ -101,6 +102,27 @@ export default function ShoppingList ({ isSelectedTab }) {
     previousIndexRef.current = currentIndex;
   }, [currentIndex]);
 
+  // to load in database data on startup
+  const loadDB = async () => {
+    
+    // gets all of the spotlight data
+    const querySnapshot = await getDocs(collection(db, 'SPOTLIGHTS'));
+    setSpotlightsSnapshot(querySnapshot);
+    
+    // gets current global spotlight info
+    const shopping = await getDoc(doc(db, 'GLOBALS', 'shopping'));
+    const shoppingData = shopping.data();
+    const shoppingIds = shoppingData.spotlights.map((doc) => doc.id);
+    const shoppingSelected = shoppingData.spotlights.map((doc) => doc.selected);
+    
+    // stores it
+    setSpotlightsIds(shoppingIds);
+    setSpotlightsSelected(shoppingSelected);
+    setShoppingExtras(shoppingData.extras);
+
+    await getAllShoppingLists(querySnapshot, shoppingData.extras, shoppingIds, shoppingSelected, null, null);
+  }
+
 
   ///////////////////////////////// STORES /////////////////////////////////
 
@@ -127,27 +149,6 @@ export default function ShoppingList ({ isSelectedTab }) {
       notes: [],
     }])
   ));
-
-  // to load in database data on startup
-  const loadDB = async () => {
-    
-    // gets all of the spotlight data
-    const querySnapshot = await getDocs(collection(db, 'SPOTLIGHTS'));
-    setSpotlightsSnapshot(querySnapshot);
-    
-    // gets current global spotlight info
-    const shopping = await getDoc(doc(db, 'GLOBALS', 'shopping'));
-    const shoppingData = shopping.data();
-    const shoppingIds = shoppingData.spotlights.map((doc) => doc.id);
-    const shoppingSelected = shoppingData.spotlights.map((doc) => doc.selected);
-    
-    // stores it
-    setSpotlightsIds(shoppingIds);
-    setSpotlightsSelected(shoppingSelected);
-    setShoppingExtras(shoppingData.extras);
-
-    await getAllShoppingLists(querySnapshot, shoppingData.extras, shoppingIds, shoppingSelected, null, null);
-  }
 
 
   // to get all shopping lists
