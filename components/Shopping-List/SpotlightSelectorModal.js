@@ -13,6 +13,9 @@ import colors from '../../assets/colors';
 // store lists
 import storeKeys from '../../assets/storeKeys';
 
+// validation
+import { numberToRoman } from '../../components/Validation/numberToRoman';
+
 // initialize firebase app
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
@@ -22,7 +25,7 @@ const db = getFirestore(app);
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const SpotlightSelectorModal = ({ 
-  spotlightsSnapshot, spotlightsSelected, spotlightsIds, modalVisible, setModalVisible, submitModal
+  spotlightsSnapshot, spotlightsSelected, spotlightsNumber, spotlightsIds, modalVisible, setModalVisible, submitModal
 }) => {
 
 
@@ -83,6 +86,8 @@ const SpotlightSelectorModal = ({
   ///////////////////////////////// SORTING LOGIC /////////////////////////////////
 
   const [selected, setSelected] = useState(null);
+  const [ogNumber, setOgNumber] = useState(null);
+  const [number, setNumber] = useState(null);
   const [spotlightData, setSpotlightData] = useState(null);
   const [ids, setIds] = useState(null);
 
@@ -126,17 +131,21 @@ const SpotlightSelectorModal = ({
     // to collect the sorted selections
     let sortedIds = [];
     let sortedSelected = [];
+    let sortedNumber = [];
 
     sortedDocs.forEach((spotlight) => {
       if (spotlightsIds.includes(spotlight.id)) {
         sortedIds.push(spotlightsIds[spotlightsIds.indexOf(spotlight.id)])
         sortedSelected.push(spotlightsSelected[spotlightsIds.indexOf(spotlight.id)])
+        sortedNumber.push(spotlightsNumber[spotlightsIds.indexOf(spotlight.id)])
       }
     })
 
     // stores data
     setIds(sortedIds);
     setSelected(sortedSelected);
+    setOgNumber(sortedNumber);
+    setNumber(sortedNumber);
   }
 
 
@@ -157,6 +166,24 @@ const SpotlightSelectorModal = ({
       const updatedSelected = [...prevState];
       updatedSelected[index] = !selected[index];
       return updatedSelected;
+    });
+
+    // updates the associated number
+    setNumber((prevState) => {
+      const updatedNumber = [...prevState];
+      updatedNumber[index] = !selected[index] ? -1 : (ogNumber[index] === -1 ? 0 : ogNumber[index]);
+      return updatedNumber;
+    });
+  }
+  
+  // to increment or decrement the current spotlight's number
+  const changeNumber = async (change, index) => {
+
+    // stores the selection
+    setNumber((prevState) => {
+      const updatedNumber = [...prevState];
+      updatedNumber[index] = number[index] + change;
+      return updatedNumber;
     });
   }
 
@@ -212,7 +239,7 @@ const SpotlightSelectorModal = ({
                 size={24}
                 color="black"
                 name="checkmark"
-                onPress={() => submitModal(ids, selected, ingredientList)}
+                onPress={() => submitModal(ids, selected, number, ingredientList)}
               />
               {/* X */}
               <Icon 
@@ -229,42 +256,80 @@ const SpotlightSelectorModal = ({
           
           {/* recipe list */}
           {(selected !== null && ingredientList !== null) && (
-            <ScrollView className="max-h-[500px] mx-4">
+            <ScrollView className="max-h-[500px] ml-4 pr-1" showsVerticalScrollIndicator={false}>
               {spotlightData.map((spotlight, index) => ( 
                 <View 
                   key={index}
                   className={`flex flex-col justify-center items-center w-full ${(showIngredientsIndex === index) && ((index === 0) ? "pb-3" : "py-3")}`}
                 >
                   {/* Spotlight Row */}
-                  <View className={`flex flex-row border-theme700 border-x-[1px] ${(index === 0) && "border-t-[1px] border-t-theme700"} ${(showIngredientsIndex === index) ? "border-t-[1px] border-b-0.5" : (showIngredientsIndex + 1 === index) ? "border-t-[1px] border-b-[1px]" : "border-b-[1px]"}`}>
+                  <View className="flex flex-row ml-[15px] border-theme700 border-l-[1px]">
+                    <View className={`flex flex-row w-full ${(index === 0) && "border-t-[1px] border-t-theme700"} ${(showIngredientsIndex === index) ? "border-t-[1px] border-b-0.5" : (showIngredientsIndex + 1 === index) ? "border-t-[1px] border-b-[1px]" : "border-b-[1px]"}`}>
 
-                    {/* Multiplicity */}
-                    <View className="flex w-[10%] justify-center items-center bg-zinc350">
-                      <Text className="text-center text-black font-semibold">
-                        {spotlight.data.spotlightMult}
-                      </Text>
+                      {/* Multiplicity */}
+                      <View className="flex w-[10%] justify-center items-center bg-zinc350">
+                        <Text className="text-center text-black font-semibold">
+                          {spotlight.data.spotlightMult}
+                        </Text>
+                      </View>
+
+                      {/* button to open the spotlight's ingredients */}
+                      <TouchableOpacity 
+                        className="px-2 py-3 w-[75%] items-center justify-center bg-white"
+                        onPress={() => setShowIngredientsIndex((showIngredientsIndex === index) ? -1 : index)}
+                      >
+                        {/* Spotlight Name */}
+                        <Text className="text-theme900 font-semibold text-center">
+                          {spotlight.data.spotlightName}
+                        </Text>
+                      </TouchableOpacity>
+                      
+                      {/* checkbox */}
+                      <View className="flex w-[15%] items-center justify-center bg-theme200 border-zinc450">
+                        {selected[index] ? (
+                          // if selected - standard checkbox
+                          <Icon
+                            name={selected[index] ? 'checkbox' : 'square-outline'}
+                            size={20}
+                            color={colors.zinc700}
+                            onPress={() => changeSelected(index)}
+                          />
+                        ) : (
+                          // if unselected - number
+                          <TouchableOpacity 
+                            className="border border-zinc700 items-center justify-center rounded-[3px] px-0.5 min-w-[18px] h-[18px]"
+                            onPress={() => changeSelected(index)}
+                          >
+                            <Text className="font-bold text-[10px] text-zinc700 font-mono tracking-tighter">
+                              {number[index] === 0 ? "-" : numberToRoman(number[index])}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
 
-                    {/* button to open the spotlight's ingredients */}
-                    <TouchableOpacity 
-                      className="px-2 py-3 w-[75%] items-center justify-center bg-white"
-                      onPress={() => setShowIngredientsIndex((showIngredientsIndex === index) ? -1 : index)}
-                    >
-                      {/* Spotlight Name */}
-                      <Text className="text-theme900 font-semibold text-center">
-                        {spotlight.data.spotlightName}
-                      </Text>
-                    </TouchableOpacity>
-                    
-                    {/* checkbox */}
-                    <View className="flex w-[15%] items-center justify-center bg-theme200 border-zinc450">
-                      <Icon
-                        name={selected[index] ? 'checkbox' : 'square-outline'}
-                        size={20}
-                        color={colors.zinc700}
-                        onPress={() => changeSelected(index)}
-                      />
-                    </View>
+                    {/* Buttons */}
+                    {!selected[index] ? (
+                      <View className="justify-center w-[30px] pl-1 space-y-[-2px] border-theme700 border-l-[1px]">
+                        {/* Increment Button */}
+                        <Icon
+                          name="caret-up"
+                          size={15}
+                          color={colors.zinc600}
+                          onPress={() => changeNumber(1, index)}
+                        />
+                        {/* Decrement Button */}
+                        <Icon
+                          name="caret-down"
+                          size={15}
+                          color={(number[index] === 0) ? colors.zinc350 : colors.zinc600}
+                          onPress={(number[index] === 0) ? null : () => changeNumber(-1, index)}
+                        />
+                      </View>
+                    ) : (
+                      // if selected - no numbers to change
+                      <View className="justify-center w-[30px] pl-1 space-y-[-2px] border-theme700 border-l-[1px]"/>
+                    )}
                   </View>
 
                   {/* Ingredients Section */}
@@ -272,55 +337,59 @@ const SpotlightSelectorModal = ({
                     <>
                       {spotlight.data.ingredientData.filter(data => data !== null).length > 0
                       ?
-                        <View className="w-full border-b-[1px] border-x-[1px] border-t-2 border-t-theme700 border-x-zinc700 border-b-zinc700">
-                          {spotlight.data.ingredientData.map((ingredient, i) => (
-                            <View key={i}>
-                            
-                            {/* doesnt display ingredient if it's amount is 0 in the spotlight */}
-                            {(ingredient !== null && spotlight.data.ingredientAmounts[i] !== "0") && (
-                              <>
-                                {/* different display based on checkbox */}
-                                {selected[index] 
-                                  ? 
-                                  // selected
-                                  <View className="flex flex-row bg-zinc700">
-                                    {/* Included Button */}
-                                    <View className="justify-center items-center bg-theme500 w-[10%] py-0.5 border-b-[1px] border-theme600">
-                                      <Icon
-                                        name={ingredientList?.filter(ingredient => ingredient.id === spotlight.data.ingredientIds[i])?.[0]?.included ? "close-outline" : "add-sharp"}
-                                        size={16}
-                                        color={ingredientList?.filter(ingredient => ingredient.id === spotlight.data.ingredientIds[i])?.[0]?.included ? "white" : colors.zinc900}
-                                        onPress={() => updateIncluded(spotlight.data.ingredientIds[i])}
-                                      />
-                                    </View>
+                        <View className="w-full pr-[14px]">
+                          <View className="border-b-[1px] border-x-[1px] border-t-2 border-t-theme700 border-x-zinc700 border-b-zinc700">
+                            {spotlight.data.ingredientData.map((ingredient, i) => (
+                              <View key={i}>
+                              
+                              {/* doesnt display ingredient if it's amount is 0 in the spotlight */}
+                              {(ingredient !== null && spotlight.data.ingredientAmounts[i] !== "0") && (
+                                <>
+                                  {/* different display based on checkbox */}
+                                  {selected[index] 
+                                    ? 
+                                    // selected
+                                    <View className="flex flex-row bg-zinc700">
+                                      {/* Included Button */}
+                                      <View className="justify-center items-center bg-theme500 w-[10%] py-0.5 border-b-[1px] border-theme600">
+                                        <Icon
+                                          name={ingredientList?.filter(ingredient => ingredient.id === spotlight.data.ingredientIds[i])?.[0]?.included ? "close-outline" : "add-sharp"}
+                                          size={16}
+                                          color={ingredientList?.filter(ingredient => ingredient.id === spotlight.data.ingredientIds[i])?.[0]?.included ? "white" : colors.zinc900}
+                                          onPress={() => updateIncluded(spotlight.data.ingredientIds[i])}
+                                        />
+                                      </View>
 
-                                    {/* Name */}
-                                    <View className="justify-center w-[90%] py-0.5 bg-zinc450 pl-2 border-b-[1px] border-zinc500">
+                                      {/* Name */}
+                                      <View className="justify-center w-[90%] py-0.5 bg-zinc450 pl-2 border-b-[1px] border-zinc500">
+                                        <Text className="text-white text-[10.5px] italic font-semibold">
+                                          {spotlight.data.ingredientNames[i]}
+                                        </Text>
+                                      </View>
+                                    </View>
+                                    : 
+                                    // not selected
+                                    <View className="py-[3px] justify-center bg-zinc450 pl-2 border-b-[1px] border-zinc500">
+                                      {/* name */}
                                       <Text className="text-white text-[10.5px] italic font-semibold">
                                         {spotlight.data.ingredientNames[i]}
                                       </Text>
                                     </View>
-                                  </View>
-                                  : 
-                                  // not selected
-                                  <View className="py-[3px] justify-center bg-zinc450 pl-2 border-b-[1px] border-zinc500">
-                                    {/* name */}
-                                    <Text className="text-white text-[10.5px] italic font-semibold">
-                                      {spotlight.data.ingredientNames[i]}
-                                    </Text>
-                                  </View>
-                                }
-                              </>
-                            )}
-                            </View>
-                          ))}      
-                        </View>            
+                                  }
+                                </>
+                              )}
+                              </View>
+                            ))}      
+                          </View>   
+                        </View>         
                       :
                         // spotlight has no ingredients
-                        <View className="w-full bg-zinc700 py-2 justify-center items-center border-x-zinc700 border-b-zinc700">
-                          <Text className="text-zinc300 font-bold italic text-[12px]">
-                            NO INGREDIENTS AVAILABLE
-                          </Text>
+                        <View className="w-full pr-[14px]">
+                          <View className="bg-zinc700 py-2 justify-center items-center border-x-zinc700 border-b-zinc700">
+                            <Text className="text-zinc300 font-bold italic text-[12px]">
+                              NO INGREDIENTS AVAILABLE
+                            </Text>
+                          </View>
                         </View>
                       }
                     </>  

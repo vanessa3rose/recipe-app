@@ -109,7 +109,7 @@ export default function Recipes ({ isSelectedTab }) {
   const onNav = async () => {
 
     // gets the recipes and their tags
-    const recipeSnapshot = await refreshRecipes();
+    const recipeSnapshot = await refreshRecipes(selectedRecipeData);
 
 
     // gets the global recipe id
@@ -357,7 +357,7 @@ export default function Recipes ({ isSelectedTab }) {
       clearIngredientSearch();
 
       // reload settings
-      refreshRecipes();
+      refreshRecipes(calcData);
     }
   }
 
@@ -472,7 +472,7 @@ export default function Recipes ({ isSelectedTab }) {
       setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
 
       // reload settings
-      refreshRecipes();
+      refreshRecipes(calcData);
     }
   }
 
@@ -514,7 +514,7 @@ export default function Recipes ({ isSelectedTab }) {
     setSelectedRecipeData(calcData);
 
     // reload settings
-    refreshRecipes();
+    refreshRecipes(calcData);
   }
   
 
@@ -702,7 +702,7 @@ export default function Recipes ({ isSelectedTab }) {
     setSelectedRecipeData(calcData);
 
     // reload settings
-    refreshRecipes();
+    refreshRecipes(calcData);
   }
 
 
@@ -772,7 +772,7 @@ export default function Recipes ({ isSelectedTab }) {
 
   
   // helper function to refresh the list of recipes
-  const refreshRecipes = async () => {
+  const refreshRecipes = async (recipeData) => {
 
     // to store the collected recipe tags
     let allRecipeTags = new Set();
@@ -782,14 +782,14 @@ export default function Recipes ({ isSelectedTab }) {
     const recipesArray = recipeSnapshot.docs
       .map(doc => {
         const data = doc.data();
-        if (selectedRecipeId === doc.id) selectedRecipeData = data;
+        if (selectedRecipeId === doc.id) recipeData = data;
         if (Array.isArray(data.recipeTags)) data.recipeTags.forEach(tag => allRecipeTags.add(tag));
         return { id: doc.id, ...data };
       })
       .sort((a, b) => a.recipeName.localeCompare(b.recipeName));
 
     setRecipeList(recipesArray);
-    setSelectedRecipeData(selectedRecipeData);
+    setSelectedRecipeData(recipeData);
 
     // adds "NEW TAG" and sorts alphabetically
     const tagsWithLabelsAndValues = [
@@ -892,7 +892,7 @@ export default function Recipes ({ isSelectedTab }) {
     setIngredientDropdownOpen(false);
 
     // reload settings
-    refreshRecipes();
+    refreshRecipes(selectedRecipeData);
   };
 
 
@@ -928,11 +928,17 @@ export default function Recipes ({ isSelectedTab }) {
       setSelectedIngredientType("ALL TYPES");
       setIngredientDropdownOpen(false);
       setSelectedIngredientIndex(1);
-    }
+
+      // resets recipe
+      setSelectedRecipeData(null);
+      setSelectedRecipeId(null);
 
     // reload settings
-    refreshRecipes();
-  };
+      refreshRecipes(null);
+    } else {
+      refreshRecipes(selectedRecipeData);
+    }
+  }
 
 
   ///////////////////////////////// RECIPE TAG LOGIC /////////////////////////////////
@@ -956,6 +962,7 @@ export default function Recipes ({ isSelectedTab }) {
 
   // when the user clicks a tag in the dropdown
   const toggleTag = (tag) => {
+    let recipeData = selectedRecipeData;
 
     // if a recipe is currently selected
     if (selectedRecipeId) {
@@ -965,36 +972,37 @@ export default function Recipes ({ isSelectedTab }) {
         setNewTagModalVisible(true);
 
       // if the recipe already has the tag, remove it
-      } else if (selectedRecipeData.recipeTags.includes(tag)) {
-        const updatedTags = selectedRecipeData.recipeTags.filter(item => item !== tag);
-        selectedRecipeData.recipeTags = updatedTags;
+      } else if (recipeData.recipeTags.includes(tag)) {
+        const updatedTags = recipeData.recipeTags.filter(item => item !== tag);
+        recipeData.recipeTags = updatedTags;
       
       // if the recipe does not already have the tag, add it
       } else {
-        selectedRecipeData.recipeTags.push(tag);
+        recipeData.recipeTags.push(tag);
       }
     }
 
     // removes duplicates and sorts alphabetically
-    const uniqueTags = [...new Set(selectedRecipeData.recipeTags)]
+    const uniqueTags = [...new Set(recipeData.recipeTags)]
     .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
     // stores the unique tags
-    selectedRecipeData.recipeTags = uniqueTags;
+    recipeData.recipeTags = uniqueTags;
 
     // stores the recipe data in the firebase
-    updateDoc(doc(db, 'RECIPES', selectedRecipeId), selectedRecipeData);
+    updateDoc(doc(db, 'RECIPES', selectedRecipeId), recipeData);
 
     // updates the selected recipe
-    setSelectedRecipeData(selectedRecipeData);
+    setSelectedRecipeData(recipeData);
     
     // reload settings
-    refreshRecipes();
+    refreshRecipes(recipeData);
   }
 
 
   // when the new tag modal is closed, use the new tag title that was provided
   const closeNewTagModal = async (newTag) => {
+    let recipeData = selectedRecipeData;
 
     // closes the modal and dropdown
     setTagDropdownOpen(false);
@@ -1004,23 +1012,23 @@ export default function Recipes ({ isSelectedTab }) {
     if (newTag !== "") {
 
       // adds the new tag to the list of current tags
-      selectedRecipeData.recipeTags.push(newTag);
+      recipeData.recipeTags.push(newTag);
 
       // removes duplicates and sorts alphabetically
-      const uniqueTags = [...new Set(selectedRecipeData.recipeTags)]
+      const uniqueTags = [...new Set(recipeData.recipeTags)]
         .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
       // stores the unique tags
-      selectedRecipeData.recipeTags = uniqueTags;
+      recipeData.recipeTags = uniqueTags;
 
       // stores the recipe data in the firebase
-      updateDoc(doc(db, 'RECIPES', selectedRecipeId), selectedRecipeData);
+      updateDoc(doc(db, 'RECIPES', selectedRecipeId), recipeData);
   
       // updates the selected recipe
-      setSelectedRecipeData(selectedRecipeData);
+      setSelectedRecipeData(recipeData);
       
       // reload settings
-      refreshRecipes();
+      refreshRecipes(recipeData);
     } 
   }
 
@@ -1039,7 +1047,7 @@ export default function Recipes ({ isSelectedTab }) {
         setSelectedRecipeData(editedData);
         
         // reload settings
-        refreshRecipes();
+        refreshRecipes(editedData);
       }
     }
   }
@@ -1075,7 +1083,7 @@ export default function Recipes ({ isSelectedTab }) {
       setSelectedRecipeData(calcData);
 
       // reload settings
-      refreshRecipes();
+      refreshRecipes(calcData);
     }
   }
 
@@ -1109,7 +1117,7 @@ export default function Recipes ({ isSelectedTab }) {
       setSelectedRecipeData(calcData);
 
       // reload settings
-      refreshRecipes();
+      refreshRecipes(calcData);
     }
   }
   
@@ -1547,6 +1555,7 @@ export default function Recipes ({ isSelectedTab }) {
         {/* CALCULATION MODAL */}
         {calcModalVisible && (
           <CalcIngredientModal
+            type={"recipe"}
             modalVisible={calcModalVisible}
             setModalVisible={setCalcModalVisible}
             submitModal={submitCalcModal}
@@ -1557,7 +1566,10 @@ export default function Recipes ({ isSelectedTab }) {
             initialPrice={selectedRecipeData?.ingredientPrices[calcIndex].toFixed(2)}
             initialServings={selectedRecipeData?.ingredientServings[calcIndex].toFixed(2)}
             initialAmount={selectedRecipeData?.ingredientAmounts[calcIndex]}
-            amountUsed={null}
+            totalAmountUsed={null}
+            amountsUsed={null}
+            othersUsed={null}
+            selectedUsed={null}
             amountContainer={selectedRecipeData?.ingredientData[calcIndex][selectedRecipeData?.ingredientStores[calcIndex]].totalYield === "" ? 0 : new Fractional (selectedRecipeData?.ingredientData[calcIndex][selectedRecipeData?.ingredientStores[calcIndex]].totalYield).toString()}
             servingSize={null}
           />
@@ -1928,7 +1940,7 @@ export default function Recipes ({ isSelectedTab }) {
                                   },
                                   null
                                 ))
-                              ].toUpperCase()}`}
+                              ]?.toUpperCase()}`}
                             </Text>
                           )}
                         </View>
@@ -2118,7 +2130,7 @@ export default function Recipes ({ isSelectedTab }) {
                                     },
                                     null
                                   ))
-                                ].toUpperCase()}`}
+                                ]?.toUpperCase()}`}
                               </Text>
                             )}
                           </View>

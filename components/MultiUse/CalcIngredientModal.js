@@ -24,10 +24,11 @@ import extractUnit from '../Validation/extractUnit';
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const CalcIngredientModal = ({ 
-  modalVisible, setModalVisible, submitModal, 
+  type, modalVisible, setModalVisible, submitModal, 
   ingredientData, ingredientName, ingredientStore,
   initialCals, initialPrice, initialServings, initialAmount, 
-  amountUsed, amountContainer, servingSize
+  totalAmountUsed, amountsUsed, othersUsed, selectedUsed, 
+  amountContainer, servingSize
 }) => {
 
 
@@ -37,7 +38,7 @@ const CalcIngredientModal = ({
   const [priceContainer, setPriceContainer] = useState("");
   const [totalYield, setTotalYield] = useState("");
 
-  const [numContainers, setNumContainers] = useState(0);
+  const [numContainers, setNumContainers] = useState(1);
 
   // populates data on open
   useEffect(() => {
@@ -48,8 +49,8 @@ const CalcIngredientModal = ({
       setGoalPrice(initialPrice);
       setCalcAmount(initialAmount || 0);
 
-      // if the amountUsed is given (NOT recipes)
-      if (amountUsed === null) {
+      // if the type is recipe
+      if (type === "recipe") {
         setTotalYield(amountContainer);
         setGoalServings(initialServings);
         
@@ -60,7 +61,7 @@ const CalcIngredientModal = ({
         
         while (new Fraction(remaining) * 1 <= 0) {
           count = count + 1;
-          remaining = ((new Fractional(count)).multiply(new Fractional(amountContainer)).subtract(new Fractional(amountUsed))).toString();
+          remaining = ((new Fractional(count)).multiply(new Fractional(amountContainer)).subtract(new Fractional(totalAmountUsed))).toString();
         }  
         
         setNumContainers(count);
@@ -89,6 +90,32 @@ const CalcIngredientModal = ({
       }
     }
   }, [modalVisible])
+
+
+  ///////////////////////////////// CHOOSING OTHERS /////////////////////////////////
+
+  const [isCounted, setIsCounted] = useState(null);
+  const [totalOtherAmount, setTotalOtherAmount] = useState(0);
+
+  // when othersUsed is populated (on open), select others to be true
+  useEffect(() => {
+    if (othersUsed) {
+      setIsCounted(Array(othersUsed.length).fill(true));
+    }
+  }, [othersUsed])
+
+  // when toggling an other's checkbox
+  useEffect(() => {
+    if (isCounted) {
+      let total = 0;
+
+      // resums total and stores it
+      isCounted.forEach((counted, index) => { 
+        if (counted) { total = (new Fractional(total).add(amountsUsed[index])).toString() }
+      })
+      setTotalOtherAmount(total);
+    }
+  }, [isCounted])
 
 
   ///////////////////////////////// INPUTS /////////////////////////////////
@@ -149,9 +176,9 @@ const CalcIngredientModal = ({
 
       // if # servings is valid, calculate other 3 data points
       if (!isNaN(frac)) {
-        calcAmountFraction(isNaN(amountUsed === null ? frac : fracAlt) ? 0 : (amountUsed === null ? frac : fracAlt));
+        calcAmountFraction(isNaN(type === "recipe" ? frac : fracAlt) ? 0 : (type === "recipe" ? frac : fracAlt));
         setGoalPrice((priceContainer / frac).toFixed(2));
-        setGoalServings(isNaN(amountUsed === null ? frac : fracAlt) ? "0.00" : (amountUsed === null ? frac : fracAlt).toFixed(2));
+        setGoalServings(isNaN(type === "recipe" ? frac : fracAlt) ? "0.00" : (type === "recipe" ? frac : fracAlt).toFixed(2));
       }
 
     // storing default values if empty
@@ -178,9 +205,9 @@ const CalcIngredientModal = ({
 
       // if # servings is valid, calculate other 3 data points
       if (!isNaN(frac)) {
-        calcAmountFraction(isNaN(amountUsed === null ? frac : fracAlt) ? 0 : (amountUsed === null ? frac : fracAlt));
+        calcAmountFraction(isNaN(type === "recipe" ? frac : fracAlt) ? 0 : (type === "recipe" ? frac : fracAlt));
         setGoalCals((calContainer / frac).toFixed(0));
-        setGoalServings(isNaN(amountUsed === null ? frac : fracAlt) ? "0.00" : (amountUsed === null ? frac : fracAlt).toFixed(2));
+        setGoalServings(isNaN(type === "recipe" ? frac : fracAlt) ? "0.00" : (type === "recipe" ? frac : fracAlt).toFixed(2));
       }
 
     // storing default values if empty
@@ -236,7 +263,7 @@ const CalcIngredientModal = ({
         <TouchableOpacity onPress={() => setModalVisible(false)} className="absolute bg-black opacity-50 w-full h-full"/>
                 
         {/* Modal Content */}
-        <View className={`w-5/6 bg-zinc200 p-7 rounded-2xl ${amountUsed === null || amountUsed === "0" ? "mb-14" : ""}`}>
+        <View className="w-5/6 bg-zinc200 p-7 rounded-2xl">
 
           {/* Current Name */}
           <Text className="text-[16px] font-bold text-center py-1">
@@ -379,87 +406,152 @@ const CalcIngredientModal = ({
             </View>
           </View>
 
-          
-          {/* CONTAINER SECTION */}
-          {(amountUsed !== null && amountUsed !== "0") && (
+
+          {/* CONTAINER SECTION - PREP */}
+          {(type === "prep" || type === "spotlight" || type === "recipe") && (
             <>
               {/* Divider */}
-              <View className="h-[1px] bg-zinc400 mt-4 mb-6"/>
+              <View className={`h-[1px] bg-zinc400 mt-4 ${(type !== "recipe") ? "mb-6" : "mb-2"}`}/>
 
-              {/* GENERAL AMOUNTS */}
-              <View className="flex flex-row w-full justify-center items-center px-3">
-                {/* headers */}
-                <View className="flex w-5/6 flex-col justify-center items-center py-1 space-y-1">
-                  <Text className="w-full py-1 px-2 text-right text-[12px] font-medium text-theme800 bg-zinc300 border-l-[1px] border-y-[1px] border-zinc350">
-                    AMOUNT IN OTHER MEAL PREPS
-                  </Text>
-                  <Text className="w-full py-1 px-2 text-right text-[12px] font-medium text-theme800 bg-zinc300 border-l-[1px] border-y-[1px] border-zinc350">
-                    AMOUNT PER CONTAINER
-                  </Text>
-                </View>
-                {/* amounts */}
-                <View className="flex flex-col justify-center items-center py-1 space-y-1">
-                  <Text className="w-full font-medium text-theme700 bg-zinc100 py-1 px-2 text-center text-[12px] border-r-[1px] border-y-[1px] border-zinc350">
-                    {amountUsed}
-                  </Text>
-                  <Text className="w-full font-medium text-theme700 bg-zinc100 py-1 px-2 text-center text-[12px] border-r-[1px] border-y-[1px] border-zinc350">
-                    {amountContainer}
-                  </Text>
-                </View>
-              </View>
+              <View className="flex flex-col justify-center items-center">
 
-              {/* CONTAINER AMOUNTS */}
-              <View className="flex flex-row justify-center items-center mt-3 space-x-4">
-
-                <View className="flex flex-row bg-zinc100 justify-center items-center border-[1px] border-zinc400">
-                  {/* Num Containers -- Buttons */}
-                  <View className="flex flex-col space-y-[-4px] bg-theme200 border-r-[1px] border-theme300 px-1 py-2">
-                    <Icon
-                      name="add"
-                      size={14}
-                      color="black"
-                      onPress={() => setNumContainers(numContainers + 1)}
-                    />
-                    <Icon
-                      name="remove"
-                      size={14}
-                      color="black"
-                      onPress={() => setNumContainers(numContainers !== 0 ? numContainers - 1 : numContainers)}
-                    />
-                  </View>
-
-                  {/* Num Containers */}
-                  <Text className="py-2 px-2 text-[14px] text-black">
-                    {numContainers} {numContainers === 1 ? "CONTAINER" : "CONTAINERS"}
-                  </Text>
-                </View>
-
-                {/* CALCULATED DETAILS */}
-                <View className="flex flex-row bg-theme100 border-[1px] border-zinc400">
-                  {/* headers */}
-                  <View className="flex flex-col justify-center items-end bg-theme200 px-2 py-1">
-                  <View className="flex flex-row">
-                    <Icon
-                      name="checkmark"
-                      size={14}
-                      onPress={() => updateTotalYield(((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(new Fractional(amountUsed))).toString())}
-                    />
-                    <Text className="text-[13px] text-zinc700 italic font-medium">
-                      OVERALL
+                {/* AMOUNT / CONTAINER */}
+                {(type !== "recipe") && (
+                  <View className="flex flex-row w-11/12 border-[1px] border-zinc350 mb-2">
+                    {/* header */}
+                    <Text className="flex-1 py-1 px-2 text-right text-[12px] font-medium text-theme800 bg-zinc300">
+                      AMOUNT PER CONTAINER
+                    </Text>
+                    {/* amount */}
+                    <Text className="font-medium text-theme700 bg-zinc100 py-1 px-2 text-center text-[12px]">
+                      {`${new Fractional(amountContainer)}`}
                     </Text>
                   </View>
-                    <Text className="text-[13px] text-zinc700 italic font-medium">
-                      REMAINING
+                )}
+
+                {/* OTHER PREPS */}
+                {(othersUsed?.length > 0) ? (
+                  <View className="flex flex-col w-11/12 border-[1px] border-zinc350 mb-2">
+                    <View className="flex flex-row justify-center items-center border-b-2 border-b-zinc350">
+                      {/* header */}
+                      <Text className="flex-1 py-1 px-2 text-right text-[12px] font-medium text-theme800 bg-zinc300">
+                        AMOUNT IN OTHER MEAL PREPS
+                      </Text>
+                      {/* amount */}
+                      <Text className="font-medium text-theme700 bg-zinc100 py-1 px-2 text-center text-[12px]">
+                        {totalOtherAmount}
+                      </Text>
+                    </View>
+
+                    {/* selection */}
+                    <View className="flex flex-col items-start">
+                      {othersUsed?.map((other, index) => (
+                        <View key={index} className="flex flex-row bg-theme100 border-b-0.5 border-theme400">
+                          
+                          {/* count indicator */}
+                          <View className="w-1/12 justify-center items-center py-1">
+                            <Icon
+                              name={isCounted?.[index] ? "checkbox" : "square-outline"}
+                              color={colors.zinc500}
+                              size={13}
+                              onPress={() =>
+                                setIsCounted(prev => {
+                                  const updated = [...prev];
+                                  updated[index] = !updated[index];
+                                  return updated;
+                                })
+                              }
+                            />
+                          </View>
+
+                          {/* Details */}
+                          <View className="w-11/12 flex flex-row">
+                            {/* name - struck through if unselected spotlight */}
+                            <Text className={`flex-1 px-1 text-left text-[11px] text-zinc600 italic py-1 ${(selectedUsed && !selectedUsed[index]) && "line-through"}`}>
+                              {other}
+                            </Text>
+                            {/* amount */}
+                            <Text className="font-medium text-zinc600 italic px-2 py-1 text-center text-[11px]">
+                              {`${amountsUsed[index]}`}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : (type !== "recipe") && (
+                  <View className="flex w-11/12 border-[1px] bg-zinc300 border-zinc350 mb-2">
+                    <Text className="text-center py-1 px-2 text-[12px] italic font-medium text-zinc600 bg-zinc300">
+                      {`no other ${type}s use this ingredient`}
                     </Text>
                   </View>
-                  {/* amounts */}
-                  <View className="flex flex-col justify-center items-center px-2 py-1">
-                    <Text className="text-[13px] text-zinc800">
-                      {(new Fractional(numContainers)).multiply(new Fractional(amountContainer)).toString()}
+                )}
+
+                {/* CONTAINER AMOUNTS */}
+                <View className="flex flex-row justify-center items-center mt-3 space-x-4">
+
+                  <View className="flex flex-row bg-zinc100 justify-center items-center border-[1px] border-zinc400">
+                    {/* Num Containers -- Buttons */}
+                    <View className="flex flex-col space-y-[-2px] bg-theme200 border-r-[1px] border-theme300 px-1 py-1.5">
+                      <Icon
+                        name="add"
+                        size={14}
+                        color="black"
+                        onPress={() => setNumContainers(numContainers + 1)}
+                      />
+                      <Icon
+                        name="remove"
+                        size={14}
+                        color="black"
+                        onPress={() => setNumContainers(numContainers !== 0 ? numContainers - 1 : numContainers)}
+                      />
+                    </View>
+
+                    {/* Num Containers */}
+                    <Text className="py-2 px-2 text-[14px] text-black">
+                      {numContainers} {numContainers === 1 ? "CONTAINER" : "CONTAINERS"}
                     </Text>
-                    <Text className="text-[13px] text-zinc800">
-                      {((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(new Fractional(amountUsed))).toString()}
-                    </Text>
+                  </View>
+
+                  {/* CALCULATED DETAILS */}
+                  <View className={`flex flex-row bg-theme100 border-[1px] border-zinc400 ${(type === "recipe") && "h-full"}`}>
+                    {/* headers */}
+                    <View className="flex flex-col justify-center items-end bg-theme200 px-2 py-1">
+                      {/* overall */}
+                      <Text className="text-[13px] text-zinc700 italic font-medium">
+                        OVERALL
+                      </Text>
+                      {/* remaining */}
+                      {(type !== "recipe") && (
+                        <Text className="text-[13px] text-zinc700 italic font-medium">
+                          REMAINING
+                        </Text>
+                      )}
+                    </View>
+                    {/* arrow */}
+                    <TouchableOpacity 
+                      className="h-full absolute right-[-30px] bottom-1.5 flex flex-row -rotate-90"
+                      onPress={() => updateTotalYield(((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(new Fractional(totalOtherAmount))).toString())}
+                    >
+                      <Icon
+                        name="return-down-forward"
+                        size={20}
+                        color={colors.zinc700}
+                      />
+                    </TouchableOpacity>
+                    {/* amounts */}
+                    <View className="flex flex-col justify-center items-center px-2 py-1">
+                      {/* overall */}
+                      <Text className="text-[13px] text-zinc800">
+                        {(new Fractional(numContainers)).multiply(new Fractional(amountContainer)).toString()}
+                      </Text>
+                      {/* remaining */}
+                      {(type !== "recipe") && (
+                        <Text className="text-[13px] text-zinc800">
+                          {((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(new Fractional(totalOtherAmount))).toString()}
+                        </Text>
+                      )}
+                    </View>
                   </View>
                 </View>
               </View>

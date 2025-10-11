@@ -966,7 +966,7 @@ const ExtraIngredientsModal = ({
                             onChangeText={(value) => {
                               setSelectedIngredientData((prev) => {
                                 const updated = { ...prev }; 
-                                updated[currIngredientStore]["link"] = value.replace("Check out this product from ALDI. ", "").replace("Check out this product from ALDI ", "");
+                                updated[currIngredientStore]["link"] = value.slice(value.lastIndexOf(" ") + 1);
                                 return updated;
                               })
                             }}

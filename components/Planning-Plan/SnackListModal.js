@@ -752,21 +752,23 @@ const SnackListModal = ({
               )}
               
               {/* SEARCH TOGGLE */}
-              <TouchableOpacity 
-                className={`flex flex-row justify-center items-center px-5 py-1 mt-4 ml-[20px] ${(keyboardType === "grid" && isKeyboardOpen) && "mb-6"} rounded-full space-x-1 bg-theme200 border-[1px] border-zinc350`}
-                onPress={() => setShowSnackSearch(true)}
-              >
-                {/* search button */}
-                <Icon
-                  name="search"
-                  size={11}
-                  color={colors.zinc900}
-                />
-                {/* text */}
-                <Text className="text-[12px] font-medium">
-                  SNACKS
-                </Text>
-              </TouchableOpacity>
+              {isEditing && (
+                <TouchableOpacity 
+                  className={`flex flex-row justify-center items-center px-5 py-1 mt-4 ml-[20px] ${(keyboardType === "grid" && isKeyboardOpen) && "mb-6"} rounded-full space-x-1 bg-theme200 border-[1px] border-zinc350`}
+                  onPress={() => setShowSnackSearch(true)}
+                >
+                  {/* search button */}
+                  <Icon
+                    name="search"
+                    size={11}
+                    color={colors.zinc900}
+                  />
+                  {/* text */}
+                  <Text className="text-[12px] font-medium">
+                    SNACKS
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           : 
             // SEARCHING
