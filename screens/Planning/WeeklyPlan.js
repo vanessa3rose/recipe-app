@@ -546,6 +546,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     try {
       // initializes a write batch
       const batch = writeBatch(db);
+      let count = selectedCount;
 
       // loops over the 7 days of the week
       for (let index = 0; index < 7; index++) {
@@ -573,6 +574,12 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         // adds the set operation to the batch if the data has changed
         if (isLunchChecked[index] || isDinnerChecked[index]) {
           batch.set(doc(db, 'PLANS', planDate), docData);
+
+          // fixes overall count if needed
+          if ((isLunchChecked[index] && selectedList.map(item => item.meal).includes("LUNCH " + weekRange[index]) && planData?.meals?.lunch?.prepId !== null)
+              || (isDinnerChecked[index] && selectedList.map(item => item.meal).includes("DINNER " + weekRange[index]) && planData?.meals?.dinner?.prepId !== null)) {
+            count += 1;
+          }
         }
       }
 
@@ -580,6 +587,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       await batch.commit();
 
       // refreshes
+      setSelectedCount(count);
       getCollectionPlans();
       
       // updates the dropdown amounts

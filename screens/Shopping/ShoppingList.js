@@ -114,10 +114,12 @@ export default function ShoppingList ({ isSelectedTab }) {
     const shoppingData = shopping.data();
     const shoppingIds = shoppingData.spotlights.map((doc) => doc.id);
     const shoppingSelected = shoppingData.spotlights.map((doc) => doc.selected);
+    const shoppingNumber = shoppingData.spotlights.map((doc) => doc.number);
     
     // stores it
     setSpotlightsIds(shoppingIds);
     setSpotlightsSelected(shoppingSelected);
+    setSpotlightsNumber(shoppingNumber);
     setShoppingExtras(shoppingData.extras);
 
     await getAllShoppingLists(querySnapshot, shoppingData.extras, shoppingIds, shoppingSelected, null, null);
@@ -334,7 +336,7 @@ export default function ShoppingList ({ isSelectedTab }) {
           // if it was in the original id list, set its corresponding value
           if (id && index !== -1) {
             combinedCheckList.push(checkList[index] || false);
-            combinedIncludedList.push(extraList[index] ? true : includedList[index] || false);
+            combinedIncludedList.push(combinedExtraList[index] ? true : includedList[index] || false);
             combinedNotesList.push(notesList[index] || "");
 
           // if it wasn't, look in the other store lists
@@ -787,14 +789,15 @@ export default function ShoppingList ({ isSelectedTab }) {
   }
   
 
-  ///////////////////////////////// SPOTLIGHT SELECTOR /////////////////////////////////
+  ///////////////////////////////// SPOTLIGHT SELECTOR / NUMBER /////////////////////////////////
 
   const [spotlightModalVisible, setSpotlightModalVisible] = useState(false);
   const [spotlightsIds, setSpotlightsIds] = useState(null);
   const [spotlightsSelected, setSpotlightsSelected] = useState(null);
+  const [spotlightsNumber, setSpotlightsNumber] = useState(null);
 
   // when the checkmark in the modal is clicked
-  const submitSpotlightModal = async (ids, selected, ingredientList) => {
+  const submitSpotlightModal = async (ids, selected, number, ingredientList) => {
     
     // restructures ingredient list into ids and included
     let ingredientIds = Object.fromEntries(storeKeys.map(store => [store, []]));
@@ -808,11 +811,13 @@ export default function ShoppingList ({ isSelectedTab }) {
     // stores the provided selected info
     setSpotlightsIds(ids);
     setSpotlightsSelected(selected);
+    setSpotlightsNumber(number);
     
     // creates a map with the ids and selected info
     const spotlightsData = ids.map((id, index) => ({
       id,
-      selected: selected[index]
+      selected: selected[index],
+      number: number[index],
     }));
     
     // updates info and closes modal
@@ -1242,6 +1247,7 @@ export default function ShoppingList ({ isSelectedTab }) {
             <SpotlightSelectorModal
               spotlightsSnapshot={spotlightsSnapshot}
               spotlightsSelected={spotlightsSelected}
+              spotlightsNumber={spotlightsNumber}
               spotlightsIds={spotlightsIds}
               modalVisible={spotlightModalVisible} 
               setModalVisible={setSpotlightModalVisible}

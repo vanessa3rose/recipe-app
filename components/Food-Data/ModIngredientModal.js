@@ -640,7 +640,7 @@ const ModIngredientModal = ({
                   onChangeText={(value) => {
                     setLink((prev) => {
                       const updated = { ...prev }; 
-                      updated[store] = value.replace("Check out this product from ALDI. ", "").replace("Check out this product from ALDI ", "");
+                      updated[store] = value.slice(value.lastIndexOf(" ") + 1);
                       return updated;
                     })
                   }}

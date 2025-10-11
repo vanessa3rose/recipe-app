@@ -1201,14 +1201,16 @@ export default function MealPrep ({ isSelectedTab }) {
 
   const [calcModalVisible, setCalcModalVisible] = useState(false);
   const [calcIndex, setCalcIndex] = useState(-1);
-  const [nonselectedAmountUsed, setNonselectedAmountUsed] = useState(null);
+  const [totalAmtUsed, setTotalAmtUsed] = useState(null);
+  const [otherPrepsUsed, setOtherPrepsUsed] = useState(null);
+  const [otherAmtsUsed, setOtherAmtsUsed] = useState(null);
   
   // when an ingredient's details are clicked to view the modal
   const showCalcModal = (index) => {
     if (selectedPrepData?.currentData[index] !== null) {
-
-      // to calculate amount left without current prep
       let amountUsed = "0";
+      let prepsUsed = [];
+      let amtsUsed = [];
 
       // loops over the other preps
       prepList.forEach((prep) => {
@@ -1217,13 +1219,18 @@ export default function MealPrep ({ isSelectedTab }) {
           // loops over the matching ingredients and adds their amounts * prep mults
           for (let i = 0; i < 12; i++) {
             if (prep.currentData[i] !== null && prep.currentIds[i] === selectedPrepData.currentIds[index]) {
+              prepsUsed.push(prep.prepName);
+              amtsUsed.push(new Fractional(prep.currentAmounts[i]).multiply(new Fractional(prep.prepMult)));
               amountUsed = (new Fractional(amountUsed).add(new Fractional(prep.currentAmounts[i]).multiply(new Fractional(prep.prepMult)))).toString();
             }
           }
         }
       })
 
-      setNonselectedAmountUsed(amountUsed);
+      // for modal arguments
+      setOtherPrepsUsed(prepsUsed);
+      setOtherAmtsUsed(amtsUsed);
+      setTotalAmtUsed(amountUsed);
 
 
       // opens modal
@@ -1237,7 +1244,9 @@ export default function MealPrep ({ isSelectedTab }) {
     setAmount(amount, calcIndex);
     setCalcIndex(-1);
     setCalcModalVisible(false);
-    setNonselectedAmountUsed(null);
+    setTotalAmtUsed(null);
+    setOtherPrepsUsed(null);
+    setOtherAmtsUsed(null);
   }
     
   
@@ -1709,6 +1718,7 @@ export default function MealPrep ({ isSelectedTab }) {
           {/* CALCULATION MODAL */}
           {calcModalVisible && (
             <CalcIngredientModal
+              type="prep"
               modalVisible={calcModalVisible}
               setModalVisible={setCalcModalVisible}
               submitModal={submitCalcModal}
@@ -1719,7 +1729,10 @@ export default function MealPrep ({ isSelectedTab }) {
               initialPrice={selectedPrepData?.currentPrices[calcIndex].toFixed(2)}
               initialServings={null}
               initialAmount={selectedPrepData?.currentAmounts[calcIndex]}
-              amountUsed={nonselectedAmountUsed}
+              totalAmountUsed={totalAmtUsed}
+              amountsUsed={otherAmtsUsed}
+              othersUsed={otherPrepsUsed}
+              selectedUsed={null}
               amountContainer={
                 new Fraction (selectedPrepData?.currentData[calcIndex].ingredientData[selectedPrepData?.currentData[calcIndex].ingredientStore].totalYield) * 1 === 0 
                 ? // if completely custom

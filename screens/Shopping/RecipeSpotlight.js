@@ -23,11 +23,14 @@ import ModMealModal from '../../components/MultiUse/ModMealModal';
 import ViewIngredientModal from '../../components/MultiUse/ViewIngredientModal';
 import StoreRecipeModal from '../../components/Shopping-Spotlight/StoreRecipeModal';
 
-// Fractions
+// fractions
 var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 import extractUnit from '../../components/Validation/extractUnit';
+
+// validation
+import { numberToRoman } from '../../components/Validation/numberToRoman';
 
 // firebase
 import spotlightAdd from '../../firebase/Spotlights/spotlightAdd';
@@ -177,6 +180,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     const shoppingData = shoppingGlobal.data();
     setSpotlightsIds(shoppingData.spotlights.map(doc => doc.id));
     setSpotlightsSelected(shoppingData.spotlights.map(doc => doc.selected));
+    setSpotlightsNumber(shoppingData.spotlights.map(doc => doc.number));
 
 
     // stores ingredients
@@ -992,6 +996,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       // updates the list of selected spotlights and ids
       let newSelected = [...spotlightsSelected, false];
       setSpotlightsSelected(newSelected);
+
+      let newNumber = [...spotlightsNumber, 0];
+      setSpotlightsNumber(newNumber);
   
       let newIds = [...spotlightsIds, docId];
       setSpotlightsIds(newIds);
@@ -1000,6 +1007,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       const spotlightsData = newIds.map((id) => ({
         id,
         selected: newSelected[newIds.indexOf(id)],
+        number: newNumber[newIds.indexOf(id)],
       }));
       updateDoc(doc(db, 'GLOBALS', 'shopping'), { spotlights: spotlightsData });
       
@@ -1012,27 +1020,56 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   }
   
 
-  ///////////////////////////////// SPOTLIGHT SELECTION /////////////////////////////////
+  ///////////////////////////////// SPOTLIGHT SELECTION / NUMBER /////////////////////////////////
 
   const [spotlightsIds, setSpotlightsIds] = useState(null);
   const [spotlightsSelected, setSpotlightsSelected] = useState(null);
+  const [spotlightsNumber, setSpotlightsNumber] = useState(null);
 
   // to toggle the current spotlight's selected checkbox
   const changeSelected = async () => {
 
     // changes only the current spotlight's selection
     let newSelected = [...spotlightsSelected];
+    let newNumber = [...spotlightsNumber];
+
     newSelected[spotlightsIds.indexOf(selectedSpotlightId)] = !spotlightsSelected[spotlightsIds.indexOf(selectedSpotlightId)];
+    newNumber[spotlightsIds.indexOf(selectedSpotlightId)] = !spotlightsSelected[spotlightsIds.indexOf(selectedSpotlightId)] ? -1 : 0;
 
     // stores the data for the db
     const spotlightsData = spotlightsIds.map((id) => ({
       id,
       selected: newSelected[spotlightsIds.indexOf(id)],
+      number: newNumber[spotlightsIds.indexOf(id)],
     }));
       
     // stores the change
     updateDoc(doc(db, 'GLOBALS', 'shopping'), { spotlights: spotlightsData });
     setSpotlightsSelected(newSelected);
+    setSpotlightsNumber(newNumber);
+
+    // reloads
+    setSpotlightDropdownOpen(false);
+    reloadSpotlight(selectedSpotlightId);
+  }
+
+  // to increment or decrement the current spotlight's number
+  const changeNumber = async (change) => {
+
+    // changes only the current spotlight's number
+    let newNumber = [...spotlightsNumber];
+    newNumber[spotlightsIds.indexOf(selectedSpotlightId)] = spotlightsNumber[spotlightsIds.indexOf(selectedSpotlightId)] + change;
+
+    // stores the data for the db
+    const spotlightsData = spotlightsIds.map((id) => ({
+      id,
+      selected: spotlightsSelected[spotlightsIds.indexOf(id)],
+      number: newNumber[spotlightsIds.indexOf(id)],
+    }));
+      
+    // stores the change
+    updateDoc(doc(db, 'GLOBALS', 'shopping'), { spotlights: spotlightsData });
+    setSpotlightsNumber(newNumber);
 
     // reloads
     setSpotlightDropdownOpen(false);
@@ -1130,7 +1167,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       };
       return formattedSpotlight;
     })
-    .sort((a, b) => a.spotlightName.localeCompare(b.spotlightName)); // sort by spotlightName alphabetically
+    .sort((a, b) => a.spotlightName.localeCompare(b.spotlightName));
     
     setSpotlightList(spotlightsArray);
         
@@ -1140,6 +1177,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     // stores it
     setSpotlightsIds(shopping.data().spotlights.map((doc) => doc.id));
     setSpotlightsSelected(shopping.data().spotlights.map((doc) => doc.selected));
+    setSpotlightsNumber(shopping.data().spotlights.map((doc) => doc.number));
   };
 
 
@@ -1164,6 +1202,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     const newSelected = [...spotlightsSelected, false];
     setSpotlightsSelected(newSelected);
 
+    const newNumber = [...spotlightsNumber, 0];
+    setSpotlightsNumber(newNumber);
+
     const newIds = [...spotlightsIds, docId];
     setSpotlightsIds(newIds);
 
@@ -1171,6 +1212,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     const spotlightsData = newIds.map((id) => ({
       id,
       selected: newSelected[newIds.indexOf(id)],
+      number: newNumber[newIds.indexOf(id)],
     }));
     updateDoc(doc(db, 'GLOBALS', 'shopping'), { spotlights: spotlightsData });
     
@@ -1211,11 +1253,13 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       // filters the selected spotlights and ids to remove the deleted one
       const newIds = spotlightsIds.filter((_, index) => index !== spotlightsIds.indexOf(selectedSpotlightId));
       const newSelected = spotlightsSelected.filter((_, index) => index !== spotlightsIds.indexOf(selectedSpotlightId));
+      const newNumber = spotlightsNumber.filter((_, index) => index !== spotlightsIds.indexOf(selectedSpotlightId));
       
       // stores the new data
       const spotlightsData = newIds.map((id) => ({
         id,
         selected: newSelected[newIds.indexOf(id)],
+        number: newNumber[newIds.indexOf(id)],
       }));
       updateDoc(doc(db, 'GLOBALS', 'shopping'), { spotlights: spotlightsData });
 
@@ -1261,30 +1305,40 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
   const [calcModalVisible, setCalcModalVisible] = useState(false);
   const [calcIndex, setCalcIndex] = useState(-1);
-  const [nonselectedAmountUsed, setNonselectedAmountUsed] = useState(null);
+  const [totalAmtUsed, setTotalAmtUsed] = useState(null);
+  const [otherSpotlightsUsed, setOtherSpotlightsUsed] = useState(null);
+  const [otherAmtsUsed, setOtherAmtsUsed] = useState(null);
+  const [otherSelectedUsed, setOtherSelectedUsed] = useState(null);
   
   // when an ingredient's details are clicked to view the modal
   const showCalcModal = (index) => {
-    
     if (selectedSpotlightData?.ingredientData[index] !== null) {
-
-      // to calculate amount left without current spotlight
       let amountUsed = "0";
+      let spotlightsUsed = [];
+      let amtsUsed = [];
+      let selectedUsed = [];
 
       // loops over the other spotlights
       spotlightList.forEach((spotlight) => {
-        if (spotlight.id !== selectedSpotlightId && spotlightsSelected[spotlightsIds.indexOf(spotlight.id)]) {
+        if (spotlight.id !== selectedSpotlightId) {
           
           // loops over the matching ingredients and adds their amounts * spotlight mults
           for (let i = 0; i < 12; i++) {
             if (spotlight.ingredientData[i] !== null && spotlight.ingredientIds[i] === selectedSpotlightData.ingredientIds[index]) {
+              spotlightsUsed.push(spotlight.spotlightName);
+              amtsUsed.push(new Fractional(spotlight.ingredientAmounts[i]).multiply(new Fractional(spotlight.spotlightMult)));
+              selectedUsed.push(spotlightsSelected[spotlightsIds.indexOf(spotlight.id)]);
               amountUsed = (new Fractional(amountUsed).add(new Fractional(spotlight.ingredientAmounts[i]).multiply(new Fractional(spotlight.spotlightMult)))).toString();
             }
           }
         }
       })
 
-      setNonselectedAmountUsed(amountUsed);
+      // for modal arguments
+      setOtherSpotlightsUsed(spotlightsUsed);
+      setOtherAmtsUsed(amtsUsed);
+      setTotalAmtUsed(amountUsed);
+      setOtherSelectedUsed(selectedUsed);
       
 
       // opens modal
@@ -1298,7 +1352,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     setAmount(amount, calcIndex);
     setCalcIndex(-1);
     setCalcModalVisible(false);
-    setNonselectedAmountUsed(null);
+    setTotalAmtUsed(null);
+    setOtherSpotlightsUsed(null);
+    setOtherAmtsUsed(null);
   }
 
 
@@ -1703,14 +1759,23 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                             </Text>
                           </View>
   
-                          {/* selected indicator */}
-                          {(spotlight?.id === selectedSpotlightId) && (
+                          {/* far right */}
+                          {(spotlight?.id === selectedSpotlightId) 
+                          ? (
+                            // selected indicator
                             <View className="absolute flex justify-center items-center h-[30px] right-2">
                               <Icon
                                 name="checkmark"
                                 color="black"
                                 size={20}
                               />
+                            </View>
+                          ) : (!spotlightsSelected?.[spotlightsIds?.indexOf(spotlight?.id)]) && (
+                            // number (if unchecked)
+                            <View className="absolute flex justify-center items-center h-[30px] right-2">
+                              <Text className="text-theme700 text-[12.5px] font-mono text-center min-w-[20px] tracking-tighter">
+                                {spotlightsNumber?.[spotlightsIds?.indexOf(spotlight?.id)] === 0 ? "-" : numberToRoman(spotlightsNumber?.[spotlightsIds?.indexOf(spotlight?.id)])}
+                              </Text>
                             </View>
                           )}
                         </TouchableOpacity>
@@ -1734,6 +1799,30 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               )}
             </View>
           </View>
+          
+          {/* changing non-included prep # */}
+          {(selectedSpotlightId !== null && !spotlightsSelected?.[spotlightsIds?.indexOf(selectedSpotlightId)] && (selectedSpotlightId && currIngredientStores.filter(store => store !== "").length > 0)) && (
+            <View className="flex-col bg-zinc350 justify-center px-0 h-full items-center absolute w-[24px] right-[-25px] rounded-r-lg z-0">
+              {/* Increment Button */}
+              <Icon
+                name="chevron-up"
+                size={15}
+                color={colors.zinc600}
+                onPress={() => changeNumber(1)}
+              />
+              {/* Number (in roman numerals) */}
+              <Text className="font-bold text-[10px] text-zinc700 font-mono tracking-tighter">
+                {spotlightsNumber?.[spotlightsIds?.indexOf(selectedSpotlightId)] === 0 ? "-" : numberToRoman(spotlightsNumber?.[spotlightsIds?.indexOf(selectedSpotlightId)])}
+              </Text>
+              {/* Decrement Button */}
+              <Icon
+                name="chevron-down"
+                size={15}
+                color={(spotlightsNumber?.[spotlightsIds?.indexOf(selectedSpotlightId)] === 0) ? colors.zinc350 : colors.zinc600}
+                onPress={(spotlightsNumber?.[spotlightsIds?.indexOf(selectedSpotlightId)] === 0) ? null : () => changeNumber(-1)}
+              />
+            </View>
+          )}
         </View>
 
         {/* Selected Button */}
@@ -1895,6 +1984,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
         {/* CALCULATION MODAL */}
         {calcModalVisible && (
           <CalcIngredientModal
+            type="spotlight"
             modalVisible={calcModalVisible}
             setModalVisible={setCalcModalVisible}
             submitModal={submitCalcModal}
@@ -1905,7 +1995,10 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             initialPrice={selectedSpotlightData?.ingredientPrices[calcIndex].toFixed(2)}
             initialServings={selectedSpotlightData?.ingredientServings[calcIndex].toFixed(2)}
             initialAmount={selectedSpotlightData?.ingredientAmounts[calcIndex]}
-            amountUsed={nonselectedAmountUsed}
+            totalAmountUsed={totalAmtUsed}
+            amountsUsed={otherAmtsUsed}
+            othersUsed={otherSpotlightsUsed}
+            selectedUsed={otherSelectedUsed}
             amountContainer={new Fractional(selectedSpotlightData?.ingredientData[calcIndex][selectedSpotlightData?.ingredientStores[calcIndex]].totalYield).toString()}
             servingSize={null}
           />

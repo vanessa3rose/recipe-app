@@ -1,15 +1,14 @@
-import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Icon from 'react-native-vector-icons/Ionicons';
+const Tab = createBottomTabNavigator();
 
 import ShoppingScreen from './screens/Shopping/ShoppingScreen';
 import PrepScreen from './screens/Prep/PrepScreen';
 import PlanningScreen from './screens/Planning/PlanningScreen';
 import FoodScreen from './screens/Food/FoodScreen';
 
+import Icon from 'react-native-vector-icons/Ionicons';
 const colors = require('./assets/colors');
-const Tab = createBottomTabNavigator();
 
 export default function App() {
   return (
