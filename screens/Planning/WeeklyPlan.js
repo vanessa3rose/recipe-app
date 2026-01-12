@@ -23,6 +23,7 @@ import MealDetailsModal from '../../components/Planning-Plan/MealDetailsModal';
 import MealSearchModal from '../../components/Planning-Plan/MealSearchModal';
 import MealOverviewModal from '../../components/Planning/MealOverviewModal';
 import RadioWarningModal from '../../components/Planning-Plan/RadioWarningModal';
+import PlanNoteModal from '../../components/Planning-Plan/PlanNoteModal';
 
 // initialize firebase app
 import { getFirestore, collection, getDoc, getDocs, updateDoc, doc, writeBatch } from 'firebase/firestore';
@@ -453,100 +454,35 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
   // for when the check button is selected next to the prep dropdown
   const submitCheckedPrep = async () => {
-
-    try {
-      // initializes a write batch
-      const batch = writeBatch(db);
     
-      // if a meal prep has been selected from the dropdown
-      if (selectedPrepId) {
+    // initializes a write batch
+    const batch = writeBatch(db);
+  
+    // if a meal prep has been selected from the dropdown
+    if (selectedPrepId) {
 
-        let ogSelected = [...selectedList];
-          
-        // gets the data of the selected meal prep
-        const docSnap = await getDoc(doc(db, 'PREPS', selectedPrepId));   
-        let selectedPrepData = docSnap.exists() ? docSnap.data() : null;
+      let ogSelected = [...selectedList];
+        
+      // gets the data of the selected meal prep
+      const docSnap = await getDoc(doc(db, 'PREPS', selectedPrepId));   
+      let selectedPrepData = docSnap.exists() ? docSnap.data() : null;
 
-        // filters out any non-included currents
-        if (selectedPrepData !== null) {
-          // the list of included (or blank) indices
-          const includedIdx = selectedPrepData.currentIncluded.map((included, index) => included !== false ? index : null).filter(index => index !== null)
-          
-          // the newly formatted prep data
-          selectedPrepData = {
-            ...selectedPrepData,
-            currentAmounts: selectedPrepData.currentAmounts.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
-            currentCals: selectedPrepData.currentCals.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
-            currentData: selectedPrepData.currentData.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill(null)),
-            currentIds: selectedPrepData.currentIds.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
-            currentIncluded: selectedPrepData.currentIncluded.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
-            currentPrices: selectedPrepData.currentPrices.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
-          }
+      // filters out any non-included currents
+      if (selectedPrepData !== null) {
+        // the list of included (or blank) indices
+        const includedIdx = selectedPrepData.currentIncluded.map((included, index) => included !== false ? index : null).filter(index => index !== null)
+        
+        // the newly formatted prep data
+        selectedPrepData = {
+          ...selectedPrepData,
+          currentAmounts: selectedPrepData.currentAmounts.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
+          currentCals: selectedPrepData.currentCals.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
+          currentData: selectedPrepData.currentData.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill(null)),
+          currentIds: selectedPrepData.currentIds.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
+          currentIncluded: selectedPrepData.currentIncluded.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
+          currentPrices: selectedPrepData.currentPrices.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
         }
-
-        // loops over the 7 days of the week
-        for (let index = 0; index < 7; index++) {
-          
-          // gets the state's week data of the curr index
-          const planDate = (new Date(weekRange[index])).toLocaleDateString('en-CA');
-          const planData = weekData[index];
-          
-          // prepares the doc data
-          const docData = {
-            date: planDate,
-            meals: {
-              lunch: {
-                prepId: isLunchChecked[index] ? selectedPrepId : planData?.meals?.lunch?.prepId ?? null,          
-                prepData: isLunchChecked[index] ? selectedPrepData : planData?.meals?.lunch?.prepData ?? null,
-              },
-              dinner: {
-                prepId: isDinnerChecked[index] ? selectedPrepId : planData?.meals?.dinner?.prepId ?? null,         
-                prepData: isDinnerChecked[index] ? selectedPrepData : planData?.meals?.dinner?.prepData ?? null,
-              },
-            },
-            ...(planData?.snacks && { snacks: planData.snacks }),
-          };
-
-          // adds the set operation to the batch if the data has changed
-          if (isLunchChecked[index] || isDinnerChecked[index]) {
-            batch.set(doc(db, 'PLANS', planDate), docData);
-          }
-
-          // LUNCH - toggles the radio button if needed
-          if (isLunchChecked[index]) { 
-            ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + new Date(weekRange[index]))); // removes original
-            ogSelected.push({ filled: true, meal: "LUNCH " + new Date(weekRange[index]), });               // readds it
-          // DINNER - toggles the radio button if needed
-          } if (isDinnerChecked[index]) { 
-            ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + new Date(weekRange[index]))); // removes original
-            ogSelected.push({ filled: true, meal: "DINNER " + new Date(weekRange[index]), });               // readds it
-          }
-        }
-         
-        // stores the new list
-        setSelectedList(ogSelected);
-        updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected }); 
-
-        // commits the batch
-        await batch.commit();
-      
-        // refreshes and updates the dropdown amounts
-        fetchDropdownItems(globalCompleted, prepData);
-        getCollectionPlans();
       }
-
-    } catch (error) {
-      console.error('Error updating weekly plans:', error);
-    }
-  }
-
-  // for when the 'x' button is selected next to the prep dropdown
-  const clearCheckedPrep = async () => {
-
-    try {
-      // initializes a write batch
-      const batch = writeBatch(db);
-      let count = selectedCount;
 
       // loops over the 7 days of the week
       for (let index = 0; index < 7; index++) {
@@ -554,18 +490,18 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         // gets the state's week data of the curr index
         const planDate = (new Date(weekRange[index])).toLocaleDateString('en-CA');
         const planData = weekData[index];
-
+        
         // prepares the doc data
         const docData = {
           date: planDate,
           meals: {
             lunch: {
-              prepId: isLunchChecked[index] ? null : planData?.meals?.lunch?.prepId ?? null,          
-              prepData: isLunchChecked[index] ? null : planData?.meals?.lunch?.prepData ?? null,
+              prepId: isLunchChecked[index] ? selectedPrepId : planData?.meals?.lunch?.prepId ?? null,          
+              prepData: isLunchChecked[index] ? selectedPrepData : planData?.meals?.lunch?.prepData ?? null,
             },
             dinner: {
-              prepId: isDinnerChecked[index] ? null : planData?.meals?.dinner?.prepId ?? null,         
-              prepData: isDinnerChecked[index] ? null : planData?.meals?.dinner?.prepData ?? null,
+              prepId: isDinnerChecked[index] ? selectedPrepId : planData?.meals?.dinner?.prepId ?? null,         
+              prepData: isDinnerChecked[index] ? selectedPrepData : planData?.meals?.dinner?.prepData ?? null,
             },
           },
           ...(planData?.snacks && { snacks: planData.snacks }),
@@ -574,226 +510,293 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         // adds the set operation to the batch if the data has changed
         if (isLunchChecked[index] || isDinnerChecked[index]) {
           batch.set(doc(db, 'PLANS', planDate), docData);
+        }
 
-          // fixes overall count if needed
-          if ((isLunchChecked[index] && selectedList.map(item => item.meal).includes("LUNCH " + weekRange[index]) && planData?.meals?.lunch?.prepId !== null)
-              || (isDinnerChecked[index] && selectedList.map(item => item.meal).includes("DINNER " + weekRange[index]) && planData?.meals?.dinner?.prepId !== null)) {
-            count += 1;
-          }
+        // LUNCH - toggles the radio button if needed
+        if (isLunchChecked[index]) { 
+          ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + new Date(weekRange[index]))); // removes original
+          ogSelected.push({ filled: true, meal: "LUNCH " + new Date(weekRange[index]), });               // readds it
+        // DINNER - toggles the radio button if needed
+        } if (isDinnerChecked[index]) { 
+          ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + new Date(weekRange[index]))); // removes original
+          ogSelected.push({ filled: true, meal: "DINNER " + new Date(weekRange[index]), });               // readds it
         }
       }
-
-      // commits the batch
-      await batch.commit();
-
-      // refreshes
-      setSelectedCount(count);
-      getCollectionPlans();
-      
-      // updates the dropdown amounts
-      fetchDropdownItems(globalCompleted, prepData);
-
-    } catch (error) {
-      console.error('Error updating weekly plans:', error);
-    }
-  }
-
-  // for when the 'swap' button is selected next to the prep dropdown
-  const swapCheckedPrep = async () => {
-
-    try {
-
-      let ogSelected = [...selectedList];
-
-      // initializes a write batch
-      const batch = writeBatch(db);
-
-      // loops over the 7 days of the week
-      let detailsOne = null;
-      let detailsTwo = null;
-
-      for (let index = 0; index < 7; index++) {
         
-        if (isLunchChecked[index] && !detailsOne) {
-          detailsOne = { 
-            date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), 
-            meal: "LUNCH", 
-            data: weekData[index]?.meals?.lunch || { prepData: null, prepId: null }, 
-            otherData: weekData[index]?.meals?.dinner || { prepData: null, prepId: null }, 
-            snacks: weekData[index]?.snacks || null
-          };
-        } else if (isLunchChecked[index] && detailsOne) {
-          detailsTwo = { 
-            date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), 
-            meal: "LUNCH", 
-            data: weekData[index]?.meals?.lunch || { prepData: null, prepId: null },  
-            otherData: weekData[index]?.meals?.dinner || { prepData: null, prepId: null }, 
-            snacks: weekData[index]?.snacks || null
-          };
-        }
-        
-        if (isDinnerChecked[index] && !detailsOne) {
-          detailsOne = { 
-            date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), 
-            meal: "DINNER", 
-            data: weekData[index]?.meals?.dinner || { prepData: null, prepId: null }, 
-            otherData: weekData[index]?.meals?.lunch || { prepData: null, prepId: null }, 
-            snacks: weekData[index]?.snacks || null
-          };
-        } else if (isDinnerChecked[index] && detailsOne) {
-          detailsTwo = { 
-            date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), 
-            meal: "DINNER", 
-            data: weekData[index]?.meals?.dinner || { prepData: null, prepId: null }, 
-            otherData: weekData[index]?.meals?.lunch || { prepData: null, prepId: null }, 
-            snacks: weekData[index]?.snacks || null
-          };
-        } 
-      }
-
-      // IF THE SWAP HAPPENS ON ONLY ONE DAY
-      if (detailsOne.date === detailsTwo.date) {
-        
-        // swaps the id meal if the first one is custom
-        if (detailsOne.meal === "LUNCH" && detailsOne?.data?.prepId !== null && detailsOne?.data?.prepId?.includes("LUNCH")) {
-          detailsOne.data.prepId = detailsOne.data.prepId.replace("LUNCH", "DINNER");
-        } else if (detailsOne.meal === "DINNER" && detailsOne?.data?.prepId !== null && detailsOne?.data?.prepId?.includes("DINNER")) {
-          detailsOne.data.prepId = detailsOne.data.prepId.replace("DINNER", "LUNCH");
-        }
-
-        // swaps the id meal if the second one is custom
-        if (detailsTwo.meal === "LUNCH" && detailsTwo?.data?.prepId !== null && detailsTwo?.data?.prepId?.includes("LUNCH")) {
-          detailsTwo.data.prepId = detailsTwo.data.prepId.replace("LUNCH", "DINNER");
-        } else if (detailsTwo.meal === "DINNER" && detailsTwo?.data?.prepId !== null && detailsTwo?.data?.prepId?.includes("DINNER")) {
-          detailsTwo.data.prepId = detailsTwo.data.prepId.replace("DINNER", "LUNCH");
-        }
-        
-        // only one swap in the db is needed for a single day
-        const swappedDay = {
-          date: detailsOne.date,
-          meals: {
-            lunch: detailsOne.meal === "LUNCH" ? detailsTwo.data : detailsOne.data,
-            dinner: detailsOne.meal === "DINNER" ? detailsTwo.data : detailsOne.data,
-          },
-          ...(detailsOne?.snacks && { snacks: detailsOne?.snacks }),
-        };
-
-        batch.set(doc(db, 'PLANS', detailsOne.date), swappedDay);
-
-        // reformatting date
-        const [year, month, day] = detailsOne.date.split("-").map(Number);
-        const longDate = new Date(year, month - 1, day);
-        
-        // determines if initial radios were checked
-        let lunchRadio = ogSelected.filter(item => item.meal === "LUNCH " + longDate).length !== 0;
-        let dinnerRadio = ogSelected.filter(item => item.meal === "DINNER " + longDate).length !== 0;
-
-        // selects lunch radio if the dinner radio was selected
-        if (dinnerRadio) {
-          ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + longDate));
-          ogSelected.push({ filled: true, meal: "LUNCH " + longDate });
-        // unselects lunch radio if the dinner radio was selected
-        } else {
-          ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + longDate));
-        }
-
-        // selects dinner radio if the lunch radio was selected
-        if (lunchRadio) {
-          ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + longDate));
-          ogSelected.push({ filled: true, meal: "DINNER " + longDate });
-        // unselects dinner radio if the lunch radio was selected
-        } else {
-          ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + longDate));
-        }
-      
-      
-      // IF IT HAPPENS ON TWO SEPARATE DAYS
-      } else {
-
-        // reformatting dates
-        const [year1, month1, day1] = detailsOne.date.split("-").map(Number);
-        const longDate1 = new Date(year1, month1 - 1, day1);
-        const [year2, month2, day2] = detailsTwo.date.split("-").map(Number);
-        const longDate2 = new Date(year2, month2 - 1, day2);
-
-        // first day
-        let swappedDayOne = {
-          date: detailsOne.date,
-          meals: {
-            lunch: detailsOne.meal === "LUNCH" ? detailsTwo.data : detailsOne.otherData,
-            dinner: detailsOne.meal === "DINNER" ? detailsTwo.data : detailsOne.otherData,
-          },
-          ...(detailsOne?.snacks && { snacks: detailsOne?.snacks }),
-        };
-
-        // second day
-        let swappedDayTwo = {
-          date: detailsTwo.date,
-          meals: {
-            lunch: detailsTwo.meal === "LUNCH" ? detailsOne.data : detailsTwo.otherData,
-            dinner: detailsTwo.meal === "DINNER" ? detailsOne.data : detailsTwo.otherData,
-          },
-          ...(detailsTwo?.snacks && { snacks: detailsTwo?.snacks }),
-        };
-        
-        // changes the id meal if the first lunch is custom
-        if (swappedDayOne?.meals?.lunch?.prepId?.includes("LUNCH") || swappedDayOne?.meals?.lunch?.prepId?.includes("DINNER")) {
-          swappedDayOne.meals.lunch.prepId = `LUNCH ${month1}/${day1}/${year1 % 100}`;
-        // changes the id meal if the first dinner is custom
-        } if (swappedDayOne?.meals?.dinner?.prepId?.includes("LUNCH") || swappedDayOne?.meals?.dinner?.prepId?.includes("DINNER")) {
-          swappedDayOne.meals.dinner.prepId = `DINNER ${month1}/${day1}/${year1 % 100}`;
-        // changes the id meal if the second lunch is custom
-        } if (swappedDayTwo?.meals?.lunch?.prepId?.includes("LUNCH") || swappedDayTwo?.meals?.lunch?.prepId?.includes("DINNER")) {
-          swappedDayTwo.meals.lunch.prepId = `LUNCH ${month2}/${day2}/${year2 % 100}`;
-        // changes the id meal if the second dinner is custom
-        } if (swappedDayTwo?.meals?.dinner?.prepId?.includes("LUNCH") || swappedDayTwo?.meals?.dinner?.prepId?.includes("DINNER")) {
-          swappedDayTwo.meals.dinner.prepId = `DINNER ${month2}/${day2}/${year2 % 100}`;
-        } 
-
-        // changed dates
-        batch.set(doc(db, 'PLANS', detailsOne.date), swappedDayOne);
-        batch.set(doc(db, 'PLANS', detailsTwo.date), swappedDayTwo);
- 
-        // determines if initial radios were checked
-        let radio1 = ogSelected.filter(item => item.meal === (detailsOne.meal + " " + longDate1)).length !== 0;
-        let radio2 = ogSelected.filter(item => item.meal === (detailsTwo.meal + " " + longDate2)).length !== 0;
-
-        // selects 1st radio if the 2nd radio was selected
-        if (radio2) {
-          ogSelected = ogSelected.filter(item => item.meal !== (detailsOne.meal + " " + longDate1));
-          ogSelected.push({ filled: true, meal: detailsOne.meal + " " + longDate1 });
-        // unselects 1st radio if the 2nd radio was selected
-        } else {
-          ogSelected = ogSelected.filter(item => item.meal !== (detailsOne.meal + " " + longDate1));
-        }
-
-        // selects 2nd radio if the 1st radio was selected
-        if (radio1) {
-          ogSelected = ogSelected.filter(item => item.meal !== (detailsTwo.meal + " " + longDate2));
-          ogSelected.push({ filled: true, meal: detailsTwo.meal + " " + longDate2 });
-        // unselects 2nd radio if the 1st radio was selected
-        } else {
-          ogSelected = ogSelected.filter(item => item.meal !== (detailsTwo.meal + " " + longDate2));
-        }
-      }
-      
-         
       // stores the new list
       setSelectedList(ogSelected);
       updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected }); 
 
       // commits the batch
       await batch.commit();
-
-      // refreshes
-      getCollectionPlans();
-      
-      // updates the dropdown amounts
+    
+      // refreshes and updates the dropdown amounts
       fetchDropdownItems(globalCompleted, prepData);
-
-    } catch (error) {
-      console.error('Error updating weekly plans:', error);
+      getCollectionPlans();
     }
+  }
+
+  // for when the 'x' button is selected next to the prep dropdown
+  const clearCheckedPrep = async () => {
+    
+    // initializes a write batch
+    const batch = writeBatch(db);
+
+    let ogSelected = [...selectedList];
+
+    // loops over the 7 days of the week
+    for (let index = 0; index < 7; index++) {
+      
+      // gets the state's week data of the curr index
+      const planDate = (new Date(weekRange[index])).toLocaleDateString('en-CA');
+      const planData = weekData[index];
+
+      // prepares the doc data
+      const docData = {
+        date: planDate,
+        meals: {
+          lunch: {
+            prepId: isLunchChecked[index] ? null : planData?.meals?.lunch?.prepId ?? null,          
+            prepData: isLunchChecked[index] ? null : planData?.meals?.lunch?.prepData ?? null,
+          },
+          dinner: {
+            prepId: isDinnerChecked[index] ? null : planData?.meals?.dinner?.prepId ?? null,         
+            prepData: isDinnerChecked[index] ? null : planData?.meals?.dinner?.prepData ?? null,
+          },
+        },
+        ...(planData?.snacks && { snacks: planData.snacks }),
+      };
+
+      // adds the set operation to the batch if the data has changed
+      if (isLunchChecked[index] || isDinnerChecked[index]) {
+        batch.set(doc(db, 'PLANS', planDate), docData);
+      }
+
+      // LUNCH - determines filled for count
+      if (isLunchChecked[index] && ogSelected.find(item => item.meal === ("LUNCH " + new Date(weekRange[index]))) !== undefined) { 
+        ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + new Date(weekRange[index]))); // removes original
+        ogSelected.push({ filled: false, meal: "LUNCH " + new Date(weekRange[index]), });               // readds it
+      // DINNER - determines filled for count
+      } if (isDinnerChecked[index] && (ogSelected.find(item => item.meal === ("DINNER " + new Date(weekRange[index]))) !== undefined)) { 
+        ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + new Date(weekRange[index]))); // removes original
+        ogSelected.push({ filled: false, meal: "DINNER " + new Date(weekRange[index]), });               // readds it
+      }
+    }
+        
+    // stores the new list
+    setSelectedList(ogSelected);
+    updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected }); 
+
+    // commits the batch
+    await batch.commit();
+    
+    // updates the dropdown amounts
+    fetchDropdownItems(globalCompleted, prepData);
+    getCollectionPlans();
+  }
+
+  // for when the 'swap' button is selected next to the prep dropdown
+  const swapCheckedPrep = async () => {
+
+    let ogSelected = [...selectedList];
+
+    // initializes a write batch
+    const batch = writeBatch(db);
+
+    // loops over the 7 days of the week
+    let detailsOne = null;
+    let detailsTwo = null;
+
+    for (let index = 0; index < 7; index++) {
+      
+      if (isLunchChecked[index] && !detailsOne) {
+        detailsOne = { 
+          date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), 
+          meal: "LUNCH", 
+          data: weekData[index]?.meals?.lunch || { prepData: null, prepId: null }, 
+          otherData: weekData[index]?.meals?.dinner || { prepData: null, prepId: null }, 
+          snacks: weekData[index]?.snacks || null
+        };
+      } else if (isLunchChecked[index] && detailsOne) {
+        detailsTwo = { 
+          date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), 
+          meal: "LUNCH", 
+          data: weekData[index]?.meals?.lunch || { prepData: null, prepId: null },  
+          otherData: weekData[index]?.meals?.dinner || { prepData: null, prepId: null }, 
+          snacks: weekData[index]?.snacks || null
+        };
+      }
+      
+      if (isDinnerChecked[index] && !detailsOne) {
+        detailsOne = { 
+          date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), 
+          meal: "DINNER", 
+          data: weekData[index]?.meals?.dinner || { prepData: null, prepId: null }, 
+          otherData: weekData[index]?.meals?.lunch || { prepData: null, prepId: null }, 
+          snacks: weekData[index]?.snacks || null
+        };
+      } else if (isDinnerChecked[index] && detailsOne) {
+        detailsTwo = { 
+          date: (new Date(weekRange[index])).toLocaleDateString('en-CA'), 
+          meal: "DINNER", 
+          data: weekData[index]?.meals?.dinner || { prepData: null, prepId: null }, 
+          otherData: weekData[index]?.meals?.lunch || { prepData: null, prepId: null }, 
+          snacks: weekData[index]?.snacks || null
+        };
+      } 
+    }
+
+    // IF THE SWAP HAPPENS ON ONLY ONE DAY
+    if (detailsOne.date === detailsTwo.date) {
+      
+      // swaps the id meal if the first one is custom
+      if (detailsOne.meal === "LUNCH" && detailsOne?.data?.prepId !== null && detailsOne?.data?.prepId?.includes("LUNCH")) {
+        detailsOne.data.prepId = detailsOne.data.prepId.replace("LUNCH", "DINNER");
+      } else if (detailsOne.meal === "DINNER" && detailsOne?.data?.prepId !== null && detailsOne?.data?.prepId?.includes("DINNER")) {
+        detailsOne.data.prepId = detailsOne.data.prepId.replace("DINNER", "LUNCH");
+      }
+
+      // swaps the id meal if the second one is custom
+      if (detailsTwo.meal === "LUNCH" && detailsTwo?.data?.prepId !== null && detailsTwo?.data?.prepId?.includes("LUNCH")) {
+        detailsTwo.data.prepId = detailsTwo.data.prepId.replace("LUNCH", "DINNER");
+      } else if (detailsTwo.meal === "DINNER" && detailsTwo?.data?.prepId !== null && detailsTwo?.data?.prepId?.includes("DINNER")) {
+        detailsTwo.data.prepId = detailsTwo.data.prepId.replace("DINNER", "LUNCH");
+      }
+      
+      // only one swap in the db is needed for a single day
+      const swappedDay = {
+        date: detailsOne.date,
+        meals: {
+          lunch: detailsOne.meal === "LUNCH" ? detailsTwo.data : detailsOne.data,
+          dinner: detailsOne.meal === "DINNER" ? detailsTwo.data : detailsOne.data,
+        },
+        ...(detailsOne?.snacks && { snacks: detailsOne?.snacks }),
+      };
+
+      batch.set(doc(db, 'PLANS', detailsOne.date), swappedDay);
+
+      // reformatting date
+      const [year, month, day] = detailsOne.date.split("-").map(Number);
+      const longDate = new Date(year, month - 1, day);
+      
+      // determines if initial radios were checked
+      let lunchRadio = ogSelected.filter(item => item.meal === "LUNCH " + longDate).length !== 0;
+      let dinnerRadio = ogSelected.filter(item => item.meal === "DINNER " + longDate).length !== 0;
+
+      // selects lunch radio if the dinner radio was selected
+      if (dinnerRadio) {
+        ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + longDate));
+        ogSelected.push({ 
+          filled: selectedList.find(item => item.meal === ("DINNER " + longDate)).filled, 
+          meal: "LUNCH " + longDate 
+        });
+      // unselects lunch radio if the dinner radio was selected
+      } else {
+        ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + longDate));
+      }
+
+      // selects dinner radio if the lunch radio was selected
+      if (lunchRadio) {
+        ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + longDate));
+        ogSelected.push({ 
+          filled: selectedList.find(item => item.meal === ("LUNCH " + longDate)).filled, 
+          meal: "DINNER " + longDate 
+        });
+      // unselects dinner radio if the lunch radio was selected
+      } else {
+        ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + longDate));
+      }
+    
+    
+    // IF IT HAPPENS ON TWO SEPARATE DAYS
+    } else {
+
+      // reformatting dates
+      const [year1, month1, day1] = detailsOne.date.split("-").map(Number);
+      const longDate1 = new Date(year1, month1 - 1, day1);
+      const [year2, month2, day2] = detailsTwo.date.split("-").map(Number);
+      const longDate2 = new Date(year2, month2 - 1, day2);
+
+      // first day
+      let swappedDayOne = {
+        date: detailsOne.date,
+        meals: {
+          lunch: detailsOne.meal === "LUNCH" ? detailsTwo.data : detailsOne.otherData,
+          dinner: detailsOne.meal === "DINNER" ? detailsTwo.data : detailsOne.otherData,
+        },
+        ...(detailsOne?.snacks && { snacks: detailsOne?.snacks }),
+      };
+
+      // second day
+      let swappedDayTwo = {
+        date: detailsTwo.date,
+        meals: {
+          lunch: detailsTwo.meal === "LUNCH" ? detailsOne.data : detailsTwo.otherData,
+          dinner: detailsTwo.meal === "DINNER" ? detailsOne.data : detailsTwo.otherData,
+        },
+        ...(detailsTwo?.snacks && { snacks: detailsTwo?.snacks }),
+      };
+      
+      // changes the id meal if the first lunch is custom
+      if (swappedDayOne?.meals?.lunch?.prepId?.includes("LUNCH") || swappedDayOne?.meals?.lunch?.prepId?.includes("DINNER")) {
+        swappedDayOne.meals.lunch.prepId = `LUNCH ${month1}/${day1}/${year1 % 100}`;
+      // changes the id meal if the first dinner is custom
+      } if (swappedDayOne?.meals?.dinner?.prepId?.includes("LUNCH") || swappedDayOne?.meals?.dinner?.prepId?.includes("DINNER")) {
+        swappedDayOne.meals.dinner.prepId = `DINNER ${month1}/${day1}/${year1 % 100}`;
+      // changes the id meal if the second lunch is custom
+      } if (swappedDayTwo?.meals?.lunch?.prepId?.includes("LUNCH") || swappedDayTwo?.meals?.lunch?.prepId?.includes("DINNER")) {
+        swappedDayTwo.meals.lunch.prepId = `LUNCH ${month2}/${day2}/${year2 % 100}`;
+      // changes the id meal if the second dinner is custom
+      } if (swappedDayTwo?.meals?.dinner?.prepId?.includes("LUNCH") || swappedDayTwo?.meals?.dinner?.prepId?.includes("DINNER")) {
+        swappedDayTwo.meals.dinner.prepId = `DINNER ${month2}/${day2}/${year2 % 100}`;
+      } 
+
+      // changed dates
+      batch.set(doc(db, 'PLANS', detailsOne.date), swappedDayOne);
+      batch.set(doc(db, 'PLANS', detailsTwo.date), swappedDayTwo);
+
+      // determines if initial radios were checked
+      let radio1 = ogSelected.filter(item => item.meal === (detailsOne.meal + " " + longDate1)).length !== 0;
+      let radio2 = ogSelected.filter(item => item.meal === (detailsTwo.meal + " " + longDate2)).length !== 0;
+
+      // selects 1st radio if the 2nd radio was selected
+      if (radio2) {
+        ogSelected = ogSelected.filter(item => item.meal !== (detailsOne.meal + " " + longDate1));
+        ogSelected.push({ 
+          filled: selectedList.find(item => item.meal === (detailsTwo.meal + " " + longDate2)).filled, 
+          meal: detailsOne.meal + " " + longDate1 
+        });
+      // unselects 1st radio if the 2nd radio was selected
+      } else {
+        ogSelected = ogSelected.filter(item => item.meal !== (detailsOne.meal + " " + longDate1));
+      }
+      
+      // selects 2nd radio if the 1st radio was selected
+      if (radio1) {
+        ogSelected = ogSelected.filter(item => item.meal !== (detailsTwo.meal + " " + longDate2));
+        ogSelected.push({ 
+          filled: selectedList.find(item => item.meal === (detailsOne.meal + " " + longDate1)).filled, 
+          meal: detailsTwo.meal + " " + longDate2 
+        });
+      // unselects 2nd radio if the 1st radio was selected
+      } else {
+        ogSelected = ogSelected.filter(item => item.meal !== (detailsTwo.meal + " " + longDate2));
+      }
+    }
+    
+        
+    // stores the new list
+    setSelectedList(ogSelected);
+    updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected }); 
+
+    // commits the batch
+    await batch.commit();
+
+    // refreshes
+    getCollectionPlans();
+    
+    // updates the dropdown amounts
+    fetchDropdownItems(globalCompleted, prepData);
   }
 
 
@@ -1156,6 +1159,13 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     fetchDropdownItems(globalCompleted, prepData);
     getCollectionPlans();
   }
+  
+
+  ///////////////////////////////// NOTE MODAL /////////////////////////////////
+
+  const [noteModalVisible, setNoteModalVisible] = useState(false);
+
+
 
 
   ///////////////////////////////// HTML /////////////////////////////////
@@ -1166,7 +1176,17 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     <View className="flex-1 items-center justify-center bg-zinc100 border-0.5 space-y-7">      
         
       {/* WEEK SELECTION */}
-      <View className="flex flex-row justify-center items-center bg-zinc100 pl-7">
+      <View className="flex flex-row justify-center items-center bg-zinc100 pl-10">
+
+        {/* Note Modal Button */}
+        <View className="absolute rotate-90 left-[-14px] justify-center items-center h-[35px] z-50">
+          <Icon
+            name="git-commit-outline"
+            color={colors.zinc700}
+            size={24}
+            onPress={() => setNoteModalVisible(true)}
+          />
+        </View>
         
         {/* Selected Week prompt */}
         <View className="flex flex-row justify-evenly items-center ml-[-30px] w-[45%] h-[35px] pr-2 bg-white border-l-[1.5px] border-y-[1.5px] border-theme300">
@@ -1219,6 +1239,15 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           )}
         </View>
       </View>
+
+
+      {/* NOTE MODAL */}
+      {noteModalVisible && (
+        <PlanNoteModal
+          modalVisible={noteModalVisible}
+          setModalVisible={setNoteModalVisible}
+        />
+      )}
 
 
       {/* BUTTONS */}

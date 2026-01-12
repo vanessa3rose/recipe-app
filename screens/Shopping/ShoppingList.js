@@ -28,6 +28,7 @@ import RecipeListModal from '../../components/Shopping-List/RecipeListModal';
 import SpotlightSelectorModal from '../../components/Shopping-List/SpotlightSelectorModal';
 import StoreSwapModal from '../../components/Shopping-List/StoreSwapModal';
 import ExtraIngredientsModal from '../../components/Shopping-List/ExtraIngredientsModal';
+import ViewIngredientModal from '../../components/MultiUse/ViewIngredientModal';
 
 // initialize firebase app
 import { getFirestore, doc, updateDoc, getDocs, getDoc, collection, writeBatch } from 'firebase/firestore';
@@ -720,6 +721,11 @@ export default function ShoppingList ({ isSelectedTab }) {
       console.error('Error fetching meal prep document:', error);
     }
   }
+  
+  
+  ///////////////////////////////// LINK ALTERNATIVE /////////////////////////////////
+
+  const [noLinkModalVisible, setNoLinkModalVisible] = useState(-1);
 
 
   ///////////////////////////////// SHOWING RECIPES OF SHOPPING LISTS /////////////////////////////////
@@ -917,267 +923,291 @@ export default function ShoppingList ({ isSelectedTab }) {
                     {/* SCROLLABLE INGREDIENT SECTION */}
                     <ScrollView>
                       {allStoreLists[selectedStore].map((store, index) => (
-                        (store.yieldNeeded !== 0 && (new Fractional(store.yieldNeeded.toString()).numerator !== undefined)) && (
-                          <View key={`data-${index}`}>
-                            { // IF THE INGREDIENT IS EXTRA
-                            store.extra
-                            ?
-                              <View className={`flex flex-row border-b-[1px] w-full h-[60px] ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-mauve300") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-mauve400") }`}>
+                        <View key={`data-${index}`}>
 
-                                {/* Specifics */}
-                                <View className={`flex w-[30px] justify-center items-center ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc500" : "bg-mauve700"} space-y-[4px] border-r-0.5`}>
-                                  
-                                  {/* BUTTONS */}
-                                  <View className="flex flex-col space-y-[3px]">
-                                    {/* Check */}
-                                    <Icon
-                                      name={(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "checkbox" : "square-outline"}
-                                      size={14}
-                                      color="white"
-                                      onPress={() => updateCheck(index)}
-                                    />
-                                  </View>
-                                  
-                                  {/* Amount Needed */}
-                                  <View className="flex flex-col w-full justify-center items-center">
-                                    <Text className="text-white text-[12px]">{store.amountNeeded}</Text>
-                                  </View>
-                                </View>
-                                
-                                {/* INGREDIENT NAME */}
-                                <View
-                                  className={`flex w-[125px] justify-center items-center border-r-2 border-black ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc600" : "bg-mauve900"}`}
-                                >
-                                  {/* Linking */}
-                                  <Text 
-                                    className={`text-white text-[12px] font-bold text-center px-1 ${(store.link !== "") && "underline"}`}
-                                    onPress={ (store.link !== "") ? () => Linking.openURL(store.link) : undefined }
-                                  >
-                                    {store.name}
-                                  </Text>
-                                </View>
-                              
+                          {(store.yieldNeeded !== 0 && (new Fractional(store.yieldNeeded.toString()).numerator !== undefined)) && (
+                            <View>
+                              { // IF THE INGREDIENT IS EXTRA
+                              store.extra
+                              ?
+                                <View className={`flex flex-row border-b-[1px] w-full h-[60px] ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-mauve300") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-mauve400") }`}>
 
-                                {/* SCROLLABLE COLUMNS */}
-                                <ScrollView
-                                  horizontal
-                                  scrollEventThrottle={16}
-                                  contentContainerStyle={{ flexDirection: 'column', minWidth: 500 }}
-                                  showsHorizontalScrollIndicator={false}
-                                >
-                                  <View className={`flex border-b-[1px] h-[60px] space-y-1 ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-mauve300") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-mauve400") } items-center justify-center`} key={`middle${index}`}>
+                                  {/* Specifics */}
+                                  <View className={`flex w-[30px] justify-center items-center ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc500" : "bg-mauve700"} space-y-[4px] border-r-0.5`}>
                                     
-                                    {/* to open the detailed recipe list */}
-                                    <View className="w-full space-y-1">
-                                      {/* List of details */}
-                                      <View className="flex flex-row">
-                                        <Text className="w-[15%] text-right pr-2 font-bold text-[12px]">
-                                          DETAILS:
-                                        </Text>
-                                        {/* brand, unit yield, and unit cost */}
-                                        {store.brand ? 
-                                          <Text className="w-[85%] text-left text-[12px]">
-                                            {store.brand} {"—"} {store.totalYield} {extractUnit(store.unit, store.totalYield)}{" for $"}{((new Fraction(store.costUnit)) * 1)}
-                                          </Text>
-                                        : 
-                                          <Text className="w-[85%] text-left text-[12px]">
-                                            N/A
-                                          </Text>
-                                        }
-                                      </View>
-
-                                      {/* List of purchase details */}
-                                      <View className="flex flex-row">
-                                        <Text className="w-[15%] text-right pr-2 font-bold text-[12px]">
-                                          NEEDED:
-                                        </Text>
-                                        {/* yield needed, amount needed, cost expected */}
-                                        {store.brand ? 
-                                          <Text className="w-[85%] text-left text-[12px]">
-                                            {store.yieldNeeded} {extractUnit(store.unit, store.yieldNeeded)} {"—"} {store.amountNeeded}{"x for $"}{store.costTotal.toFixed(2)}
-                                          </Text>
-                                        : 
-                                          <Text className="w-[85%] text-left text-[12px]">
-                                            N/A
-                                          </Text>
-                                        }
-                                      </View>
+                                    {/* BUTTONS */}
+                                    <View className="flex flex-col space-y-[3px]">
+                                      {/* Check */}
+                                      <Icon
+                                        name={(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "checkbox" : "square-outline"}
+                                        size={14}
+                                        color="white"
+                                        onPress={() => updateCheck(index)}
+                                      />
                                     </View>
-                                  
-                                    {/* Notes input */}
-                                    <View className="flex flex-row">
-                                      {/* Text */}
-                                      <Text className="w-[15%] text-right pr-2 font-bold text-[12px] justify-start">
-                                        NOTES:
-                                      </Text>
-                                      {/* MOCK text input */}
-                                      <TouchableOpacity 
-                                        className="w-[85%] pr-[10px] h-[15px]"
-                                        onPress={() => {
-                                          setKeyboardType("individual notes");
-                                          setKeyboardIndex(index);
-                                          setIsKeyboardOpen(true);
-                                        }}
-                                      >
-                                        <Text className="flex bg-zinc300 px-[5px] border-[1px] border-zinc300 rounded-[5px] text-[12px] leading-[14px]">
-                                          {(Array.isArray(allStoreNotes[selectedStore]) && allStoreNotes[selectedStore][index]) ? allStoreNotes[selectedStore][index] : ""}
-                                        </Text>      
-                                      </TouchableOpacity>    
+                                    
+                                    {/* Amount Needed */}
+                                    <View className="flex flex-col w-full justify-center items-center">
+                                      <Text className="text-white text-[12px]">{store.amountNeeded}</Text>
                                     </View>
                                   </View>
-                                </ScrollView>                            
-                              </View>
-                            // IF THE INGREDIENT IS INCLUDED
-                            : allStoreIncluded[selectedStore][index] 
-                            ? 
-                              <View className={`flex flex-row border-b-[1px] w-full h-[60px] ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-theme400") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-theme500") }`}>
-
-                                {/* Specifics */}
-                                <View className={`flex h-full w-[30px] justify-center items-center ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc500" : "bg-theme700"} space-y-[4px] border-r-0.5`}>
                                   
-                                  {/* BUTTONS */}
-                                  <View className="flex flex-col space-y-[3px]">
-                                    {/* Included */}
+                                  {/* INGREDIENT NAME */}
+                                  <TouchableOpacity
+                                    className={`flex w-[125px] justify-center items-center border-r-2 border-black ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc600" : "bg-mauve900"}`}
+                                    activeOpacity={0.8}
+                                    onPress={() => setNoLinkModalVisible(index)}
+                                  >
+                                    {/* Linking */}
+                                    <Text 
+                                      className={`text-white text-[12px] font-bold text-center px-1 ${(store.link !== "") && "underline"}`}
+                                      onPress={ (store.link !== "") ? () => Linking.openURL(store.link) : undefined }
+                                    >
+                                      {store.name}
+                                    </Text>
+                                  </TouchableOpacity>
+                                
+
+                                  {/* SCROLLABLE COLUMNS */}
+                                  <ScrollView
+                                    horizontal
+                                    scrollEventThrottle={16}
+                                    contentContainerStyle={{ flexDirection: 'column', minWidth: 500 }}
+                                    showsHorizontalScrollIndicator={false}
+                                  >
+                                    <View className={`flex border-b-[1px] h-[60px] space-y-1 ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-mauve300") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-mauve400") } items-center justify-center`} key={`middle${index}`}>
+                                      
+                                      {/* to open the detailed recipe list */}
+                                      <View className="w-full space-y-1">
+                                        {/* List of details */}
+                                        <View className="flex flex-row">
+                                          <Text className="w-[15%] text-right pr-2 font-bold text-[12px]">
+                                            DETAILS:
+                                          </Text>
+                                          {/* brand, unit yield, and unit cost */}
+                                          {store.brand ? 
+                                            <Text className="w-[85%] text-left text-[12px]">
+                                              {store.brand} {"—"} {store.totalYield} {extractUnit(store.unit, store.totalYield)}{" for $"}{((new Fraction(store.costUnit)) * 1)}
+                                            </Text>
+                                          : 
+                                            <Text className="w-[85%] text-left text-[12px]">
+                                              N/A
+                                            </Text>
+                                          }
+                                        </View>
+
+                                        {/* List of purchase details */}
+                                        <View className="flex flex-row">
+                                          <Text className="w-[15%] text-right pr-2 font-bold text-[12px]">
+                                            NEEDED:
+                                          </Text>
+                                          {/* yield needed, amount needed, cost expected */}
+                                          {store.brand ? 
+                                            <Text className="w-[85%] text-left text-[12px]">
+                                              {store.yieldNeeded} {extractUnit(store.unit, store.yieldNeeded)} {"—"} {store.amountNeeded}{"x for $"}{store.costTotal.toFixed(2)}
+                                            </Text>
+                                          : 
+                                            <Text className="w-[85%] text-left text-[12px]">
+                                              N/A
+                                            </Text>
+                                          }
+                                        </View>
+                                      </View>
+                                    
+                                      {/* Notes input */}
+                                      <View className="flex flex-row">
+                                        {/* Text */}
+                                        <Text className="w-[15%] text-right pr-2 font-bold text-[12px] justify-start">
+                                          NOTES:
+                                        </Text>
+                                        {/* MOCK text input */}
+                                        <TouchableOpacity 
+                                          className="w-[85%] pr-[10px] h-[15px]"
+                                          onPress={() => {
+                                            setKeyboardType("individual notes");
+                                            setKeyboardIndex(index);
+                                            setIsKeyboardOpen(true);
+                                          }}
+                                        >
+                                          <Text className="flex bg-zinc300 px-[5px] border-[1px] border-zinc300 rounded-[5px] text-[12px] leading-[14px]">
+                                            {(Array.isArray(allStoreNotes[selectedStore]) && allStoreNotes[selectedStore][index]) ? allStoreNotes[selectedStore][index] : ""}
+                                          </Text>      
+                                        </TouchableOpacity>    
+                                      </View>
+                                    </View>
+                                  </ScrollView>                            
+                                </View>
+                              // IF THE INGREDIENT IS INCLUDED
+                              : allStoreIncluded[selectedStore][index] 
+                              ? 
+                                <View className={`flex flex-row border-b-[1px] w-full h-[60px] ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-theme400") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-theme500") }`}>
+
+                                  {/* Specifics */}
+                                  <View className={`flex h-full w-[30px] justify-center items-center ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc500" : "bg-theme700"} space-y-[4px] border-r-0.5`}>
+                                    
+                                    {/* BUTTONS */}
+                                    <View className="flex flex-col space-y-[3px]">
+                                      {/* Included */}
+                                      <Icon
+                                        name={(Array.isArray(allStoreIncluded[selectedStore]) && allStoreIncluded[selectedStore][index]) ? "close-outline" : "add"}
+                                        size={14}
+                                        color="white"
+                                        onPress={() => updateIncluded(index)}
+                                      />
+                                      {/* Check */}
+                                      <Icon
+                                        name={(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "checkbox" : "square-outline"}
+                                        size={14}
+                                        color="white"
+                                        onPress={() => updateCheck(index)}
+                                      />
+                                    </View>
+                                    
+                                    {/* Amount Needed */}
+                                    <TouchableOpacity
+                                      className="w-full justify-center items-center"
+                                      onPress={() => displayRecipes(index)}
+                                    >
+                                      <View className="flex flex-col">
+                                        <Text className="text-white text-[12px]">{store.amountNeeded}</Text>
+                                      </View>
+                                    </TouchableOpacity>
+                                  </View>
+                                  
+                                  {/* INGREDIENT NAME */}
+                                  <TouchableOpacity
+                                    className={`flex h-full w-[125px] justify-center items-center border-r-2 border-black ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc600" : "bg-theme800"}`}
+                                    activeOpacity={0.8}
+                                    onPress={() => setNoLinkModalVisible(index)}
+                                  >
+                                    {/* Linking */}
+                                    <Text 
+                                      className={`text-white text-[12px] font-bold text-center px-1 ${(store.link !== "") && "underline"}`}
+                                      onPress={ (store.link !== "") ? () => Linking.openURL(store.link) : undefined }
+                                    >
+                                      {store.name}
+                                    </Text>
+                                  </TouchableOpacity>
+                                
+
+                                  {/* SCROLLABLE COLUMNS */}
+                                  <ScrollView
+                                    horizontal
+                                    scrollEventThrottle={16}
+                                    contentContainerStyle={{ flexDirection: 'column', minWidth: 500 }}
+                                    showsHorizontalScrollIndicator={false}
+                                  >
+                                    <View className={`flex border-b-[1px] h-[60px] space-y-1 ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-theme400") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-theme500") } items-center justify-center`} key={`middle${index}`}>
+                                      
+                                      {/* to open the detailed recipe list */}
+                                      <TouchableOpacity
+                                        className="w-full space-y-1"
+                                        onPress={() => displayRecipes(index)}
+                                      >
+                                        {/* List of details */}
+                                        <View className="flex flex-row">
+                                          <Text className="w-[15%] text-right pr-2 font-bold text-[12px]">
+                                            DETAILS:
+                                          </Text>
+                                          {/* brand, unit yield, and unit cost */}
+                                          {store.brand ? 
+                                            <Text className="w-[85%] text-left text-[12px]">
+                                              {store.brand} {"—"} {store.totalYield} {extractUnit(store.unit, store.totalYield)}{" for $"}{((new Fraction(store.costUnit)) * 1)}
+                                            </Text>
+                                          : 
+                                            <Text className="w-[85%] text-left text-[12px]">
+                                              N/A
+                                            </Text>
+                                          }
+                                        </View>
+
+                                        {/* List of purchase details */}
+                                        <View className="flex flex-row">
+                                          <Text className="w-[15%] text-right pr-2 font-bold text-[12px]">
+                                            NEEDED:
+                                          </Text>
+                                          {/* yield needed, amount needed, cost expected */}
+                                          {store.brand ? 
+                                            <Text className="w-[85%] text-left text-[12px]">
+                                              {store.yieldNeeded} {extractUnit(store.unit, store.yieldNeeded)} {"—"} {store.amountNeeded}{"x for $"}{store.costTotal.toFixed(2)}
+                                            </Text>
+                                          : 
+                                            <Text className="w-[85%] text-left text-[12px]">
+                                              N/A
+                                            </Text>
+                                          }
+                                        </View>
+                                      </TouchableOpacity>
+                                    
+                                      {/* Notes input */}
+                                      <View className="flex flex-row">
+                                        {/* Text */}
+                                        <Text className="w-[15%] text-right pr-2 font-bold text-[12px] justify-start">
+                                          NOTES:
+                                        </Text>
+                                        {/* MOCK text input */}
+                                        <TouchableOpacity 
+                                          className="w-[85%] pr-[10px] h-[15px]"
+                                          onPress={() => {
+                                            setKeyboardType("individual notes");
+                                            setKeyboardIndex(index);
+                                            setIsKeyboardOpen(true);
+                                          }}
+                                        >
+                                          <Text className="flex bg-zinc300 px-[5px] border-[1px] border-zinc300 rounded-[5px] text-[12px] leading-[14px]">
+                                            {(Array.isArray(allStoreNotes[selectedStore]) && allStoreNotes[selectedStore][index]) ? allStoreNotes[selectedStore][index] : ""}
+                                          </Text>      
+                                        </TouchableOpacity>    
+                                      </View>
+                                    </View>
+                                  </ScrollView>                            
+                                </View>
+                              :
+
+                                // IF THE INGREDIENT IS NOT INCLUDED
+                                <View className="flex flex-row border-b-[1px] h-[30px]">
+
+                                  {/* Included Button ONLY */}
+                                  <View className="w-[30px] bg-zinc300 border-r-0.5 justify-center items-center z-10">
                                     <Icon
                                       name={(Array.isArray(allStoreIncluded[selectedStore]) && allStoreIncluded[selectedStore][index]) ? "close-outline" : "add"}
                                       size={14}
-                                      color="white"
+                                      color="black"
                                       onPress={() => updateIncluded(index)}
                                     />
-                                    {/* Check */}
-                                    <Icon
-                                      name={(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "checkbox" : "square-outline"}
-                                      size={14}
-                                      color="white"
-                                      onPress={() => updateCheck(index)}
-                                    />
                                   </View>
                                   
-                                  {/* Amount Needed */}
-                                  <TouchableOpacity
-                                    className="w-full justify-center items-center"
-                                    onPress={() => displayRecipes(index)}
+                                  {/* Ingredient Name */}
+                                  <TouchableOpacity 
+                                    className="w-full bg-zinc350 justify-center pl-[30px] ml-[-30px] z-0"
+                                    activeOpacity={0.8}
+                                    onPress={() => setNoLinkModalVisible(index)}
                                   >
-                                    <View className="flex flex-col">
-                                      <Text className="text-white text-[12px]">{store.amountNeeded}</Text>
-                                    </View>
+                                    <Text 
+                                      className={`text-zinc800 text-[12px] font-bold px-1 ${(store.link !== "") && "underline"}`}
+                                      onPress={ (store.link !== "") ? () => Linking.openURL(store.link) : undefined }
+                                    >
+                                      {store.name}
+                                    </Text>
                                   </TouchableOpacity>
                                 </View>
-                                
-                                {/* INGREDIENT NAME */}
-                                <View
-                                  className={`flex h-full w-[125px] justify-center items-center border-r-2 border-black ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc600" : "bg-theme800"}`}
-                                >
-                                  {/* Linking */}
-                                  <Text 
-                                    className={`text-white text-[12px] font-bold text-center px-1 ${(store.link !== "") && "underline"}`}
-                                    onPress={ (store.link !== "") ? () => Linking.openURL(store.link) : undefined }
-                                  >
-                                    {store.name}
-                                  </Text>
-                                </View>
-                              
+                              }
+                            </View>
+                          )}
 
-                                {/* SCROLLABLE COLUMNS */}
-                                <ScrollView
-                                  horizontal
-                                  scrollEventThrottle={16}
-                                  contentContainerStyle={{ flexDirection: 'column', minWidth: 500 }}
-                                  showsHorizontalScrollIndicator={false}
-                                >
-                                  <View className={`flex border-b-[1px] h-[60px] space-y-1 ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-theme400") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-theme500") } items-center justify-center`} key={`middle${index}`}>
-                                    
-                                    {/* to open the detailed recipe list */}
-                                    <TouchableOpacity
-                                      className="w-full space-y-1"
-                                      onPress={() => displayRecipes(index)}
-                                    >
-                                      {/* List of details */}
-                                      <View className="flex flex-row">
-                                        <Text className="w-[15%] text-right pr-2 font-bold text-[12px]">
-                                          DETAILS:
-                                        </Text>
-                                        {/* brand, unit yield, and unit cost */}
-                                        {store.brand ? 
-                                          <Text className="w-[85%] text-left text-[12px]">
-                                            {store.brand} {"—"} {store.totalYield} {extractUnit(store.unit, store.totalYield)}{" for $"}{((new Fraction(store.costUnit)) * 1)}
-                                          </Text>
-                                        : 
-                                          <Text className="w-[85%] text-left text-[12px]">
-                                            N/A
-                                          </Text>
-                                        }
-                                      </View>
-
-                                      {/* List of purchase details */}
-                                      <View className="flex flex-row">
-                                        <Text className="w-[15%] text-right pr-2 font-bold text-[12px]">
-                                          NEEDED:
-                                        </Text>
-                                        {/* yield needed, amount needed, cost expected */}
-                                        {store.brand ? 
-                                          <Text className="w-[85%] text-left text-[12px]">
-                                            {store.yieldNeeded} {extractUnit(store.unit, store.yieldNeeded)} {"—"} {store.amountNeeded}{"x for $"}{store.costTotal.toFixed(2)}
-                                          </Text>
-                                        : 
-                                          <Text className="w-[85%] text-left text-[12px]">
-                                            N/A
-                                          </Text>
-                                        }
-                                      </View>
-                                    </TouchableOpacity>
-                                  
-                                    {/* Notes input */}
-                                    <View className="flex flex-row">
-                                      {/* Text */}
-                                      <Text className="w-[15%] text-right pr-2 font-bold text-[12px] justify-start">
-                                        NOTES:
-                                      </Text>
-                                      {/* MOCK text input */}
-                                      <TouchableOpacity 
-                                        className="w-[85%] pr-[10px] h-[15px]"
-                                        onPress={() => {
-                                          setKeyboardType("individual notes");
-                                          setKeyboardIndex(index);
-                                          setIsKeyboardOpen(true);
-                                        }}
-                                      >
-                                        <Text className="flex bg-zinc300 px-[5px] border-[1px] border-zinc300 rounded-[5px] text-[12px] leading-[14px]">
-                                          {(Array.isArray(allStoreNotes[selectedStore]) && allStoreNotes[selectedStore][index]) ? allStoreNotes[selectedStore][index] : ""}
-                                        </Text>      
-                                      </TouchableOpacity>    
-                                    </View>
-                                  </View>
-                                </ScrollView>                            
-                              </View>
-                            :
-
-                              // IF THE INGREDIENT IS NOT INCLUDED
-                              <View className="flex flex-row border-b-[1px] h-[30px]">
-
-                                {/* Included Button ONLY */}
-                                <View className="w-[30px] bg-zinc300 border-r-0.5 justify-center items-center z-10">
-                                  <Icon
-                                    name={(Array.isArray(allStoreIncluded[selectedStore]) && allStoreIncluded[selectedStore][index]) ? "close-outline" : "add"}
-                                    size={14}
-                                    color="black"
-                                    onPress={() => updateIncluded(index)}
-                                  />
-                                </View>
-                                
-                                {/* Ingredient Name */}
-                                <View className="w-full bg-zinc350 justify-center pl-[30px] ml-[-30px] z-0">
-                                  <Text 
-                                    className={`text-zinc800 text-[12px] font-bold px-1 ${(store.link !== "") && "underline"}`}
-                                    onPress={ (store.link !== "") ? () => Linking.openURL(store.link) : undefined }
-                                  >
-                                    {store.name}
-                                  </Text>
-                                </View>
-                              </View>
-                            }
-                          </View>
-                        )
+                          {/* SHOW NO LINK INGREDIENT DETAILS MODAL */}
+                          {(noLinkModalVisible === index) && (
+                            <ViewIngredientModal
+                              modalVisible={noLinkModalVisible}
+                              setModalVisible={setNoLinkModalVisible}
+                              ingredient={{
+                                ingredientName: store.name, 
+                                ingredientData: store.data
+                              }}
+                              ingredientStore={selectedStore}
+                            />
+                          )}
+                        </View>
                       ))}
                     </ScrollView>
                   </>
@@ -1403,7 +1433,11 @@ export default function ShoppingList ({ isSelectedTab }) {
                 </View>
                                     
                 {/* INGREDIENT NAME */}
-                <View className={`flex w-4/5 justify-center items-center ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "bg-zinc600" : allStoreLists[selectedStore][keyboardIndex].extra ? "bg-mauve900" : "bg-theme800"}`}>
+                <TouchableOpacity 
+                  className={`flex w-4/5 justify-center items-center ${(Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][keyboardIndex]) ? "bg-zinc600" : allStoreLists[selectedStore][keyboardIndex].extra ? "bg-mauve900" : "bg-theme800"}`}
+                  activeOpacity={0.8}
+                  onPress={() => setNoLinkModalVisible(keyboardIndex)}
+                >
                   {/* Linking */}
                   <Text 
                     className={`text-white text-[12px] font-bold text-center px-1 ${(allStoreLists[selectedStore][keyboardIndex].link !== "") && "underline"}`}
@@ -1411,7 +1445,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                   >
                     {allStoreLists[selectedStore][keyboardIndex].name}
                   </Text>
-                </View>
+                </TouchableOpacity>
               </View>   
 
               {/* DETAILS */}

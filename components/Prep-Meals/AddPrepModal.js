@@ -52,6 +52,12 @@ const AddPrepModal = ({
   // gets the current collection of spotlights
   const getSpotlights = async () => {
     
+    // gets the current selected spotlights from the shopping global
+    const shoppingGlobal = await getDoc(doc(db, 'GLOBALS', 'shopping'));
+    const shoppingData = shoppingGlobal.data();
+    const spotlightsIds = shoppingData.spotlights.map(doc => doc.id);
+    const spotlightsSelected = shoppingData.spotlights.map(doc => doc.selected);
+    
     // gets the collection of spotlights
     const querySnapshot = await getDocs(collection(db, 'SPOTLIGHTS'));
     
@@ -59,6 +65,7 @@ const AddPrepModal = ({
     const spotlightsArray = querySnapshot.docs.map((doc) => {
       const formattedSpotlight = {
         id: doc.id,
+        selected: spotlightsSelected[spotlightsIds.indexOf(doc.id)],
         ... doc.data(),
       };
       return formattedSpotlight;
@@ -364,7 +371,15 @@ const AddPrepModal = ({
                         label: spotlight.spotlightName,
                         value: spotlight.id,
                         key: spotlight.id,
-                        labelStyle: { color: 'black' }
+                        labelStyle: { 
+                          color: spotlight.selected ? colors.mauve800 : colors.zinc500,
+                          fontStyle: !spotlight.selected && "italic",
+                          fontWeight: spotlight.selected ? "700" : "500",
+                          textDecorationLine: !spotlight.selected && "line-through",
+                        },
+                        containerStyle: {
+                          backgroundColor: !spotlight.selected && colors.zinc100,
+                        }
                       }))}
                       placeholder=""
                       style={{ height: 50, backgroundColor: colors.theme800, borderWidth: 0, justifyContent: 'center', }}

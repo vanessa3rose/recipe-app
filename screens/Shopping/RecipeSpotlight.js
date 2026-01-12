@@ -147,6 +147,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
         .sort((a, b) => a.recipeName.localeCompare(b.recipeName));
 
       setRecipeList(recipesArray);
+      setFilteredRecipeList(recipesArray);
       setSelectedRecipeData(selectedRecipeData);
 
       // adds "NEW TAG" and sorts alphabetically
@@ -760,6 +761,11 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       return updated;
     });
   }
+  
+  
+  ///////////////////////////////// LINK ALTERNATIVE /////////////////////////////////
+
+  const [noLinkModalVisible, setNoLinkModalVisible] = useState(-1);
 
 
   ///////////////////////////////// GETTING RECIPE DATA /////////////////////////////////
@@ -1327,7 +1333,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             if (spotlight.ingredientData[i] !== null && spotlight.ingredientIds[i] === selectedSpotlightData.ingredientIds[index]) {
               spotlightsUsed.push(spotlight.spotlightName);
               amtsUsed.push(new Fractional(spotlight.ingredientAmounts[i]).multiply(new Fractional(spotlight.spotlightMult)));
-              selectedUsed.push(spotlightsSelected[spotlightsIds.indexOf(spotlight.id)]);
+              selectedUsed.push(spotlightsSelected[spotlightsIds?.indexOf(spotlight.id)]);
               amountUsed = (new Fractional(amountUsed).add(new Fractional(spotlight.ingredientAmounts[i]).multiply(new Fractional(spotlight.spotlightMult)))).toString();
             }
           }
@@ -1545,14 +1551,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   name="refresh-circle"
                   size={20}
                   color={colors.zinc500}
-                  onPress={() => {
-                    // retrieves the name of the recipe taken from
-                    if (selectedSpotlightData !== null && selectedSpotlightData.recipeId !== null && recipeList.find((recipe) => recipe.id === selectedSpotlightData?.recipeId)) {
-                      setRecipeKeywordQuery(recipeList.find((recipe) => recipe.id === selectedSpotlightData.recipeId)?.recipeName)
-                    } else if (selectedSpotlightData !== null && selectedSpotlightData.recipeId === null) {
-                      setRecipeKeywordQuery("");
-                    }
-                  }}
+                  onPress={() => pickRecipe(recipeList.find((recipe) => recipe.id === selectedSpotlightData.recipeId)) }
                 />
               </View>
 
@@ -1714,7 +1713,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   onPress={() => setSpotlightDropdownOpen(!spotlightDropdownOpen)}
                 >
                   {/* text */}
-                  <Text className="text-white font-bold text-[12px] pr-5">
+                  <Text className="text-white text-center font-bold text-[12px] pr-5">
                     {selectedSpotlightData?.spotlightName}
                   </Text>
   
@@ -1887,16 +1886,33 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             <View key={`frozen-${index}`} className="flex flex-row h-[30px] bg-white">
               
               {/* ingredient names */}
-              <View className={`flex items-center justify-center w-5/12 ${(selectedSpotlightData?.ingredientNameEdited[index] && selectedSpotlightData?.recipeId !== null) ? "bg-zinc500" : "bg-theme600"} border-b-0.5 border-r-0.5 border-zinc700 z-10`}>
+              <TouchableOpacity 
+                className={`flex items-center justify-center w-5/12 ${(selectedSpotlightData?.ingredientNameEdited[index] && selectedSpotlightData?.recipeId !== null) ? "bg-zinc500" : "bg-theme600"} border-b-0.5 border-r-0.5 border-zinc700 z-10`}
+                activeOpacity={selectedSpotlightData?.ingredientData?.[index] ? 0.8 : 1}
+                onPress={(selectedSpotlightData?.ingredientData?.[index] !== null) ? () => setNoLinkModalVisible(index) : null}
+              >
                 <View className="flex flex-wrap flex-row">
                   <Text 
                     className={`text-white text-[10px] text-center px-2 ${selectedSpotlightData?.ingredientData?.[index]?.[selectedSpotlightData.ingredientStores[index]].link && "underline"}`}
-                    onPress={selectedSpotlightData?.ingredientData?.[index]?.[selectedSpotlightData.ingredientStores[index]].link ? () => Linking.openURL(selectedSpotlightData?.ingredientData?.[index]?.[selectedSpotlightData.ingredientStores[index]].link) : undefined }
+                    onPress={ selectedSpotlightData?.ingredientData?.[index]?.[selectedSpotlightData.ingredientStores[index]].link ? () => Linking.openURL(selectedSpotlightData?.ingredientData?.[index]?.[selectedSpotlightData.ingredientStores[index]].link) : undefined }
                   >
                     {(selectedSpotlightData && selectedSpotlightData.ingredientData[index]) ? selectedSpotlightData.ingredientNames[index] : ""}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
+
+              {/* SHOW NO LINK INGREDIENT DETAILS MODAL */}
+              {(noLinkModalVisible === index) && (
+                <ViewIngredientModal
+                  modalVisible={noLinkModalVisible}
+                  setModalVisible={setNoLinkModalVisible}
+                  ingredient={{
+                    ingredientName: selectedSpotlightData?.ingredientNames?.[index], 
+                    ingredientData: selectedSpotlightData?.ingredientData?.[index]
+                  }}
+                  ingredientStore={selectedSpotlightData.ingredientStores[index]}
+                />
+              )}
 
               {/* amount */}
               <View className="flex flex-row items-center justify-center bg-zinc100 w-1/3 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc300 z-0">
@@ -2279,7 +2295,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               </View>
             )}
 
-            {/* INDICATOR */}
+            {/* INDICATOR */} 
             {(selectedIngredientId !== null && selectedIngredientId !== "") && (
               <View className="absolute left-1 bottom-0">
                 <Icon
@@ -2297,6 +2313,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 modalVisible={ingredientModalVisible}
                 setModalVisible={setIngredientModalVisible}
                 ingredient={selectedIngredient}
+                ingredientStore={null}
               />
             )}
             

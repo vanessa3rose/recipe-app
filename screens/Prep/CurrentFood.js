@@ -796,6 +796,9 @@ export default function CurrentFood ({ isSelectedTab }) {
 
   // to import the list of ingredients from the shopping list
   const importIngredients = async () => {
+
+    // stores the new ids
+    const importIds = [];
     
     // the combined shopping list from the helper function
     const combinedData = await mergeShoppingLists();
@@ -810,6 +813,7 @@ export default function CurrentFood ({ isSelectedTab }) {
       
       // only imports the ingredients with a needed yield (from spotlights with a mult of > 0) and that are included & checked off
       if (combinedData.yieldNeeded[i] !== 0 && new Fractional(combinedData.yieldNeeded[i]).numerator !== undefined && combinedData.included[i] && combinedData.check[i]) {
+        importIds.push(combinedData.id[i]);
 
         // if the current ingredient of the combined list is in the current list
         if (index !== -1 && combinedData.store[i] === ingredientStores[index]) {
@@ -866,9 +870,9 @@ export default function CurrentFood ({ isSelectedTab }) {
         }
       }
     }
-    
+
     // stores the ids that were changed
-    setNewIds(combinedData.id);
+    setNewIds(importIds);
 
     // refreshes data
     await loadCurrents();
@@ -1000,19 +1004,22 @@ export default function CurrentFood ({ isSelectedTab }) {
           </View>
 
           {/* ingredient header */}
-          <View className="flex flex-row  space-x-4 items-center justify-center w-2/5 bg-theme900 border-y-[1px] border-r-[1px] border-black">
+          <TouchableOpacity 
+            className="flex flex-row  space-x-4 items-center justify-center w-2/5 bg-theme900 border-y-[1px] border-r-[1px] border-black"
+            activeOpacity={0.8}
+            onPress={() => importIngredients()}
+          >
             {/* Text */}
             <Text className="text-white text-xs font-bold">
               INGREDIENT
             </Text>
-            {/* Import Button */}
+            {/* Import Icon - for Button */}
             <Icon
               name="enter"
               size={18}
               color="white"
-              onPress={() => importIngredients()}
             />
-          </View>
+          </TouchableOpacity>
 
           {/* amount header */}
           <View className="flex items-center justify-center w-[35%] border-r-0.5 bg-theme900 border-y-[1px] border-black">
@@ -1451,6 +1458,7 @@ export default function CurrentFood ({ isSelectedTab }) {
               modalVisible={ingredientModalVisible}
               setModalVisible={setIngredientModalVisible}
               ingredient={{ingredientName: selectedIngredientName, ingredientData: selectedIngredientData}}
+              ingredientStore={null}
             />
           )}
 

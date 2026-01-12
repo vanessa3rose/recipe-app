@@ -706,6 +706,11 @@ export default function Recipes ({ isSelectedTab }) {
   }
 
 
+  ///////////////////////////////// LINK ALTERNATIVE /////////////////////////////////
+
+  const [noLinkModalVisible, setNoLinkModalVisible] = useState(-1);
+
+
   ///////////////////////////////// GETTING RECIPE DATA /////////////////////////////////
 
   // for the overall recipe list
@@ -1342,7 +1347,7 @@ export default function Recipes ({ isSelectedTab }) {
                 onPress={() => setRecipeDropdownOpen(!recipeDropdownOpen)}
               >
                 {/* text */}
-                <Text className="text-white font-bold text-[12px] pr-5">
+                <Text className="text-white text-center font-bold text-[12px] pr-5">
                   {selectedRecipeData?.recipeName}
                 </Text>
 
@@ -1462,16 +1467,35 @@ export default function Recipes ({ isSelectedTab }) {
               </View>
                 
               {/* ingredient names */}
-              <View className={`flex pl-1 items-start justify-center w-[37.5%] ${(ingredientKeywordQuery.length !== 0 && ingredientKeywordQuery.split(' ').every(keyword => selectedRecipeData?.ingredientNames[index]?.toLowerCase().includes(keyword.toLowerCase()))) ? "bg-zinc500" : "bg-theme600"} border-b-0.5 border-r-0.5 border-theme900 pr-[5px] z-20`}>
+              <TouchableOpacity 
+                className={`flex pl-1 items-start justify-center w-[37.5%] ${(ingredientKeywordQuery.length !== 0 && ingredientKeywordQuery.split(' ').every(keyword => selectedRecipeData?.ingredientNames[index]?.toLowerCase().includes(keyword.toLowerCase()))) ? "bg-zinc500" : "bg-theme600"} border-b-0.5 border-r-0.5 border-theme900 pr-[5px] z-20`}
+                activeOpacity={selectedRecipeData?.ingredientData?.[index] ? 0.8 : 1}
+                onPress={(selectedRecipeData?.ingredientData?.[index] !== null) ? () => setNoLinkModalVisible(index) : null}
+              >
                 <View className="flex flex-wrap flex-row">
                   <Text 
                     className={`text-white text-[10px] ${selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData.ingredientStores[index]].link ? 'underline' : 'none'}`}
-                    onPress={selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData.ingredientStores[index]].link ? () => Linking.openURL(selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData.ingredientStores[index]].link) : undefined }
+                    onPress={ selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData.ingredientStores[index]].link ? () => Linking.openURL(selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData.ingredientStores[index]].link) : undefined }
                   >
                     {(selectedRecipeData && selectedRecipeData.ingredientData[index]) ? selectedRecipeData.ingredientNames[index] : ""}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
+
+              {/* SHOW NO LINK INGREDIENT DETAILS MODAL */}
+              {(noLinkModalVisible === index) && (
+                <ViewIngredientModal
+                  modalVisible={noLinkModalVisible}
+                  setModalVisible={setNoLinkModalVisible}
+                  ingredient={{
+                    ingredientName: selectedRecipeData?.ingredientNames?.[index], 
+                    ingredientData: selectedRecipeData?.ingredientData?.[index]
+                  }}
+                  ingredientStore={selectedRecipeData.ingredientStores[index]}
+                />
+              )}
+
+              
 
               {/* amount */}
               <View className="flex flex-row items-center justify-center w-[30%] bg-zinc100 border-r-0.5 border-r-zinc400 border-b-0.5 border-b-zinc400 z-10">
@@ -1980,6 +2004,7 @@ export default function Recipes ({ isSelectedTab }) {
                 modalVisible={ingredientModalVisible}
                 setModalVisible={setIngredientModalVisible}
                 ingredient={selectedIngredient}
+                ingredientStore={null}
               />
             )}
 
