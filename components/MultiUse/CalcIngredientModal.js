@@ -51,7 +51,7 @@ const CalcIngredientModal = ({
 
       // if the type is recipe
       if (type === "recipe") {
-        setTotalYield(amountContainer);
+        setTotalYield(new Fractional(new Fraction(amountContainer).simplify(1 / 1000).toFraction()).toString());
         setGoalServings(initialServings);
         
       // otherwise, find the initial data that will make remaining nonnegative
@@ -65,7 +65,7 @@ const CalcIngredientModal = ({
         }  
         
         setNumContainers(count);
-        setTotalYield(remaining);
+        setTotalYield(new Fractional(new Fraction(remaining).simplify(1 / 1000).toFraction()).toString());
         setGoalServings(initialAmount === "" ? "0.00" : (((new Fractional(remaining)).divide(new Fractional(initialAmount))).numerator / ((new Fractional(remaining)).divide(new Fractional(initialAmount))).denominator).toFixed(2));
       }
 
@@ -130,7 +130,7 @@ const CalcIngredientModal = ({
     if (total !== "") {
       
       // stores the total yield
-      setTotalYield(total);
+      setTotalYield(new Fractional(new Fraction(total).simplify(1 / 1000).toFraction()).toString());
 
       // if yield is valid, update the servings
       if (!isNaN(new Fractional(total).denominator) && !isNaN(new Fractional(total).numerator)) {
@@ -420,11 +420,11 @@ const CalcIngredientModal = ({
                   <View className="flex flex-row w-11/12 border-[1px] border-zinc350 mb-2">
                     {/* header */}
                     <Text className="flex-1 py-1 px-2 text-right text-[12px] font-medium text-theme800 bg-zinc300">
-                      AMOUNT PER CONTAINER
+                      {type === "prep" ? "TOTAL AMOUNT" : "AMOUNT PER CONTAINER"}
                     </Text>
                     {/* amount */}
                     <Text className="font-medium text-theme700 bg-zinc100 py-1 px-2 text-center text-[12px]">
-                      {`${new Fractional(amountContainer)}`}
+                      {new Fractional((new Fraction(amountContainer).simplify(1 / 1000)).toFraction()).toString()}
                     </Text>
                   </View>
                 )}
@@ -490,28 +490,30 @@ const CalcIngredientModal = ({
                 {/* CONTAINER AMOUNTS */}
                 <View className="flex flex-row justify-center items-center mt-3 space-x-4">
 
-                  <View className="flex flex-row bg-zinc100 justify-center items-center border-[1px] border-zinc400">
-                    {/* Num Containers -- Buttons */}
-                    <View className="flex flex-col space-y-[-2px] bg-theme200 border-r-[1px] border-theme300 px-1 py-1.5">
-                      <Icon
-                        name="add"
-                        size={14}
-                        color="black"
-                        onPress={() => setNumContainers(numContainers + 1)}
-                      />
-                      <Icon
-                        name="remove"
-                        size={14}
-                        color="black"
-                        onPress={() => setNumContainers(numContainers !== 0 ? numContainers - 1 : numContainers)}
-                      />
-                    </View>
+                  {(type !== "prep") && (
+                    <View className="flex flex-row bg-zinc100 justify-center items-center border-[1px] border-zinc400">
+                      {/* Num Containers -- Buttons */}
+                      <View className="flex flex-col space-y-[-2px] bg-theme200 border-r-[1px] border-theme300 px-1 py-1.5">
+                        <Icon
+                          name="add"
+                          size={14}
+                          color="black"
+                          onPress={() => setNumContainers(numContainers + 1)}
+                        />
+                        <Icon
+                          name="remove"
+                          size={14}
+                          color="black"
+                          onPress={() => setNumContainers(numContainers !== 0 ? numContainers - 1 : numContainers)}
+                        />
+                      </View>
 
-                    {/* Num Containers */}
-                    <Text className="py-2 px-2 text-[14px] text-black">
-                      {numContainers} {numContainers === 1 ? "CONTAINER" : "CONTAINERS"}
-                    </Text>
-                  </View>
+                      {/* Num Containers */}
+                      <Text className="py-2 px-2 text-[14px] text-black">
+                        {numContainers} {numContainers === 1 ? "CONTAINER" : "CONTAINERS"}
+                      </Text>
+                    </View>
+                  )}
 
                   {/* CALCULATED DETAILS */}
                   <View className={`flex flex-row bg-theme100 border-[1px] border-zinc400 ${(type === "recipe") && "h-full"}`}>
@@ -543,12 +545,16 @@ const CalcIngredientModal = ({
                     <View className="flex flex-col justify-center items-center px-2 py-1">
                       {/* overall */}
                       <Text className="text-[13px] text-zinc800">
-                        {(new Fractional(numContainers)).multiply(new Fractional(amountContainer)).toString()}
+                        {new Fractional((
+                          new Fraction((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).numerator / (new Fractional(numContainers)).multiply(new Fractional(amountContainer)).denominator)
+                        .simplify(1 / 1000)).toFraction()).toString()}
                       </Text>
                       {/* remaining */}
                       {(type !== "recipe") && (
                         <Text className="text-[13px] text-zinc800">
-                          {((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(new Fractional(totalOtherAmount))).toString()}
+                          {new Fractional((
+                            new Fraction((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(totalOtherAmount).numerator / (new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(totalOtherAmount).denominator)
+                          .simplify(1 / 1000)).toFraction()).toString()}
                         </Text>
                       )}
                     </View>

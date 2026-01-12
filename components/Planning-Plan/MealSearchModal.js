@@ -10,6 +10,9 @@ import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, K
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
+// store lists
+import storeKeys from '../../assets/storeKeys';
+
 // validation
 import extractUnit from '../../components/Validation/extractUnit';
 import { deepPrepEqual, deepPrepIndexOf } from '../Validation/deepPrepSearch';
@@ -387,6 +390,45 @@ useEffect(() => {
   // to change the data of a variant
   const changeVariant = async () => {
 
+    // filters out empty
+    const indexes = editedVariant.currentData.map((curr, i) => curr.ingredientName !== "" ? i : null).filter(i => i !== null);
+    let fixedEditedVariant = {
+      ...editedVariant,
+      currentData: indexes.map(i => editedVariant.currentData[i]),
+      currentAmounts: indexes.map(i => editedVariant.currentAmounts[i]),
+      currentCals: indexes.map(i => editedVariant.currentCals[i]),
+      currentIds: indexes.map(i => editedVariant.currentIds[i]),
+      currentIncluded: indexes.map(i => editedVariant.currentIncluded[i]),
+      currentPrices: indexes.map(i => editedVariant.currentPrices[i]),
+    }
+
+    // fixes the cals
+    let newCals = fixedEditedVariant.currentCals.map(cal => (cal === "" ? 0 : cal));
+    fixedEditedVariant = {
+      ...fixedEditedVariant,
+      currentCals: newCals,
+      prepCal: newCals.reduce((sum, cal) => sum + Number(cal), 0).toString()
+    }
+
+    // fixes the amounts
+    fixedEditedVariant.currentData.forEach((curr, index) => {
+
+      // for empty units and amounts
+      if (curr?.ingredientData?.[curr?.ingredientStore]?.unit === "" && fixedEditedVariant?.currentAmounts?.[index] === "") {
+        curr.ingredientData[curr.ingredientStore].unit = "serving";
+        fixedEditedVariant.currentAmounts[index] = "1";
+
+      // for empty units
+      } else if (curr?.ingredientData?.[curr?.ingredientStore]?.unit === "") {
+        curr.ingredientData[curr.ingredientStore].unit = extractUnit("serving(s)", fixedEditedVariant.currentAmounts[index]);
+      }
+
+      // fixes a () unit
+      if (curr?.ingredientData?.[curr?.ingredientStore]?.unit.includes("(") && curr?.ingredientData?.[curr?.ingredientStore]?.unit.includes(")")) {
+        curr.ingredientData[curr.ingredientStore].unit = extractUnit(curr.ingredientData?.[curr.ingredientStore].unit, fixedEditedVariant.currentAmounts[index]);
+      }
+    });
+
     // maps over all of the old plans
     const newSnapshot = plansSnapshot.map((plan) => {
       const newPlan = { ...plan };
@@ -402,7 +444,7 @@ useEffect(() => {
           ...newData.meals,
           lunch: {
             ...newData.meals.lunch,
-            prepData: editedVariant,
+            prepData: fixedEditedVariant,
             prepId: editedVariantType === "simple" ? `LUNCH ${formattedDate}` : "." + doc(collection(db, 'PREPS')).id, 
           }
         };
@@ -414,7 +456,7 @@ useEffect(() => {
           ...newData.meals,
           dinner: {
             ...newData.meals.dinner,
-            prepData: editedVariant,
+            prepData: fixedEditedVariant,
             prepId: editedVariantType === "simple" ? `DINNER ${formattedDate}` : "." + doc(collection(db, 'PREPS')).id, 
           }
         };
@@ -428,7 +470,7 @@ useEffect(() => {
     setEditedVariant(null);
 
     // reloads data
-    loadPreps(newSnapshot, editedVariant.prepName);
+    loadPreps(newSnapshot, fixedEditedVariant.prepName);
 
     // closes the editor
     setEditVariantIndices({"prep": -1, "variant": -1});
@@ -444,10 +486,30 @@ useEffect(() => {
   // to add an ingredient
   const addPrepIngredient = (index) => {
 
+    let iData = { '-': { calServing: "", servingSize: "", unit: "" } };
+    storeKeys.forEach(storeKey => { iData[storeKey] = { brand: "", calContainer: "", calServing: "", link: "", priceContainer: "", priceServing: "", servingContainer: "", servingSize: "", totalYield: "", unit: "" }; }); 
+
+    const cData = {
+      amountLeft: "?", 
+      amountTotal: "", 
+      archive: false, 
+      check: false, 
+      containerPrice: "", 
+      ingredientData: iData, 
+      ingredientId: "", 
+      ingredientName: "", 
+      ingredientStore: "-", 
+      ingredientTypes: [], 
+      unitPrice: "",
+    };
+    
     // null new data to set
-    let newData = Array(numIngredients + 1).fill(null);
+    let newData = Array(numIngredients + 1).fill(cData);
     let newAmounts = Array(numIngredients + 1).fill("");
     let newCals = Array(numIngredients + 1).fill("");
+    let newIds = Array(numIngredients + 1).fill("");
+    let newIncluded = Array(numIngredients + 1).fill("");
+    let newPrices = Array(numIngredients + 1).fill("");
 
     // loops over and shifts the ingredients accordingly
     for (let i = 0; i < numIngredients; i++) {
@@ -455,11 +517,17 @@ useEffect(() => {
         newData[i] = editedVariant.currentData[i];
         newAmounts[i] = editedVariant.currentAmounts[i];
         newCals[i] = editedVariant.currentCals[i];
+        newIds[i] = editedVariant.currentIds[i];
+        newIncluded[i] = editedVariant.currentIncluded[i];
+        newPrices[i] = editedVariant.currentPrices[i];
       
       } else if (i >= index) {
         newData[i + 1] = editedVariant.currentData[i];
         newAmounts[i + 1] = editedVariant.currentAmounts[i];
         newCals[i + 1] = editedVariant.currentCals[i];
+        newIds[i] = editedVariant.currentIds[i];
+        newIncluded[i] = editedVariant.currentIncluded[i];
+        newPrices[i] = editedVariant.currentPrices[i];
       }
     }
 
@@ -469,6 +537,9 @@ useEffect(() => {
       currentData: newData,
       currentAmounts: newAmounts,
       currentCals: newCals,
+      currentIds: newIds,
+      currentIncluded: newIncluded,
+      currentPrices: newPrices,
     })
 
     // increments the number of ingredients
@@ -683,7 +754,7 @@ useEffect(() => {
                 </View>
               </View>
             )}
-            
+
             {/* Filtered List of Preps */}
             {(filteredPrepData?.length > 0 && !(editVariantIndices.prep !== -1))
             ?
@@ -797,7 +868,14 @@ useEffect(() => {
                                 setEditedVariant(filteredPrepData[index][currIndex]);
                                 setNumIngredients(filteredPrepData[index][currIndex].currentData.length);
                                 setEditedVariantType(openSimpleIndex === index ? "simple" : (openComplexIndex === index || openPrepIndex === index) && "complex");
-                                setOgVariantType(openSimpleIndex === index ? "simple" : openComplexIndex === index ? "complex" : openPrepIndex === index && "prep");
+                                setOgVariantType(
+                                  (filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("LUNCH") 
+                                    || filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("DINNER")) 
+                                  ? "simple" :
+                                  (filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("."))
+                                  ? "complex" :
+                                  "prep"
+                                )
                               }}
                             />
                           </View>
@@ -1150,7 +1228,7 @@ useEffect(() => {
                           placeholderTextColor={colors.zinc400}
                           multiline={true}
                           blurOnSubmit={true}
-                          value={editedVariant.prepName}
+                          value={editedVariant?.prepName || ""}
                           onChangeText={(value) => {
                             setEditedVariant((prev) => {
                               const updated = { ...prev }; 
@@ -1170,9 +1248,9 @@ useEffect(() => {
                           {/* amount input */}
                           <TextInput
                             className="flex-auto text-right bg-transparent italic text-[12px] leading-[15px]"
-                            placeholder={editedVariant.prepCal === "" ? "0" : editedVariant.prepCal}
+                            placeholder={editedVariant?.prepCal === "" ? "0" : editedVariant?.prepCal || ""}
                             placeholderTextColor='black'
-                            value={editedVariant.prepCal}
+                            value={editedVariant?.prepCal || ""}
                             onChangeText={(value) => {
                               setEditedVariant((prev) => {
                                 const updated = { ...prev }; 
@@ -1197,9 +1275,9 @@ useEffect(() => {
                           {/* price input */}
                           <TextInput
                             className="flex-auto bg-transparent text-left pr-1 italic text-[12px] leading-[15px]"
-                            placeholder={editedVariant.prepPrice === "" ? "0.00" : editedVariant.prepPrice}
+                            placeholder={editedVariant?.prepPrice === "" ? "0.00" : editedVariant?.prepPrice || ""}
                             placeholderTextColor='black'
-                            value={editedVariant.prepPrice}
+                            value={editedVariant?.prepPrice || ""}
                             onChangeText={(value) => {
                               setEditedVariant((prev) => {
                                 const updated = { ...prev }; 
@@ -1223,12 +1301,12 @@ useEffect(() => {
                     <View className="flex w-11/12 mb-4 bg-theme100 rounded-md py-0 px-2 border-[1px] border-theme200">
                       <TextInput
                         className="w-full text-center mb-1 italic text-[12px] text-zinc900"
-                        placeholder={editedVariant.prepNotes === "meal prep notes" ? "0.00" : editedVariant.prepNotes}
+                        placeholder={editedVariant?.prepNotes === "meal prep notes" ? "0.00" : editedVariant?.prepNotes || ""}
                         placeholderTextColor={colors.theme600}
                         multiline={true}
                         onFocus={() => setKeyboardType("note")}
                         onBlur={() => setKeyboardType("")}
-                        value={editedVariant.prepNote}
+                        value={editedVariant?.prepNote || ""}
                         onChangeText={(value) => {
                           setEditedVariant((prev) => {
                             const updated = { ...prev }; 
@@ -1282,11 +1360,11 @@ useEffect(() => {
                       <View className="flex justify-center items-center px-1.5 w-7/12 border-r-0.5 bg-zinc700">
                         <TextInput
                           className="w-full text-[13px] font-semibold text-white text-center py-2 leading-[16px]"
-                          placeholder={editedVariant.prepName === "" ? "meal prep name" : editedVariant.prepName}
+                          placeholder={editedVariant?.prepName === "" ? "meal prep name" : editedVariant?.prepName || ""}
                           placeholderTextColor={colors.zinc400}
                           multiline={true}
                           blurOnSubmit={true}
-                          value={editedVariant.prepName}
+                          value={editedVariant?.prepName || ""}
                           onChangeText={(value) => {
                             setEditedVariant((prev) => {
                               const updated = { ...prev }; 
@@ -1314,9 +1392,9 @@ useEffect(() => {
                           </Text>
                           <TextInput
                             className="flex text-left text-[11px] text-white leading-[13px]"
-                            placeholder={editedVariant.prepPrice === "" ? "0.00" : editedVariant.prepPrice}
+                            placeholder={editedVariant?.prepPrice === "" ? "0.00" : editedVariant?.prepPrice || ""}
                             placeholderTextColor={colors.zinc400}
-                            value={editedVariant.prepPrice}
+                            value={editedVariant?.prepPrice || ""}
                             onChangeText={(value) => {
                               setEditedVariant((prev) => {
                                 const updated = { ...prev }; 
@@ -1378,7 +1456,7 @@ useEffect(() => {
                                     className="w-full text-white font-semibold text-[10px] text-center px-2 py-2"
                                     placeholder="ingredient name"
                                     placeholderTextColor={colors.zinc350} 
-                                    value={editedVariant?.currentData?.[index]?.ingredientName}
+                                    value={editedVariant?.currentData?.[index]?.ingredientName || ""}
                                     onChangeText={(value) => {
                                       setEditedVariant((prev) => {
                                         const updated = { ...prev };
@@ -1406,7 +1484,7 @@ useEffect(() => {
                                   className="text-[9px] flex text-center h-full pl-4"
                                   placeholder="_"
                                   placeholderTextColor={colors.zinc450}
-                                  value={editedVariant?.currentAmounts?.[index]}
+                                  value={editedVariant?.currentAmounts?.[index] || ""}
                                   onChangeText={(value) => {
                                     setEditedVariant((prev) => {
                                       const updatedAmounts = [...prev.currentAmounts];
@@ -1426,7 +1504,7 @@ useEffect(() => {
                                   className="text-[9px] leading-[12px] flex text-center pr-4 py-1"
                                   placeholder="unit(s)"
                                   placeholderTextColor={colors.zinc450}
-                                  value={editedVariant?.currentData?.[index]?.ingredientData[editedVariant?.currentData?.[index]?.ingredientStore]?.unit}
+                                  value={editedVariant?.currentData?.[index]?.ingredientData?.[editedVariant?.currentData?.[index]?.ingredientStore]?.unit || ""}
                                   onChangeText={(value) => {
                                     setEditedVariant((prev) => {
                                       const updated = { ...prev };
@@ -1460,7 +1538,7 @@ useEffect(() => {
                                   className="text-[9px] flex-auto text-right"
                                   placeholder="_"
                                   placeholderTextColor={colors.zinc400}
-                                  value={editedVariant?.currentCals?.[index].toString()}
+                                  value={editedVariant?.currentCals?.[index]?.toString() || ""}
                                   onChangeText={(value) => {
                                     setEditedVariant((prev) => {
                                       const updatedCals = [...prev.currentCals];

@@ -128,7 +128,7 @@ const MealOverviewModal = ({
 
 
           {/* DETAILS */}
-          <View className="flex flex-row justify-evenly px-2">
+          <View className="flex flex-row justify-evenly px-[7.5px]">
 
             {/* text */}
             <View className="flex border-0.5 w-1/2 rounded-sm">

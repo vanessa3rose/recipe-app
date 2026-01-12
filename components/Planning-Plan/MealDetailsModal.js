@@ -76,6 +76,11 @@ const MealDetailsModal = ({
     if (modalVisible) {
       setIsEditing(data === null);
 
+      // gets the copy data
+      const currDate = date.split(" ");
+      const [month, day, year] = currDate[1].split("/");
+      getCopyData(currDate[0], new Date(Number(year) + 2000, month - 1, day).toISOString().slice(0, 10));
+
       // stores data for later editing
       if (data !== null) {
         // simple editing
@@ -286,7 +291,7 @@ const MealDetailsModal = ({
         currentData: newCurrentData, 
         currentIds: Array(newCurrentData.length).fill(""), 
         currentAmounts: newCurrentAmounts, 
-        currentCals: prepCurrentCals.map(cal => !isNaN(new Fractional(cal).numerator / new Fractional(cal).denominator) ? new Fractional(cal).numerator / new Fractional(cal).denominator : ""), 
+        currentCals: prepCurrentCals.map(cal => !isNaN(new Fractional(cal).numerator / new Fractional(cal).denominator) ? new Fractional(cal).numerator / new Fractional(cal).denominator : 0), 
         currentPrices: Array(newCurrentData.length).fill(""),
         currentIncluded: Array(newCurrentData.length).fill(""),
       };
@@ -798,7 +803,6 @@ const MealDetailsModal = ({
               ...updated[index].ingredientData['-'],
               unit: value,
             },
-            unit: value,
           }
         };
       }
@@ -1011,12 +1015,11 @@ const MealDetailsModal = ({
             <View className="flex flex-col items-center justify-center mb-1 space-y-2">
               
               {/* Meal Name */}
-              <View className="flex justify-center items-center w-full h-[30px] border-0.5 bg-theme600">
+              <View className="flex px-2 justify-center items-center w-full min-h-[30px] py-1 border-0.5 bg-theme600">
                 <Text className="text-[13px] font-semibold text-white text-center">
                     {data?.prepName || ""}
                 </Text>
               </View>
-
               
               {/* Meal Specifics */}
               {data?.prepNote === "" 
@@ -1232,7 +1235,7 @@ const MealDetailsModal = ({
                     {/* Meal Name Input */}
                     <View className="flex justify-center items-center px-1.5 w-7/12 border-r-0.5 bg-zinc700">
                       <TextInput
-                        className="w-full text-[13px] font-semibold text-white text-center py-2 leading-[16px]"
+                        className="w-full text-[13px] font-semibold text-white text-center py-2 px-1 leading-[16px]"
                         placeholder={prepName === "" ? "meal prep name" : prepName}
                         placeholderTextColor={colors.zinc400}
                         multiline={true}
@@ -1348,7 +1351,7 @@ const MealDetailsModal = ({
                               
                               {/* Unit Input */}
                               <TextInput
-                                className="text-[9px] leading-[12px] flex text-center pr-4 py-1"
+                                className="text-[9px] leading-[12px] text-center pr-4 py-1"
                                 placeholder="unit(s)"
                                 placeholderTextColor={colors.zinc450}
                                 value={prepCurrentData?.[index]?.ingredientData[prepCurrentData?.[index]?.ingredientStore]?.unit || ""}
@@ -1603,24 +1606,24 @@ const MealDetailsModal = ({
     
                   {/* Date Selection */}
                   <View className="flex w-4/5">
-                  <Calendar
-                    key={copyDate}
-                    current={copyDate}           
-                    onDayPress={(value) => getCopyData(copyMeal, value.dateString)}
-                    markedDates={{
-                      [copyDate]: { 
-                        selected: true, 
-                        marked: true, 
-                        selectedColor: copyDate === today?.dateString ? colors.zinc400 : colors.theme500 
-                      },
-                    }}
-                    theme={{
-                      todayTextColor: colors.theme500,
-                      todayBackgroundColor: colors.zinc200,
-                      arrowColor: colors.theme400,
-                      monthTextColor: 'black',
-                    }}
-                  />
+                    <Calendar
+                      key={copyDate}
+                      current={copyDate}           
+                      onDayPress={(value) => getCopyData(copyMeal, value.dateString)}
+                      markedDates={{
+                        [copyDate]: { 
+                          selected: true, 
+                          marked: true, 
+                          selectedColor: copyDate === today?.dateString ? colors.zinc400 : colors.theme500 
+                        },
+                      }}
+                      theme={{
+                        todayTextColor: colors.theme500,
+                        todayBackgroundColor: colors.zinc200,
+                        arrowColor: colors.theme400,
+                        monthTextColor: 'black',
+                      }}
+                    />
                   </View>
     
                   {/* Meal Display */}

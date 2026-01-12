@@ -1436,7 +1436,7 @@ export default function MealPrep ({ isSelectedTab }) {
                     onPress={() => setPrepDropdownOpen(!prepDropdownOpen)}
                   >
                     {/* text */}
-                    <Text className="text-white font-bold text-[12px] pr-5">
+                    <Text className="text-white text-center font-bold text-[12px] pr-6">
                       {selectedPrepData?.prepName}
                     </Text>
     
@@ -1463,27 +1463,28 @@ export default function MealPrep ({ isSelectedTab }) {
                         {prepList.map((prep, index) => (
                           <TouchableOpacity
                             key={index}
-                            className={`border-b-0.5 border-zinc350 justify-center items-center h-[${ITEM_HEIGHT}px] ${(prep?.id === selectedPrepId) && "bg-zinc100"}`}
+                            className={`flex flex-row border-b-0.5 border-zinc350 justify-center items-center h-[${ITEM_HEIGHT}px] ${(prep?.id === selectedPrepId) && "bg-zinc100"}`}
                             onPress={() => {
                               reloadPrep(prep.id);
                               setPrepDropdownOpen(false);
                             }}
                           >
-                            {/* (#) label */}
-                            <View className="w-full flex flex-row justify-center items-center pr-5 space-x-1.5">
+                            <View className="flex-1 flex-row justify-center items-center px-4 space-x-1.5">
+                              {/* (#) label */}
                               {prepDropdownOpen &&
                                 <Text className={`text-[12px] font-bold ${(prepsCompleted !== null && prepsCompleted[prepsIds.indexOf(prep.id)]) ? ((prep?.id === selectedPrepId) ? "text-mauve800" : "text-black") : ((prep?.id === selectedPrepId) ? "text-mauve500 line-through" : "text-zinc500 line-through")}`}>
                                   {`(${(selectedPrepId === prep.id && selectedPrepData) ? currPrepMult : prep.prepMult})`}
                                 </Text>
                               }
-                              <Text className={`text-[12px] font-bold ${(prepsCompleted !== null && prepsCompleted[prepsIds.indexOf(prep.id)]) ? ((prep?.id === selectedPrepId) ? "text-mauve800" : "text-black") : ((prep?.id === selectedPrepId) ? "text-mauve500 line-through" : "text-zinc500 line-through")}`}>
+                              {/* name */}
+                              <Text className={`flex text-[12px] text-center font-bold ${(prepsCompleted !== null && prepsCompleted[prepsIds.indexOf(prep.id)]) ? ((prep?.id === selectedPrepId) ? "text-mauve800" : "text-black") : ((prep?.id === selectedPrepId) ? "text-mauve500 line-through" : "text-zinc500 line-through")}`}>
                                 {`${(selectedPrepId === prep.id && selectedPrepData) ? selectedPrepData.prepName : prep.prepName}`}
                               </Text>
                             </View>
     
                             {/* selected indicator */}
                             {(prep?.id === selectedPrepId) && (
-                              <View className="absolute flex justify-center items-center h-[30px] right-2">
+                              <View className="w-1/12 justify-center items-center h-[30px] right-2">
                                 <Icon
                                   name="checkmark"
                                   color="black"
@@ -1717,6 +1718,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
           {/* CALCULATION MODAL */}
           {calcModalVisible && (
+            <>
             <CalcIngredientModal
               type="prep"
               modalVisible={calcModalVisible}
@@ -1733,13 +1735,7 @@ export default function MealPrep ({ isSelectedTab }) {
               amountsUsed={otherAmtsUsed}
               othersUsed={otherPrepsUsed}
               selectedUsed={null}
-              amountContainer={
-                new Fraction (selectedPrepData?.currentData[calcIndex].ingredientData[selectedPrepData?.currentData[calcIndex].ingredientStore].totalYield) * 1 === 0 
-                ? // if completely custom
-                  new Fraction (selectedPrepData?.currentData[calcIndex].amountTotal) * 1 
-                : // if pre-existing
-                  new Fraction (selectedPrepData?.currentData[calcIndex].ingredientData[selectedPrepData?.currentData[calcIndex].ingredientStore].totalYield) * 1
-              }
+              amountContainer={new Fraction (selectedPrepData?.currentData[calcIndex].amountTotal) * 1}
               servingSize={
                 new Fraction (selectedPrepData?.currentData[calcIndex].ingredientData[selectedPrepData?.currentData[calcIndex].ingredientStore].servingSize) * 1 === 0 
                 ? // if completely custom
@@ -1748,6 +1744,7 @@ export default function MealPrep ({ isSelectedTab }) {
                   new Fraction (selectedPrepData?.currentData[calcIndex].ingredientData[selectedPrepData?.currentData[calcIndex].ingredientStore].servingSize) * 1
               }
             />
+          </>
           )}
 
 
