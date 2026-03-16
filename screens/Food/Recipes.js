@@ -1258,7 +1258,7 @@ export default function Recipes ({ isSelectedTab }) {
         <View className="flex flex-col w-[27%]">
 
           {/* Tag Picker */}
-          <View className="flex z-0 bg-theme200 border-0.5 border-theme400 ml-[10px]">
+          <View className="flex z-0 bg-theme200 border-0.5 border-theme400 ml-[10px] overflow-hidden">
             <Picker
               selectedValue={selectedRecipeTag}
               onValueChange={(itemValue) => {
@@ -1594,6 +1594,7 @@ export default function Recipes ({ isSelectedTab }) {
             amountsUsed={null}
             othersUsed={null}
             selectedUsed={null}
+            altPrepVariants={null}
             amountContainer={selectedRecipeData?.ingredientData[calcIndex][selectedRecipeData?.ingredientStores[calcIndex]].totalYield === "" ? 0 : new Fractional (selectedRecipeData?.ingredientData[calcIndex][selectedRecipeData?.ingredientStores[calcIndex]].totalYield).toString()}
             servingSize={null}
           />
@@ -1844,7 +1845,7 @@ export default function Recipes ({ isSelectedTab }) {
               </TouchableOpacity>
 
               {/* Index Picker */}
-              <View className="flex z-0 w-[120px] bg-zinc700">
+              <View className="flex z-0 w-[120px] bg-zinc700 overflow-hidden">
                 <Picker
                   selectedValue={selectedIngredientIndex}
                   onValueChange={setSelectedIngredientIndex}
@@ -1863,7 +1864,7 @@ export default function Recipes ({ isSelectedTab }) {
             </View> 
 
             {/* Type Picker */}
-            <View className="flex w-[150px] z-0 bg-theme200 border-0.5 border-theme400">
+            <View className="flex w-[150px] z-0 bg-theme200 border-0.5 border-theme400 overflow-hidden">
               <Picker
                 selectedValue={selectedIngredientType}
                 onValueChange={(itemValue) => {

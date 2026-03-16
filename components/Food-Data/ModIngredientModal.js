@@ -278,6 +278,7 @@ const ModIngredientModal = ({
     setFilteredUnitList(units);
     setUnitDropdownOpen(value !== "" && units.length !== 0);
   }
+  
 
   ///////////////////////////////// OPENING MODAL /////////////////////////////////
 

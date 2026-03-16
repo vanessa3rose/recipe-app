@@ -9,6 +9,7 @@ module.exports = {
     theme800: '#2D566A',
     theme900: '#1E475A',
 
+    mauve50: '#E6A5C0',
     mauve100: '#DD93B2',
     mauve200: '#D882A6',
     mauve300: '#D3709A',

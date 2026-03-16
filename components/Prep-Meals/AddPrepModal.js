@@ -282,19 +282,21 @@ const AddPrepModal = ({
           <>
         
           {/* HEADER */}
-          <View className="flex-row justify-between mr-6">
-
-            {/* Arrow Indicating Other Option */}
-            <View className="absolute left-1 justify-center items-center h-full">
-              <Icon
-                name={option === "NEW" ? "arrow-down" : "arrow-up"}
-                size={20}
-                color={colors.theme600}
-              />
-            </View>
+          <View className="flex-row justify-around w-full space-x-2">
 
             {/* Option Seletion - NEW or SPOTLIGHT */}
-            <View className="flex w-5/6 ml-3">
+            <View className="flex flex-1 relative overflow-hidden">
+
+              {/* arrow indicating other option */}
+              <View className="absolute left-1 justify-center items-center h-full">
+                <Icon
+                  name={option === "NEW" ? "arrow-down" : "arrow-up"}
+                  size={20}
+                  color={colors.theme600}
+                />
+              </View>
+
+              {/* picker */}
               <Picker
                 selectedValue={option}
                 onValueChange={setOption}
@@ -304,7 +306,7 @@ const AddPrepModal = ({
                 {(["NEW", "SPOTLIGHT"]).map((item) => (
                     <Picker.Item
                       key={item}
-                      label={item + " MEAL PREP"}
+                      label={"   " + item + " MEAL PREP"}
                       value={item}
                     />
                   ))
@@ -314,7 +316,7 @@ const AddPrepModal = ({
 
 
             {/* BUTTONS */}
-            <View className="flex flex-row w-1/6 ml-3 items-center justify-end space-x-[-4px]">
+            <View className="flex flex-row items-center justify-end space-x-[-4px]">
               
               {/* Check */}
               <Icon 
@@ -413,11 +415,11 @@ const AddPrepModal = ({
                                 </Text>
                               </View>
 
-                              <View className={`flex w-full h-1/2 mb-0.5 ${index % 2 === 0 ? "bg-zinc350" : "bg-theme200"}`}>
+                              <View className={`flex w-full h-1/2 mb-0.5 overflow-hidden ${index % 2 === 0 ? "bg-zinc350" : "bg-theme200"}`}>
                                 <Picker
                                   selectedValue={selectedCurrentIds[index]}
                                   onValueChange={(value) => setCurrents(value, index)}
-                                  style={{ height: 25, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -10, }}
+                                  style={{ height: 25, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, }}
                                   itemStyle={{ color: 'black', textAlign: 'center', fontSize: 12, }}
                                 >
                                   {currentData.filter(curr => !(curr?.archive)).map((item) => {

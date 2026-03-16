@@ -16,7 +16,6 @@ const ViewCurrentModal = ({
   modalVisible, closeModal, ingredientData, prepList, amountList, multList, 
 }) => {
 
-
   ///////////////////////////////// HTML /////////////////////////////////
   
   return (

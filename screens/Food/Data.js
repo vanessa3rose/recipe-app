@@ -899,14 +899,14 @@ export default function Data ({ isSelectedTab }) {
           <View className="flex-1 flex-row h-5/6 max-w-[893px]">
 
             {/* MAIN CONTAINER */}
-            <View className="flex-1 mt-2 mb-1 border-2 border-black bg-zinc600 py-2">
+            <View className="flex-1 mt-2 mb-1 border-2 border-black bg-zinc600 pt-1.5 pb-2">
 
               {/* Store Dropdown */}
-              <View className="absolute w-[125px] h-[50px] bg-zinc800 border-r-2 border-b-2 border-zinc900 z-20">
+              <View className="absolute w-[125px] h-[40px] bg-zinc900 border-r-2 border-b-2 border-r-black border-b-zinc900 z-20 overflow-hidden">
                 <Picker
                   selectedValue={selectedStore}
                   onValueChange={(itemValue) => setSelectedStore(itemValue)}
-                  style={{ height: 50, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, }}
+                  style={{ height: 40, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -30 }}
                   itemStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
                 >
                   {storeLabels.map((label, index) => (
@@ -920,7 +920,7 @@ export default function Data ({ isSelectedTab }) {
               </View>
 
               {/* Type Dropdown */}
-              <View className="absolute mt-[50px] w-[125px] h-[50px] bg-zinc800 border-r-2 border-b-2 border-black">
+              <View className="absolute mt-[40px] w-[125px] h-[50px] bg-zinc800 border-r-2 border-b-2 border-black">
                 
                 {/* selection */}
                 <View className="z-10">
@@ -991,7 +991,7 @@ export default function Data ({ isSelectedTab }) {
               <ScrollView
                 ref={headerScrollRef}
                 horizontal
-                className="absolute ml-[125px] h-[100px] border-b-2"
+                className="absolute ml-[125px] h-[90px] border-b-2"
                 scrollEnabled={false}
               >
                 {/* BRAND */}
@@ -1004,16 +1004,16 @@ export default function Data ({ isSelectedTab }) {
                 </TouchableOpacity>
 
                 {/* SERVINGS */}
-                <View className="flex flex-col border-x w-[290px]">
+                <View className="flex flex-col border-l border-r-[1.5px] w-[290px]">
                   <TouchableOpacity 
                     activeOpacity={1}
                     onPress={() => {setFilterType(filterType === "unit" ? "ingredient" : "unit"); setFilterKey(filterType === "unit" ? "ingredientName" : "unit")}}
-                    className={`p-2 w-[290px] h-1/2 justify-center border-b-[1px] border-b-zinc900 ${filterType === "unit" ? "bg-mauve950" : "bg-theme900"}`}
+                    className={`p-2 w-[290px] h-[44.44%] justify-center border-b-[1px] border-b-zinc900 ${filterType === "unit" ? "bg-mauve950" : "bg-theme900"}`}
                   >
                     <Text className="text-center font-bold text-white text-[12px]">SERVINGS</Text>
                   </TouchableOpacity>
                   
-                  <View className="flex flex-row h-1/2">
+                  <View className="flex flex-row h-[55.55%]">
                     {/* serving size */}
                     <TouchableOpacity 
                       activeOpacity={1}
@@ -1042,12 +1042,12 @@ export default function Data ({ isSelectedTab }) {
                 </View>
 
                 {/* CALORIES */}
-                <View className="flex flex-col border-x w-[180px]">
-                  <View className="p-2 bg-theme900 border-b-[1px] border-b-zinc800 w-[180px] h-1/2 justify-center">
+                <View className="flex flex-col border-x-[1.5px] w-[180px]">
+                  <View className="p-2 bg-theme900 border-b-[1px] border-b-zinc800 w-[180px] h-[44.44%] justify-center">
                     <Text className="text-center font-bold text-white text-[12px]">CALORIES</Text>
                   </View>
 
-                  <View className="flex flex-row h-1/2 bg-theme800">
+                  <View className="flex flex-row h-[55.55%] bg-theme800">
                     {/* per serving */}
                     <TouchableOpacity 
                       activeOpacity={1}
@@ -1068,12 +1068,12 @@ export default function Data ({ isSelectedTab }) {
                 </View>
 
                 {/* PRICE */}
-                <View className="flex flex-col border-l w-[180px]">
-                  <View className="p-2 bg-theme900 border-b-[1px] border-b-zinc800 w-[180px] h-1/2 justify-center">
+                <View className="flex flex-col border-l-[1.5px] w-[180px]">
+                  <View className="p-2 bg-theme900 border-b-[1px] border-b-zinc800 w-[180px] h-[44.44%] justify-center">
                     <Text className="text-center font-bold text-white text-[12px]">PRICE</Text>
                   </View>
 
-                  <View className="flex flex-row h-1/2">
+                  <View className="flex flex-row h-[55.55%]">
                     {/* per serving */}
                     <TouchableOpacity 
                       activeOpacity={1}
@@ -1276,7 +1276,7 @@ export default function Data ({ isSelectedTab }) {
 
             {/* Included in recipe/spotlight filtering */}
             <TouchableOpacity
-              className={`mt-2 h-[100px] absolute right-0 justify-center items-center z-50 ${(filteredData.length === 0) && "bg-zinc900 border-l-2"}`}
+              className={`mt-2 h-[90px] absolute right-0 justify-center items-center z-50 ${(filteredData.length === 0) && "bg-zinc900 border-l-2"}`}
               onPress={() => setIncludedFiltering(includedFiltering === "remove" ? "link" : includedFiltering === "link" ? "unlink" : includedFiltering === "unlink" && "remove")}
             >
               <View className="rotate-90">

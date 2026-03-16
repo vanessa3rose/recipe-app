@@ -22,6 +22,7 @@ var Fractional = require('fractional').Fraction;
 // validation
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 import extractUnit from '../../components/Validation/extractUnit';
+import { numberToRoman } from '../../components/Validation/numberToRoman';
 
 // modals
 import DeleteCurrentModal from '../../components/Prep-Currents/DeleteCurrentModal';
@@ -79,7 +80,7 @@ export default function CurrentFood ({ isSelectedTab }) {
 
   ///////////////////////////////// NAVIGATION LOGIC /////////////////////////////////
     
-    const firstLoad = useRef(true);
+  const firstLoad = useRef(true);
 
   // when the tab is changed to CurrentFood
   useEffect(() => {
@@ -130,13 +131,20 @@ export default function CurrentFood ({ isSelectedTab }) {
     // loops over all meal preps
     prepSnapshot.forEach((prepDoc) => {
       const prepData = prepDoc.data();
-      // adds the current multiplicity if valid
-      if (prepData.currentIds && Array.isArray(prepData.currentIds)) {
-        // checks unfinished
-        if (unfinished || details.find(data => data.id === prepDoc.id)?.completed) {
-          totalPreps = totalPreps + prepData.prepMult;
+
+      // loops over all variants
+      prepData.variants.forEach((variant) => {
+        // adds the current multiplicity if valid
+        if (variant.currentIds && Array.isArray(variant.currentIds)) {
+          // checks unfinished
+          const prepDetail = details.find(d => d.id === prepDoc.id);
+          const isCompleted = prepDetail?.completed?.[variant.variantId] ?? false;
+
+          if (unfinished || isCompleted) {
+            totalPreps += variant.prepMult;
+          }
         }
-      }
+      })
     });
 
     // stores the calculated value in the state
@@ -149,6 +157,10 @@ export default function CurrentFood ({ isSelectedTab }) {
       { id: doc.id, ...doc.data() }
     )).sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
     setIngredientData(ingredients);
+
+    // gets the list of units from the snapshot
+    const units = fetchUnits(ingredientSnapshot);
+    setCurrentModUnits(units);
   }
 
 
@@ -514,21 +526,24 @@ export default function CurrentFood ({ isSelectedTab }) {
     // stores the current amount total to subtract from if not empty
     let calcAmount = currentData.amountTotal;
     if (calcAmount !== "") {
-      
-      // loops over all meal preps
-      prepsSnapshot.forEach(async (prepDoc) => {
-        const prepData = prepDoc.data();
 
-        if (prepData.currentIds && Array.isArray(prepData.currentIds)) {
+      // loop over all preps
+      for (const prepDoc of prepsSnapshot.docs) {
+        const prepData = prepDoc.data();
+        if (!prepData.variants) continue;
+
+        // loop over all variants
+        for (const varData of prepData.variants) {
+          if (!Array.isArray(varData.currentIds)) continue;
 
           // loops over all 12 ingredients and finds the ones that match the current
           for (let i = 0; i < 12; i++) {
-            if (prepData.currentIds[i] && prepData.currentIds[i] === currentIds[index] && prepData.currentIncluded[i] && prepData.currentAmounts[i] !== "") {
-              calcAmount = ((new Fractional(calcAmount)).subtract((new Fractional(prepData.currentAmounts[i])).multiply(new Fractional(prepData.prepMult)))).toString();
+            if (varData.currentIds[i] === currentIds[index] && varData.currentIncluded?.[i] && varData.currentAmounts?.[i] !== "") {
+              calcAmount = ((new Fractional(calcAmount)).subtract((new Fractional(varData.currentAmounts[i])).multiply(new Fractional(varData.prepMult)))).toString();
             }
           }
         }
-      });
+      };
       
       // updates the data in the current ingredient doc
       await updateDoc(doc(db, 'CURRENTS', currentIds[index]), { amountLeft: calcAmount.toString() });
@@ -654,12 +669,32 @@ export default function CurrentFood ({ isSelectedTab }) {
   const [modModalVisible, setModModalVisible] = useState(false);
   const [currentModId, setCurrentModId] = useState(null);
   const [currentModData, setCurrentModData] = useState(null);
+  const [currentModUnits, setCurrentModUnits] = useState(null);
 
   // when opening the mod modal
   const openModModal = (currData, currId) => {
     setCurrentModData(currData);
     setCurrentModId(currId);
     setModModalVisible(true);
+  }
+  
+  // to get the initial list of units
+  const fetchUnits = (snapshot) => {
+    let units = [];
+
+    // maps over each ingredient and store
+    snapshot.docs.map(ingredient => {
+      storeKeys.map(store => {
+
+        // adds the unit if new
+        if (!units.includes(ingredient.data()?.ingredientData[store]?.unit) && ingredient.data()?.ingredientData[store]?.unit !== "") {
+          units.push(ingredient.data()?.ingredientData[store]?.unit);
+        }
+      })
+    })
+
+    // alphabetizes
+    return units.sort((a,b) => a.localeCompare(b))
   }
 
   // when closing the mod modal to edit an already temp current
@@ -709,21 +744,24 @@ export default function CurrentFood ({ isSelectedTab }) {
     const amountList = [];
     const multList = [];
     
-    // loops through the recipes and adds all data
+    // loops through the preps
     prepsSnapshot.forEach((doc) => {
-      for (let i = 0; i < 12; i++) {
-        if (doc.data().currentData[i] !== null) {
+      // loops through the variants
+      doc.data()?.variants.forEach((variant, idx) => {
+        // loops through the ingredients
+        for (let i = 0; i < 12; i++) {
+          if (variant?.currentData?.[i] && variant?.currentData?.[i] !== null) {
 
-          const listId = currentList[index].ingredientId === "" ? currentList[index].ingredientName : currentList[index].ingredientId;
-          const dataId = doc.data().currentData[i].ingredientId === "" ? doc.data().currentData[i].ingredientName : doc.data().currentData[i].ingredientId;
-          
-          if (listId === dataId && doc.data().currentIncluded[i]) {
-            prepList.push(doc.data().prepName);
-            amountList.push(doc.data().currentAmounts[i] + " " + extractUnit(doc.data().currentData[i].ingredientData[doc.data().currentData[i].ingredientStore].unit, doc.data().currentAmounts[i]));
-            multList.push(doc.data().prepMult);
+            const listId = currentList[index].ingredientId === "" ? currentList[index].ingredientName : currentList[index].ingredientId;
+            const dataId = variant.currentData[i].ingredientId === "" ? variant.currentData[i].ingredientName : variant.currentData[i].ingredientId;
+            if (listId === dataId && variant.currentIncluded[i]) {
+              prepList.push(variant.prepName + (doc.data().variants.length > 1 ? (" (" + numberToRoman(idx + 1) + ")") : ""));
+              amountList.push((variant.currentAmounts[i] === "" ? "?" : variant.currentAmounts[i]) + " " + extractUnit(variant.currentData[i].ingredientData[variant.currentData[i].ingredientStore].unit, variant.currentAmounts[i]));
+              multList.push(variant.prepMult);
+            }
           }
         }
-      }
+      })
     });
     
     setCurrPrepList(prepList);
@@ -1200,6 +1238,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                             closeModal={closeModModal}
                             initialData={currentModData}
                             editingId={currentModId}
+                            unitData={currentModUnits}
                           />
                         )}
 
@@ -1360,7 +1399,7 @@ export default function CurrentFood ({ isSelectedTab }) {
             </TouchableOpacity>
             
             {/* type picker */}
-            <View className="flex z-0 w-[130px] bg-theme200">
+            <View className="flex z-0 w-[130px] bg-theme200 overflow-hidden">
               <Picker
                 selectedValue={selectedIngredientType}
                 onValueChange={(itemValue) => setSelectedIngredientType(itemValue)}

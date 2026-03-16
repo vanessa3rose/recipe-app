@@ -404,6 +404,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
       // clears the search
       clearIngredientSearch();
+
+      // reload settings
+      refreshSpotlights();
     }
   }
 
@@ -608,6 +611,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     
         // updates the selected spotlight's data
         setSelectedSpotlightData(calcData);
+
+        // reload settings
+        refreshSpotlights();
       }
     }
   };  
@@ -956,6 +962,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
       // reload settings
       reloadSpotlight(selectedSpotlightId);
+
+      // reload settings
+      refreshSpotlights();
     }
 
     // closes the modal
@@ -1057,6 +1066,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     // reloads
     setSpotlightDropdownOpen(false);
     reloadSpotlight(selectedSpotlightId);
+
+    // reload settings
+    refreshSpotlights();
   }
 
   // to increment or decrement the current spotlight's number
@@ -1080,6 +1092,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     // reloads
     setSpotlightDropdownOpen(false);
     reloadSpotlight(selectedSpotlightId);
+
+    // reload settings
+    refreshSpotlights();
   }
   
 
@@ -1249,7 +1264,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     // reload settings if the modal wasn't canceled
     if (type !== "") { refreshSpotlights(); }
     
-    // if the meal prep was deleted
+    // if the spotlight was deleted
     if (type === "delete") {
       setCurrIngredientAmounts([ "", "", "", "", "", "", "", "", "", "", "", "" ]);
       setCurrIngredientStores([ "", "", "", "", "", "", "", "", "", "", "", "" ]);
@@ -1298,6 +1313,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
         // updates the selected spotlight's data
         setSelectedSpotlightData(selectedSpotlightData);
+
+        // reload settings
+        refreshSpotlights();
       }
 
     // if a spotlight is not selected
@@ -1333,7 +1351,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             if (spotlight.ingredientData[i] !== null && spotlight.ingredientIds[i] === selectedSpotlightData.ingredientIds[index]) {
               spotlightsUsed.push(spotlight.spotlightName);
               amtsUsed.push(new Fractional(spotlight.ingredientAmounts[i]).multiply(new Fractional(spotlight.spotlightMult)));
-              selectedUsed.push(spotlightsSelected[spotlightsIds?.indexOf(spotlight.id)]);
+              selectedUsed.push(spotlightsSelected?.[spotlightsIds?.indexOf(spotlight.id)]);
               amountUsed = (new Fractional(amountUsed).add(new Fractional(spotlight.ingredientAmounts[i]).multiply(new Fractional(spotlight.spotlightMult)))).toString();
             }
           }
@@ -1500,14 +1518,14 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             </View>
 
             {/* Tag Picker */}
-            <View className="z-0 bg-theme200 border-0.5 border-theme400 w-1/3">
+            <View className="z-0 bg-theme200 border-0.5 border-theme400 w-1/3 overflow-hidden">
               <Picker
                 selectedValue={selectedRecipeTag}
                 onValueChange={(itemValue) => {
                   filterRecipeList(recipeKeywordQuery, ingredientKeywordQuery, itemValue);
                   setRecipeDropdownOpen(true);
                 }}
-                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -10, }}
+                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, }}
                 itemStyle={{ color:'black', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
               >
                 {recipeTagList.length > 1 ? (
@@ -1799,7 +1817,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             </View>
           </View>
           
-          {/* changing non-included prep # */}
+          {/* changing non-included spotlight # */}
           {(selectedSpotlightId !== null && !spotlightsSelected?.[spotlightsIds?.indexOf(selectedSpotlightId)] && (selectedSpotlightId && currIngredientStores.filter(store => store !== "").length > 0)) && (
             <View className="flex-col bg-zinc350 justify-center px-0 h-full items-center absolute w-[24px] right-[-25px] rounded-r-lg z-0">
               {/* Increment Button */}
@@ -2015,6 +2033,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             amountsUsed={otherAmtsUsed}
             othersUsed={otherSpotlightsUsed}
             selectedUsed={otherSelectedUsed}
+            altPrepVariants={null}
             amountContainer={new Fractional(selectedSpotlightData?.ingredientData[calcIndex][selectedSpotlightData?.ingredientStores[calcIndex]].totalYield).toString()}
             servingSize={null}
           />
@@ -2158,7 +2177,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               </TouchableOpacity>
           
               {/* Index Picker */}
-              <View className="flex z-0 w-[120px] bg-zinc700 ">
+              <View className="flex z-0 w-[120px] bg-zinc700 overflow-hidden">
                 <Picker
                   selectedValue={selectedIngredientIndex}
                   onValueChange={setSelectedIngredientIndex}
@@ -2178,7 +2197,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             </View>
 
             {/* Type Picker */}
-            <View className="flex w-[150px] z-0 bg-theme200 border-0.5 border-theme400">
+            <View className="flex w-[150px] z-0 bg-theme200 border-0.5 border-theme400 overflow-hidden">
               <Picker
                 selectedValue={selectedIngredientType}
                 onValueChange={(itemValue) => setSelectedIngredientType(itemValue)}

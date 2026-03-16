@@ -1110,11 +1110,11 @@ const PrepToRecipeModal = ({
 
 
                 {/* Recipe Picker */}
-                <View className="flex w-full pt-4">
+                <View className="flex w-full pt-4 overflow-hidden">
                   <Picker
                     selectedValue={selectedRecipeId}
                     onValueChange={(value) => setSelectedRecipeId(value)}
-                    style={{ height: 25, justifyContent: 'center', overflow: 'hidden', backgroundColor: colors.zinc600, }}
+                    style={{ height: 25, justifyContent: 'center', overflow: 'hidden', backgroundColor: colors.zinc600, marginHorizontal: -20, }}
                     itemStyle={{ color: 'white', textAlign: 'center', fontSize: 12, fontStyle: 'italic', fontWeight: 'bold', }}
                   >
                     {filteredRecipeList.map((item) => {

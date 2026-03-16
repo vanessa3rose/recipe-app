@@ -53,13 +53,12 @@ const MealOverviewModal = ({
           <View className="h-[1px] bg-zinc400 mt-2 mb-4 mx-4"/>
           
           {/* GRID */}
-          {specificsIndex === -1
-          ?
+          {((data?.currentData?.length > 0) && specificsIndex === -1) ?
             // Ingredient Names
             <View className="flex justify-center items-center border-2 border-theme500 mx-5">
-              {Array.from({ length: 12 }, (_, index) => (
+              {data?.currentData?.map((current, index) => (
                 <View key={`frozen-${index}`}>
-                  {(data?.currentData[index]?.ingredientId !== undefined) && (
+                  {current && (
                     <View className="flex flex-row w-full min-h-[30px] bg-white border-b-[1px] border-zinc200">
                       {/* BULLET */}
                       <Text className="flex justify-center w-1/12 py-[7px] text-black font-semibold text-[12px] text-right">
@@ -67,7 +66,7 @@ const MealOverviewModal = ({
                       </Text>
                       {/* NAME */}
                       <Text className={`flex justify-center w-5/6 py-[7px] px-1.5 text-[12px] text-left ${!data?.currentIncluded[index] ? "line-through text-mauve600" : "text-black"}`}>
-                        {data?.currentData[index]?.ingredientName || ""}
+                        {current?.ingredientName || ""}
                       </Text>
 
                       {/* Specific Selector */}
@@ -84,7 +83,9 @@ const MealOverviewModal = ({
                 </View>
               ))}
             </View>
-          : 
+
+          // SPECIFICS FOR COMPLEX / REG
+          : (data?.currentData?.length > 0) ? (
             // Specifics of selected
             <View className="flex justify-center items-center border-2 border-theme500 mx-5">
               <View className="flex flex-row w-full min-h-[30px] bg-white border-b-[1px] border-zinc200">
@@ -112,19 +113,29 @@ const MealOverviewModal = ({
               <View className="flex flex-row py-1 w-full justify-evenly items-center bg-zinc350">
                 {/* AMOUNT */}
                 <Text className="text-theme900 text-[11px] font-bold">
-                  {`${data.currentAmounts[specificsIndex]} ${extractUnit(data.currentData[specificsIndex].ingredientData[data.currentData[specificsIndex].ingredientStore].unit, data.currentAmounts[specificsIndex])}`}
+                  {`${data.currentAmounts[specificsIndex]} ${extractUnit(data.currentData[specificsIndex]?.ingredientData[data.currentData[specificsIndex].ingredientStore].unit || "", data.currentAmounts[specificsIndex])}`}
                 </Text>
                 {/* CAL - $ */}
                 <Text className="text-theme800 text-[10px] italic font-medium">
-                  {`${data.currentCals[specificsIndex].toFixed(0)} calories  -  $${data.currentPrices[specificsIndex].toFixed(2)}`}
+                  {`${(isNaN(data.currentCals[specificsIndex]) ? 0 : Number(data.currentCals[specificsIndex])).toFixed(0)} calories  -  $${(isNaN(data.currentPrices[specificsIndex]) ? 0 : Number(data.currentPrices[specificsIndex])).toFixed(2)}`}
                 </Text>
               </View>
             </View>
-          }
+
+          // NOTE FOR SIMPLE
+          ) : (
+            <View className="justify-center items-center pb-4">
+              <Text className={`w-5/6 bg-zinc300 py-2 px-4 text-center border border-zinc350 ${data?.prepNote === "" ? "italic text-zinc600" : "text-theme900"}`}>
+                {data?.prepNote === "" ? "no notes" : data?.prepNote}
+              </Text>
+            </View>
+          )}
 
           
           {/* Divider */}
-          <View className="h-[1px] bg-zinc400 m-4"/>
+          {(data?.currentData?.length > 0) && (
+            <View className="h-[1px] bg-zinc400 m-4"/>
+          )}
 
 
           {/* DETAILS */}

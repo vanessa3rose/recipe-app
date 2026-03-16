@@ -108,7 +108,7 @@ const ingredientEdit = async ({
               const priceContainer = new Fractional(ingredient.ingredientData[recipeData.ingredientStores[index]].priceContainer);
 
               // calculations for the recipeData based on the amount of the current recipe
-              if (isNaN(amount.toString()) || isNaN(totalYield.toString()) || isNaN(calContainer.toString()) || isNaN(priceContainer.toString())) {
+              if (isNaN(new Fraction(amount.toString()).valueOf()) || isNaN(new Fraction(totalYield.toString()).valueOf()) || isNaN(new Fraction(calContainer.toString()).valueOf()) || isNaN(new Fraction(priceContainer.toString()).valueOf())) {
                 recipeData.ingredientCals[index] = "";
                 recipeData.ingredientPrices[index] = "";
                 recipeData.ingredientServings[index] = "";
@@ -230,7 +230,7 @@ const ingredientEdit = async ({
               const priceContainer = new Fractional(ingredient.ingredientData[spotlightData.ingredientStores[index]].priceContainer);
 
               // calculations for the spotlightData based on the amount of the current spotlight
-              if (isNaN(amount.toString()) || isNaN(totalYield.toString()) || isNaN(calContainer.toString()) || isNaN(priceContainer.toString())) {
+              if (isNaN(new Fraction(amount.toString()).valueOf()) || isNaN(new Fraction(totalYield.toString()).valueOf()) || isNaN(new Fraction(calContainer.toString()).valueOf()) || isNaN(new Fraction(priceContainer.toString()).valueOf())) {
                 spotlightData.ingredientCals[index] = "";
                 spotlightData.ingredientPrices[index] = "";
                 spotlightData.ingredientServings[index] = "";

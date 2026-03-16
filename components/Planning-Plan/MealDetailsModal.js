@@ -1,7 +1,7 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
 // react hooks
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // UI components
 import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, Keyboard, Image } from 'react-native';
@@ -127,13 +127,20 @@ const MealDetailsModal = ({
     else {
       setIsNameValid(true);
 
+      // current meal info
+      const meal = date.split(" ")[0];
+      const [month, day, year] = date.split(" ")[1].split("/");
+      const formattedDate = `20${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+
       // data for the new prep
+      const newId = date;
       const newData = {
         prepName: prepName,
         prepNote: prepNote,
         prepMult: 0,
         prepCal: prepCal === "" ? "0" : ((new Fractional(prepCal).numerator) / (new Fractional(prepCal).denominator)).toFixed(0), 
         prepPrice: prepPrice === "" ? "0.00" : ((new Fractional(prepPrice).numerator) / (new Fractional(prepPrice).denominator)).toFixed(2), 
+        prepId: newId,
         currentData: [], 
         currentIds: [], 
         currentAmounts: [], 
@@ -142,14 +149,9 @@ const MealDetailsModal = ({
         currentIncluded: [],
       };
 
-      // current meal info
-      const meal = date.split(" ")[0];
-      const [month, day, year] = date.split(" ")[1].split("/");
-      const formattedDate = `20${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-
       // prepares the doc data
       const mealData = {
-        prepId: date,          
+        prepId: newId,          
         prepData: newData,
       };
 
@@ -273,6 +275,10 @@ const MealDetailsModal = ({
         // for empty units
         } else if (curr?.ingredientData?.[curr?.ingredientStore]?.unit === "") {
           newCurrentData[index].ingredientData[newCurrentData[index].ingredientStore].unit = extractUnit("serving(s)", prepCurrentAmounts[index]);
+        
+        // for empty amounts
+        } else if (curr?.ingredientData?.[curr?.ingredientStore]?.unit !== "" && prepCurrentAmounts?.[index] === "") {
+          newCurrentAmounts[index] = "1";
         }
 
         // fixes a () unit
@@ -280,14 +286,21 @@ const MealDetailsModal = ({
           newCurrentData[index].ingredientData[newCurrentData[index].ingredientStore].unit = extractUnit(curr?.ingredientData?.[curr?.ingredientStore]?.unit, prepCurrentAmounts[index]);
         }
       });
+      
+      // current meal info
+      const meal = date.split(" ")[0];
+      const [month, day, year] = date.split(" ")[1].split("/");
+      const formattedDate = `20${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 
       // data for the new prep
+      const newId = "." + doc(collection(db, 'PREPS')).id;
       const newData = {
         prepName: prepName,
         prepNote: "",
         prepMult: 0,
         prepCal: prepCal === "" ? "0" : ((new Fractional(prepCal).numerator) / (new Fractional(prepCal).denominator)).toFixed(0), 
         prepPrice: prepPrice === "" ? "0.00" : ((new Fractional(prepPrice).numerator) / (new Fractional(prepPrice).denominator)).toFixed(2), 
+        prepId: newId,
         currentData: newCurrentData, 
         currentIds: Array(newCurrentData.length).fill(""), 
         currentAmounts: newCurrentAmounts, 
@@ -295,15 +308,10 @@ const MealDetailsModal = ({
         currentPrices: Array(newCurrentData.length).fill(""),
         currentIncluded: Array(newCurrentData.length).fill(""),
       };
-      
-      // current meal info
-      const meal = date.split(" ")[0];
-      const [month, day, year] = date.split(" ")[1].split("/");
-      const formattedDate = `20${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 
       // prepares the doc data
       const mealData = {
-        prepId: "." + doc(collection(db, 'PREPS')).id,          
+        prepId: newId,          
         prepData: newData,
       };
 
@@ -538,33 +546,38 @@ const MealDetailsModal = ({
     if (currData.exists()) {
       // lunch
       if (meal === "LUNCH") { 
+        const newId = isCustom ? date : copyData.prepId;
         updateDoc(doc(db, 'PLANS', formattedDate), { 
-          "meals.lunch.prepData": copyData.prepData, 
-          "meals.lunch.prepId": isCustom ? date : copyData.prepId,
+          "meals.lunch.prepData": {...copyData.prepData, prepId: newId}, 
+          "meals.lunch.prepId": newId,
         }); 
       // dinner
       } else if (meal === "DINNER") { 
+        const newId = isCustom ? date : copyData.prepId;
         updateDoc(doc(db, 'PLANS', formattedDate), { 
-          "meals.dinner.prepData": copyData.prepData, 
-          "meals.dinner.prepId": isCustom ? date : copyData.prepId,
+          "meals.dinner.prepData": {...copyData.prepData, prepId: newId}, 
+          "meals.dinner.prepId": newId,
         }); 
       }
 
     // otherwise, create a null doc first
     } else {
+      const newLunchId = meal === "LUNCH" ? (isCustom ? date : copyData.prepId) : null;
+      const newDinnerId = meal === "DINNER" ? (isCustom ? date : copyData.prepId) : null;
       const docData = { 
         date: formattedDate,
         meals: {
           lunch: {
-            prepId: meal === "LUNCH" ? (isCustom ? date : copyData.prepId) : null,          
-            prepData: meal === "LUNCH" ? copyData.prepData : null,
+            prepId: newLunchId,          
+            prepData: meal === "LUNCH" ? {...copyData.prepData, prepId: newLunchId} : null,
           },
           dinner: {
-            prepId: meal === "DINNER" ? (isCustom ? date : copyData.prepId) : null,         
-            prepData: meal === "DINNER" ? copyData.prepData : null,
+            prepId: newDinnerId,         
+            prepData: meal === "DINNER" ? {...copyData.prepData, prepId: newDinnerId} : null,
           },
         },
       };
+      
       setDoc(doc(db, 'PLANS', formattedDate), docData);
     }
     
@@ -608,6 +621,7 @@ const MealDetailsModal = ({
   
   // to filter the list of preps in the search section
   const filterPreps = (keyword, searchQuery, typeFilter, restaurantFilter) => {
+    setKeywordType(keyword);
     setPrepKeywordQuery(searchQuery);
     setPrepTypeFilter(typeFilter);
     setPrepRestaurantFilter(restaurantFilter);
@@ -630,22 +644,21 @@ const MealDetailsModal = ({
       if (keyword === "meal prep") {
         return (
           // restaurant
-          restaurantFilter === "bag-add" ? uniquePrepNames[index].includes(":") : restaurantFilter === "bag-remove" ? !uniquePrepNames[index].includes(":") : true
-          &&
+          (restaurantFilter === "bag-add" ? uniquePrepNames[index].includes(":") 
+            : restaurantFilter === "bag-remove" ? !uniquePrepNames[index].includes(":") : true
           // keyword
-          searchQuery.split(" ").every((word) =>  uniquePrepNames[index].toLowerCase().includes(word.toLowerCase() ))
+          ) && searchQuery.split(" ").every(word => uniquePrepNames[index].toLowerCase().includes(word.toLowerCase()))
         );
       }
       // ingredient keyword - checks each ingredient's name
       if (keyword === "ingredient") {
         return (
           // restaurant
-          restaurantFilter === "bag-add" ? uniquePrepNames[index].includes(":") : restaurantFilter === "bag-remove" ? !uniquePrepNames[index].includes(":") : true
-          &&
+          (restaurantFilter === "bag-add" ? uniquePrepNames[index].includes(":") 
+            : restaurantFilter === "bag-remove" ? !uniquePrepNames[index].includes(":") : true
           // keyword
-          uniquePrepData[index][i]?.currentData?.some(current =>
-            searchQuery.split(" ").every(word => current?.ingredientName?.toLowerCase().includes(word.toLowerCase()) )
-          )
+          ) && uniquePrepData[index][i]?.currentData?.some(current =>
+                searchQuery.split(" ").every(word => current?.ingredientName?.toLowerCase().includes(word.toLowerCase())))
         );
       }
       // otherwise
@@ -664,7 +677,6 @@ const MealDetailsModal = ({
 
     // adds the data to the prep lists that matches the filtering
     uniquePrepNames?.map((name, index) => {
-      
       // if the type and keywords match
       if (uniquePrepIds[index].some((id, i) => matchesTypeFilter(id) && matchesKeywordFilter(i, index))) {
         // adds the name to the filtered names
@@ -1078,7 +1090,7 @@ const MealDetailsModal = ({
               </View>
 
               {/* Option Seletion - COPY OR CREATE */}
-              <View className="flex w-5/6 px-5">
+              <View className="flex w-5/6 px-5 overflow-hidden">
                 <Picker
                   selectedValue={option}
                   onValueChange={setOption}
@@ -1575,11 +1587,11 @@ const MealDetailsModal = ({
                   <View className="flex flex-row w-4/5">
     
                     {/* Meal Selection */}
-                    <View className="flex-1">
+                    <View className="flex-1 overflow-hidden">
                       <Picker
                         selectedValue={copyMeal}
                         onValueChange={(value) => getCopyData(value, copyDate)}
-                        style={{ height: 30, justifyContent: 'center', overflow: 'hidden', backgroundColor: colors.zinc400, }}
+                        style={{ height: 30, justifyContent: 'center', overflow: 'hidden', backgroundColor: colors.zinc400, marginHorizontal: -20, }}
                         itemStyle={{ color: 'black', fontWeight: 'bold', textAlign: 'center', fontSize: 14, fontStyle: 'italic', }}
                       >
                         {(["LUNCH", "DINNER"]).map((item) => (
@@ -1656,18 +1668,20 @@ const MealDetailsModal = ({
                     <View className="flex flex-row w-[85%]">
 
                       {/* Keyword Type Selector */}
-                      <View className="bg-zinc300 px-1 py-1 rounded-l-md h-[30px] items-center justify-center">
-                        <Icon
-                          name={keywordType === "meal prep" ? "code-working" : keywordType === "ingredient" && "list"}
-                          color={colors.zinc900}
-                          size={20}
-                          onPress={() => {
-                            const keyword = keywordType === "meal prep" ? "ingredient" : "meal prep";
-                            setKeywordType(keyword)
-                            filterPreps(keyword, "", prepTypeFilter, prepRestaurantFilter)
-                          }}
-                        />
-                      </View>
+                      {(prepTypeFilter !== "simple") && (
+                        <View className="bg-zinc300 px-1 py-1 rounded-l-md h-[30px] items-center justify-center">
+                          <Icon
+                            name={keywordType === "meal prep" ? "code-working" : keywordType === "ingredient" && "list"}
+                            color={colors.zinc900}
+                            size={20}
+                            onPress={() => {
+                              const keyword = keywordType === "meal prep" ? "ingredient" : "meal prep";
+                              setKeywordType(keyword)
+                              filterPreps(keyword, "", prepTypeFilter, prepRestaurantFilter)
+                            }}
+                          />
+                        </View>
+                      )}
 
                       {/* text input */}
                       <TextInput
@@ -1675,7 +1689,7 @@ const MealDetailsModal = ({
                         onChangeText={(value) => filterPreps(keywordType, value, prepTypeFilter, prepRestaurantFilter)}
                         placeholder={`${keywordType} keyword(s)`}
                         placeholderTextColor={colors.zinc400}
-                        className="flex-1 w-5/6 bg-white rounded-r-md border-[1px] border-zinc300 pl-2.5 pr-[50px] py-1.5 text-[14px] leading-[17px]"
+                        className={`flex-1 w-5/6 bg-white ${(prepTypeFilter === "simple") ? "rounded-md" : "rounded-r-md"} border-[1px] border-zinc300 pl-2.5 pr-10 py-1.5 text-[14px] leading-[17px]`}
                       />
           
                       {/* BUTTONS */}
@@ -1686,7 +1700,10 @@ const MealDetailsModal = ({
                           name={prepTypeFilter === "prep" ? "information-circle" : prepTypeFilter === "complex" ? "stop-circle" : prepTypeFilter === "simple" ? "ellipse" : "ellipse-outline"}
                           color={colors.zinc700}
                           size={18}
-                          onPress={() => filterPreps(keywordType, prepKeywordQuery, prepTypeFilter === "prep" ? "complex" : prepTypeFilter === "complex" ? "simple" : prepTypeFilter === "simple" ? "" : "prep", prepRestaurantFilter)}
+                          onPress={() => {
+                            const newType = (prepTypeFilter === "prep" ? "complex" : prepTypeFilter === "complex" ? "simple" : prepTypeFilter === "simple" ? "" : "prep");
+                            filterPreps(newType === "simple" ? "meal prep" : keywordType, prepKeywordQuery, newType, prepRestaurantFilter)
+                          }}
                         />
 
                         {/* clear */}
