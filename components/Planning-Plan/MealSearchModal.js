@@ -234,7 +234,8 @@ useEffect(() => {
   // to filter the list of preps in the search section
   const filterPreps = (keyword, searchQuery, typeFilter, restaurantFilter, uniqueNames, uniqueIds, uniqueData, uniqueDates, uniqueMeals) => {
     setEditNameIndex(-1);
-    setEditVariantIndices({"prep": -1, "variant": -1})
+    setEditVariantIndices({"prep": -1, "variant": -1});
+    setKeywordType(keyword);
     setPrepKeywordQuery(searchQuery);
     setPrepTypeFilter(typeFilter);
     setPrepRestaurantFilter(restaurantFilter);
@@ -257,22 +258,21 @@ useEffect(() => {
       if (keyword === "meal prep") {
         return (
           // restaurant
-          restaurantFilter === "bag-add" ? uniqueNames[index].includes(":") : restaurantFilter === "bag-remove" ? !uniqueNames[index].includes(":") : true
-          &&
+          (restaurantFilter === "bag-add" ? uniquePrepNames[index].includes(":") 
+            : restaurantFilter === "bag-remove" ? !uniquePrepNames[index].includes(":") : true
           // keyword
-          searchQuery.split(" ").every((word) =>  uniqueNames[index].toLowerCase().includes(word.toLowerCase() ))
+          ) && searchQuery.split(" ").every(word => uniquePrepNames[index].toLowerCase().includes(word.toLowerCase()))
         );
       }
       // ingredient keyword - checks each ingredient's name
       if (keyword === "ingredient") {
         return (
           // restaurant
-          restaurantFilter === "bag-add" ? uniqueNames[index].includes(":") : restaurantFilter === "bag-remove" ? !uniqueNames[index].includes(":") : true
-          &&
+          (restaurantFilter === "bag-add" ? uniquePrepNames[index].includes(":") 
+            : restaurantFilter === "bag-remove" ? !uniquePrepNames[index].includes(":") : true
           // keyword
-          uniqueData[index][i]?.currentData?.some(current =>
-            searchQuery.split(" ").every(word => current?.ingredientName?.toLowerCase().includes(word.toLowerCase()) )
-          )
+          ) && uniquePrepData[index][i]?.currentData?.some(current =>
+                searchQuery.split(" ").every(word => current?.ingredientName?.toLowerCase().includes(word.toLowerCase())))
         );
       }
       // otherwise
@@ -391,7 +391,8 @@ useEffect(() => {
   const changeVariant = async () => {
 
     // filters out empty
-    const indexes = editedVariant.currentData.map((curr, i) => curr.ingredientName !== "" ? i : null).filter(i => i !== null);
+    const indexes = editedVariant.currentData.map((curr, i) => curr?.ingredientName !== "" ? i : null).filter(i => i !== null);
+    
     let fixedEditedVariant = {
       ...editedVariant,
       currentData: indexes.map(i => editedVariant.currentData[i]),
@@ -450,7 +451,7 @@ useEffect(() => {
         };
       }
       
-      //updates the data of the dinner prep if it matches the old one
+      // updates the data of the dinner prep if it matches the old one
       if (deepPrepEqual(newData?.meals?.dinner?.prepData, filteredPrepData[editVariantIndices.prep][editVariantIndices.variant])) {
         newData.meals = {
           ...newData.meals,
@@ -686,18 +687,20 @@ useEffect(() => {
                 <View className="flex flex-row w-[85%] justify-center items-center">
 
                   {/* Keyword Type Selector */}
-                  <View className="bg-zinc300 px-1 py-1 rounded-l-md h-[30px] items-center justify-center">
-                    <Icon
-                      name={keywordType === "meal prep" ? "code-working" : keywordType === "ingredient" && "list"}
-                      color={colors.zinc900}
-                      size={20}
-                      onPress={() => {
-                        const keyword = keywordType === "meal prep" ? "ingredient" : "meal prep";
-                        setKeywordType(keyword)
-                        filterPreps(keyword, "", prepTypeFilter, prepRestaurantFilter, uniquePrepNames, uniquePrepIds, uniquePrepData, uniquePrepDates, uniquePrepMeals)
-                      }}
-                    />
-                  </View>
+                  {(prepTypeFilter !== "simple") && (
+                    <View className="bg-zinc300 px-1 py-1 rounded-l-md h-[30px] items-center justify-center">
+                      <Icon
+                        name={keywordType === "meal prep" ? "code-working" : keywordType === "ingredient" && "list"}
+                        color={colors.zinc900}
+                        size={20}
+                        onPress={() => {
+                          const keyword = keywordType === "meal prep" ? "ingredient" : "meal prep";
+                          setKeywordType(keyword)
+                          filterPreps(keyword, "", prepTypeFilter, prepRestaurantFilter, uniquePrepNames, uniquePrepIds, uniquePrepData, uniquePrepDates, uniquePrepMeals)
+                        }}
+                      />
+                    </View>
+                  )}
 
                   {/* text input */}
                   <TextInput
@@ -705,7 +708,7 @@ useEffect(() => {
                     onChangeText={(value) => filterPreps(keywordType, value, prepTypeFilter, prepRestaurantFilter, uniquePrepNames, uniquePrepIds, uniquePrepData, uniquePrepDates, uniquePrepMeals)}
                     placeholder={`${keywordType} keyword(s)`}
                     placeholderTextColor={colors.zinc400}
-                    className="flex-1 w-5/6 bg-white rounded-r-md border-[1px] border-zinc300 pl-2.5 pr-10 py-1.5 text-[14px] leading-[17px]"
+                    className={`flex-1 w-5/6 bg-white ${(prepTypeFilter === "simple") ? "rounded-md" : "rounded-r-md"} border-[1px] border-zinc300 pl-2.5 pr-10 py-1.5 text-[14px] leading-[17px]`}
                   />
       
                   {/* BUTTONS */}
@@ -716,10 +719,13 @@ useEffect(() => {
                       name={prepTypeFilter === "prep" ? "information-circle" : prepTypeFilter === "complex" ? "stop-circle" : prepTypeFilter === "simple" ? "ellipse" : "ellipse-outline"}
                       color={colors.zinc700}
                       size={18}
-                      onPress={() => filterPreps(keywordType, prepKeywordQuery, 
-                        prepTypeFilter === "prep" ? "complex" : prepTypeFilter === "complex" ? "simple" : prepTypeFilter === "simple" ? "" : "prep", 
-                        prepRestaurantFilter, uniquePrepNames, uniquePrepIds, uniquePrepData, uniquePrepDates, uniquePrepMeals
-                      )}
+                      onPress={() => {
+                        const newType = (prepTypeFilter === "prep" ? "complex" : prepTypeFilter === "complex" ? "simple" : prepTypeFilter === "simple" ? "" : "prep");
+                        filterPreps(
+                          newType === "simple" ? "meal prep" : keywordType, prepKeywordQuery, newType,
+                          prepRestaurantFilter, uniquePrepNames, uniquePrepIds, uniquePrepData, uniquePrepDates, uniquePrepMeals
+                        )
+                      }}
                     />
 
                     {/* clear */}
@@ -1173,7 +1179,7 @@ useEffect(() => {
 
                         {/* Notes, if available */}
                         {(prep[currIndex]?.prepNote !== "") && (
-                          <View className="flex w-2/3 py-1 bg-zinc200">
+                          <View className="flex w-2/3 px-1 py-1 bg-zinc200">
                             <Text className="text-zinc800 font-medium text-[11px] text-center">
                               {prep[currIndex]?.prepNote}
                             </Text>

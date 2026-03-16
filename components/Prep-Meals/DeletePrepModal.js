@@ -14,7 +14,7 @@ import colors from '../../assets/colors';
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const DeletePrepModal = ({ 
-  prepName, visible, onBoth, onSave, onDelete, onCancel
+  prepData, visible, custom, onBoth, onSave, onDelete, onCancel
 }) => {
 
   
@@ -54,7 +54,7 @@ const DeletePrepModal = ({
           
             {/* Title */}
             <Text className="w-full text-center text-theme800 font-bold py-1 text-[18px]">
-              {prepName}
+              {prepData.prepName}
             </Text>
                       
             {/* DIVIDER */}
@@ -63,10 +63,10 @@ const DeletePrepModal = ({
 
           {/* PROMPT */}
           <View className="flex flex-col justify-center items-center pb-5">
-            <Text className="text-[14px] italic text-zinc600">
-              This meal prep has been used up.
+            <Text className="text-[14px] italic text-zinc600 text-center">
+              {`This ${prepData.variants.length > 1 ? "variant" : "meal prep"} has been used up.`}
             </Text>
-            <Text className="text-[14px] italic text-zinc600">
+            <Text className="text-[14px] italic text-zinc600 text-center">
               How would you like to proceed?
             </Text>
           </View>
@@ -76,22 +76,24 @@ const DeletePrepModal = ({
             <View className="flex flex-col justify-center items-end space-y-1">
 
               {/* Save */}
-              <View className="flex flex-row items-center space-x-1">
-                <Text className="text-[14px] text-theme700 font-semibold">
-                  SAVE AS RECIPE
-                </Text>
-                <Icon
-                  name={savePrep ? "checkbox" : "square-outline"}
-                  color={colors.zinc600}
-                  size={20}
-                  onPress={() => setSavePrep(!savePrep)}
-                />
-              </View>
+              {(custom === "currents") && (
+                <View className="flex flex-row items-center space-x-1">
+                  <Text className="text-[14px] text-theme700 font-semibold">
+                    SAVE AS RECIPE
+                  </Text>
+                  <Icon
+                    name={savePrep ? "checkbox" : "square-outline"}
+                    color={colors.zinc600}
+                    size={20}
+                    onPress={() => setSavePrep(!savePrep)}
+                  />
+                </View>
+              )}
 
               {/* Delete */}
               <View className="flex flex-row items-center space-x-1">
                 <Text className="text-[14px] text-theme700 font-semibold">
-                  DELETE MEAL PREP
+                  {`DELETE ${prepData.variants.length > 1 ? "VARIANT" : "MEAL PREP"}`}
                 </Text>
                 <Icon
                   name={deletePrep ? "checkbox" : "square-outline"}

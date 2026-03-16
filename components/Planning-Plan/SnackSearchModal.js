@@ -5,23 +5,24 @@ import React, { useState, useEffect, useRef } from 'react';
 
 // UI components
 import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, Keyboard} from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 
 // visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
-// fractions
-var Fractional = require('fractional').Fraction;
-
 // validation
-import extractUnit from '../../components/Validation/extractUnit';
 import { deepSnackEqual, deepSnackIndexOf } from '../Validation/deepSnackSearch';
+import extractUnit from '../../components/Validation/extractUnit';
 import validateFractionInput from '../Validation/validateFractionInput';
 import validateDecimalInput from '../Validation/validateDecimalInput';
 import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
 
+// modals
+import CalendarModal from './CalendarModal';
+
 // initialize firebase app
-import { getFirestore, doc, writeBatch } from 'firebase/firestore';
+import { getFirestore, doc, writeBatch, getDocs, addDoc, deleteDoc, collection, updateDoc, Timestamp } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
 
@@ -67,6 +68,7 @@ const SnackSearchModal = ({
   useEffect(() => {
     if (modalVisible) {
       loadSnacks( snapshot?.docs.map(doc => ({ id: doc.id, data: doc.data()})), "" );
+      loadInventory();
     }
   }, [modalVisible]);
 
@@ -197,6 +199,30 @@ const SnackSearchModal = ({
     }
   }
 
+  // gets the snack inventory
+  const loadInventory = async () => {
+    // gets the collection of snacks
+    const querySnapshot = await getDocs(collection(db, 'SNACKS'));
+    
+    // reformats each one
+    const snacksArray = querySnapshot.docs
+    .map((docSnap) => {
+      const data = docSnap.data();
+
+      return {
+        id: docSnap.id,
+        data: {
+          collectionName: data.collectionName,
+          collectionSnacks: [...data.collectionSnacks].sort((a, b) => a.name.localeCompare(b.name)),
+        }
+      };
+    })
+    .sort((a, b) => a.data.collectionName.localeCompare(b.data.collectionName));
+    
+    // stores the data
+    setInventoryList(snacksArray);
+  }
+
 
   ///////////////////////////////// SHOWING DETAILS /////////////////////////////////
 
@@ -216,7 +242,147 @@ const SnackSearchModal = ({
     
     return `${mm}/${dd}/${yy}`;
   };
+    
+  
+  ///////////////////////////////// INVENTORY SECTION /////////////////////////////////
 
+  const [displayType, setDisplayType] = useState("inventory");
+
+  const [inventoryList, setInventoryList] = useState(null);
+
+  const [isEditingCollection, setIsEditingCollection] = useState(false);
+  const [selectedCollection, setSelectedCollection] = useState(null);
+
+  // adding a collection
+  const addCollection = async () => {
+    
+    // updates db
+    const docRef = await addDoc(collection(db, 'SNACKS'), {
+      collectionName: "",
+      collectionSnacks: [],
+    });
+
+    // refreshes
+    await loadInventory();
+
+    // sets new collection
+    setSelectedCollection(docRef.id)
+  }
+
+  // deleting a collection
+  const deleteCollection = async () => {
+    
+    // updates db
+    await deleteDoc(doc(db, 'SNACKS', selectedCollection));
+
+    // refreshes
+    await loadInventory();
+
+    // sets no collection
+    setSelectedCollection(null);
+  }
+
+  // adding an ingredient to a collection
+  const addCollSnack = async () => {
+    let newSnacks = [...inventoryList.find(c => c.id === selectedCollection).data.collectionSnacks, {
+      name: "", 
+      unit: "", 
+      priceServing: "", 
+      calServing: "", 
+      servingSize: "", 
+      totalAmount: "", 
+      expDate: null,
+    }];
+    
+    // updates the db
+    await updateDoc(doc(db, 'SNACKS', selectedCollection), {
+      ...inventoryList.find(c => c.id === selectedCollection).data,
+      collectionSnacks: newSnacks,
+    });
+
+    // refreshes
+    await loadInventory();
+  }
+
+  // deleting an ingredient in a collection
+  const deleteCollSnack = async (idx) => {
+    const newSnacks = inventoryList.find(c => c.id === selectedCollection).data.collectionSnacks.filter((_, i) => i !== idx);
+    
+    // updates the db
+    await updateDoc(doc(db, 'SNACKS', selectedCollection), {
+      ...inventoryList.find(c => c.id === selectedCollection).data,
+      collectionSnacks: newSnacks,
+    });
+
+    // refreshes
+    await loadInventory();
+  }
+
+  // changing a collection name
+  const updateCollection = async () => {
+    // updates the db
+    await updateDoc(doc(db, 'SNACKS', selectedCollection), inventoryList.find(c => c.id === selectedCollection).data);
+
+    // refreshes
+    await loadInventory();
+
+    // removes keyboard padding
+    setKeyboardType("");
+  }
+
+  // calendar modal
+  const [calendarModalVisible, setCalendarModalVisible] = useState(false);
+  const [calendarDate, setCalendarDate] = useState(null);
+  const [calendarCollection, setCalendarCollection] = useState(null);
+  const [calendarSnack, setCalendarSnack] = useState(-1);
+
+  // converts the timestamp object to a date readable by the calendar
+  const formatCalendarDate = (timestamp) => {
+    const date = timestamp?.toDate ? timestamp.toDate() : new Date();
+
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+
+    const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+    return {
+      dateString,
+      year,
+      month,
+      day,
+      timestamp: date.getTime(),
+    };
+  };
+
+  // when the calendar is closed
+  const closeCalendarModal = async (date) => {
+    let newSnacks = [...calendarCollection.data.collectionSnacks];
+
+    // gets the new date
+    if (Object.keys(date).length === 0) {
+      newSnacks[calendarSnack].expDate = null;
+    } else {
+      const localMidnight = new Date(date.year, date.month - 1, date.day);
+      newSnacks[calendarSnack].expDate = Timestamp.fromMillis(localMidnight);
+    }
+    
+    // updates the db
+    await updateDoc(doc(db, 'SNACKS', calendarCollection.id), {
+      ...calendarCollection.data,
+      collectionSnacks: newSnacks,
+    });
+
+    // refreshes
+    await loadInventory();
+
+    // resets states
+    setCalendarModalVisible(false);
+    setCalendarDate(null);
+    setCalendarCollection(-1);
+    setCalendarSnack(-1);
+  }
+  
 
   ///////////////////////////////// SEARCH SECTION /////////////////////////////////
 
@@ -538,7 +704,7 @@ const SnackSearchModal = ({
       visible={modalVisible}
       onRequestClose={() => setModalVisible(false)}
     >
-      <View className="flex-1 justify-center items-center">
+      <View className={`flex-1 justify-center items-center ${(isKeyboardOpen && keyboardType === "inventory") && "mb-[200px]"}`}>
 
         {/* Background Overlay - only accessible when not editing */}
         <TouchableOpacity onPress={() => {!isEditing && setModalVisible(false)}} activeOpacity={isEditing && 0.5} className="absolute bg-black opacity-50 w-full h-full"/>
@@ -548,12 +714,23 @@ const SnackSearchModal = ({
 
           {/* TITLE */}
           <View className="flex flex-row justify-between items-center px-2">
-            <Text className="text-[20px] font-bold">
-              {`SNACK ${isEditing ? "EDIT" : "SEARCH"}`}
-            </Text>
+
+            {/* display selection & indication */}
+            <View className="flex flex-row space-x-1.5 justify-center items-center">
+              <Icon
+                name={displayType === "inventory" ? "file-tray" : "search"}
+                size={18}
+                color={colors.theme800}
+                onPress={() => setDisplayType(displayType === "inventory" ? "search" : "inventory")}
+              />
+
+              <Text className="text-[20px] font-bold">
+                {`SNACK ${displayType === "inventory" ? "INVENTORY" : isEditing ? "EDIT" : "SEARCH"}`}
+              </Text>
+            </View>
             
             {/* Set Editing */}
-            {!(editVariantIndices.snack !== -1 && keywordType === "snack title")
+            {(displayType === "search" && !(editVariantIndices.snack !== -1 && keywordType === "snack title"))
             ? 
               <Icon
                 name={isEditing ? "backspace" : "create"}
@@ -569,7 +746,7 @@ const SnackSearchModal = ({
                   setIsEditing(!isEditing);
                 }}
               />
-            :
+            : (displayType === "search") &&
               // dealing with editing title variants
               <View className="flex flex-row">
                 {/* change */}
@@ -593,220 +770,261 @@ const SnackSearchModal = ({
           {/* Divider */}
           <View className="h-[1px] bg-zinc400 mb-4"/>
 
-          <View className="flex flex-col items-center justify-center">
 
-            {/* SNACK FILTERING SECTION */}
-            {(editNameIndex === -1 && editVariantIndices.snack === -1 && editVariantIndices.variant === -1) && (
-              <View className="flex flex-row w-full justify-center items-center mb-[20px]">
 
-                {/* Searchbar */}
-                <View className="flex flex-row w-[85%] h-[30px] pr-4 pl-1">
-              
-                  {/* Keyword Type Selector */}
-                  <View className="h-full justify-center bg-zinc300 px-1 rounded-l-md">
-                    <Icon
-                      name={keywordType === "snack title" ? "code-working" : keywordType === "snack" && "list"}
-                      color={colors.theme900}
-                      size={20}
-                      onPress={() => {
-                        if (keywordType === "snack title") {
-                          filterSnacks(snackKeywordQuery, "snack", uniqueSnackNames, uniqueSnackData, uniqueSnackDates);
-                        } else if (keywordType === "snack") {
-                          filterSnacks(snackKeywordQuery, "snack title", uniqueTitleNames, uniqueTitleData, uniqueTitleDates);
-                        }
-                      }}
-                    />
-                  </View>
+          {/* SEARCH */}
+          {(displayType === "search") ? (
+            <View>
+              <View className="flex flex-col items-center justify-center">
 
-                  {/* text input */}
-                  <TextInput
-                    value={snackKeywordQuery}
-                    onChangeText={(value) => {
-                      if (keywordType === "snack") {
-                        filterSnacks(value, "snack", uniqueSnackNames, uniqueSnackData, uniqueSnackDates);
-                      } else if (keywordType === "snack title") {
-                        filterSnacks(value, "snack title", uniqueTitleNames, uniqueTitleData, uniqueTitleDates);
-                      }
-                    }}
-                    placeholder={`${keywordType} keyword(s)`}
-                    placeholderTextColor={colors.zinc400}
-                    className="flex-1 w-full bg-white border-[1px] border-zinc300 pl-2.5 pr-10 py-1.5 rounded-r-md text-[14px] leading-[17px]"
-                  />
+                {/* SNACK FILTERING SECTION */}
+                {(editNameIndex === -1 && editVariantIndices.snack === -1 && editVariantIndices.variant === -1) && (
+                  <View className="flex flex-row w-full justify-center items-center mb-[20px]">
 
-                  {/* clear button */}
-                  <View className="flex flex-row h-[30px] absolute right-5 items-center justify-center">
-                    <Icon
-                      name="close-outline"
-                      size={20}
-                      color="black"
-                      onPress={() => {
-                        setSnackKeywordQuery("");
-                        setOpenIndex(-1);
-                        if (keywordType === "snack") {
-                          filterSnacks("", "snack", uniqueSnackNames, uniqueSnackData, uniqueSnackDates);
-                        } else if (keywordType === "snack title") {
-                          filterSnacks("", "snack title", uniqueTitleNames, uniqueTitleData, uniqueTitleDates);
-                        }
-                      }}
-                    />
-                  </View>
-                </View>
-
-                {/* information type button */}
-                <View className="w-[15%] items-center">
-                  <Icon
-                    name={infoType === "details" ? "apps" : "calendar"}
-                    size={20}
-                    color={colors.zinc600}
-                    onPress={() => setInfoType(infoType === "details" ? "dates" : "details")}
-                  />
-                </View>
-              </View>
-            )}
-            
-            {/* Filtered List of Snacks */}
-            {(filteredData?.length > 0 && !(editVariantIndices.snack !== -1 && keywordType === "snack title"))
-            ?
-              <FlatList
-                className="max-h-[200px] bg-zinc500 border-2 border-zinc600 mb-3"
-                ref={verticalScrollRef}
-                data={filteredData}
-                keyExtractor={(_, index) => index.toString()}
-                renderItem={({ item: snack, index }) => (
-                  <View className="flex flex-col items-center justify-center pb-2">
-                    {/* GENERAL DETAILS */}
-                    <View className="flex flex-row border-y-[1px] border-zinc600">
-                      
-                      {/* Overall Name Display */}
-                      <View className={`flex flex-row w-[85%] h-full pr-1 justify-between ${(editNameIndex === index || filteredNames[index] === editedName || filteredNames[index] === editedVariant?.name || filteredNames[index] === editedVariant?.snackTitle || filteredNames[index] === scrollName) ? "bg-mauve200" : "bg-theme300"}`}>
-
-                        {/* edit name button */}
-                        {(isEditing && editNameIndex === -1 && !(openIndex === index && keywordType === "snack title")) && (
-                          <View className={`flex bg-zinc100 px-1 justify-center items-center`}>
-                            <Icon
-                              name="pencil"
-                              size={15}
-                              color="black"
-                              onPress={() => {
-                                setEditNameIndex(index);
-                                setEditedName(filteredNames[index]);
-                              }}
-                            />
-                          </View>
-                        )}
-
-                        {/* name */}
-                        <View className="flex-1 ml-1 px-2 py-1 justify-center">
-                          {(editNameIndex !== index)
-                          ? // viewing
-                            <Text className="text-left text-[13px] italic">
-                              {filteredNames[index]}
-                            </Text>
-                          : // editing
-                          <View className="flex flex-row justify-between space-x-2 ">
-                            <TextInput
-                              value={editedName}
-                              onChangeText={setEditedName}
-                              placeholder={filteredNames[index]}
-                              placeholderTextColor={colors.zinc500}
-                              className="flex-1 text-left text-[13px] italic bg-zinc200 ml-[-5px] pl-[5px] pr-1 py-0.5 border border-zinc300 rounded-md"
-                              multiline={true}
-                              blurOnSubmit={true}
-                            />
-
-                            {/* BUTTONS */}
-                            <View className="flex flex-row justify-center items-center mr-[-5px]">
-                              {/* Submit */}
-                              <Icon
-                                name="checkmark"
-                                size={20}
-                                color="black"
-                                onPress={() => {keywordType === "snack" ? changeSnackName() : keywordType === "snack title" && changeSnackTitle()}}
-                              />
-                              {/* Close */}
-                              <Icon
-                                name="close-outline"
-                                size={20}
-                                color="black"
-                                onPress={() => {
-                                  setEditNameIndex(-1);
-                                  setEditedName("");
-                                }}
-                              />
-                            </View>
-                          </View>
-                          }
-                        </View>
-                                      
-                        {/* indicator of selected option */}
-                        {(keywordType === "snack" || (keywordType === "snack title" && !showSpecifics && (openIndex !== index)))
-                        ? (editNameIndex !== index)
-                        &&
-                          // (#)
-                          <View className="flex justify-center items-center">
-                            <Text className="text-[12px] font-semibold text-theme900">
-                              {`(${snack.length})`}
-                            </Text>
-                          </View>
-                        : (editNameIndex !== index)
-                        &&
-                          // #/#
-                          <TouchableOpacity 
-                            className="flex justify-center items-center"
-                            onPress={() => setCurrIndex((currIndex + 1) % snack.length)}
-                          >
-                            <Text className="text-[12px] font-semibold text-theme900">
-                              {`${currIndex + 1}/${snack.length}`}
-                            </Text>
-                          </TouchableOpacity>
-                        }
-
-                        {/* edit variant button */}
-                        {(isEditing && openIndex === index && keywordType === "snack title" && editNameIndex !== index) && (
-                          <View className={`flex px-1 justify-center items-center`}>
-                            <Icon
-                              name="pencil"
-                              size={15}
-                              color="black"
-                              onPress={() => {
-                                setEditVariantIndices({"snack": index, "variant": currIndex});
-                                setEditedVariant(filteredData[index][currIndex]);
-                              }}
-                            />
-                          </View>
-                        )}
+                    {/* Searchbar */}
+                    <View className="flex flex-row w-[85%] h-[30px] pr-4 pl-1">
+                  
+                      {/* Keyword Type Selector */}
+                      <View className="h-full justify-center bg-zinc300 px-1 rounded-l-md">
+                        <Icon
+                          name={keywordType === "snack title" ? "code-working" : keywordType === "snack" && "list"}
+                          color={colors.theme900}
+                          size={20}
+                          onPress={() => {
+                            if (keywordType === "snack title") {
+                              filterSnacks(snackKeywordQuery, "snack", uniqueSnackNames, uniqueSnackData, uniqueSnackDates);
+                            } else if (keywordType === "snack") {
+                              filterSnacks(snackKeywordQuery, "snack title", uniqueTitleNames, uniqueTitleData, uniqueTitleDates);
+                            }
+                          }}
+                        />
                       </View>
 
-                      {/* open information button */}
-                      <View className={`flex w-[15%] py-2 justify-center items-center ${(editNameIndex === index || filteredNames[index] === editedName || filteredNames[index] === editedVariant?.name || filteredNames[index] === editedVariant?.snackTitle || filteredNames[index] === scrollName) ? "bg-mauve400" : "bg-theme400"}`}>
+                      {/* text input */}
+                      <TextInput
+                        value={snackKeywordQuery}
+                        onChangeText={(value) => {
+                          if (keywordType === "snack") {
+                            filterSnacks(value, "snack", uniqueSnackNames, uniqueSnackData, uniqueSnackDates);
+                          } else if (keywordType === "snack title") {
+                            filterSnacks(value, "snack title", uniqueTitleNames, uniqueTitleData, uniqueTitleDates);
+                          }
+                        }}
+                        placeholder={`${keywordType} keyword(s)`}
+                        placeholderTextColor={colors.zinc400}
+                        className="flex-1 w-full bg-white border-[1px] border-zinc300 pl-2.5 pr-10 py-1.5 rounded-r-md text-[14px] leading-[17px]"
+                      />
+
+                      {/* clear button */}
+                      <View className="flex flex-row h-[30px] absolute right-5 items-center justify-center">
                         <Icon
-                          name="information-circle"
-                          color={colors.zinc800}
-                          size={18}
-                          onPress={() => setOpenIndex(openIndex === index ? -1 : index)}
+                          name="close-outline"
+                          size={20}
+                          color="black"
+                          onPress={() => {
+                            setSnackKeywordQuery("");
+                            setOpenIndex(-1);
+                            if (keywordType === "snack") {
+                              filterSnacks("", "snack", uniqueSnackNames, uniqueSnackData, uniqueSnackDates);
+                            } else if (keywordType === "snack title") {
+                              filterSnacks("", "snack title", uniqueTitleNames, uniqueTitleData, uniqueTitleDates);
+                            }
+                          }}
                         />
                       </View>
                     </View>
 
-                    {/* SNACK DATES */}
-                    {(openIndex === index && infoType === "dates") && (
-                      <View className="bg-zinc300 w-full justify-center items-center">
-                        { keywordType === "snack"
-                        ?
-                          <ScrollView
-                            horizontal
-                            scrollEventThrottle={16}
-                            contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
-                            className="flex flex-row py-2 space-x-2"
-                          >
-                            {filteredDates[index].map((variant, idx) => (
-                              <View 
-                                key={idx}
-                                className="flex flex-col bg-zinc200 space-y-0.5 w-[100px] justify-center items-center px-2 py-1 border-[0.5px] border-dashed rounded-lg"
+                    {/* information type button */}
+                    <View className="w-[15%] items-center">
+                      <Icon
+                        name={infoType === "details" ? "apps" : "calendar"}
+                        size={20}
+                        color={colors.zinc600}
+                        onPress={() => setInfoType(infoType === "details" ? "dates" : "details")}
+                      />
+                    </View>
+                  </View>
+                )}
+                
+                {/* Filtered List of Snacks */}
+                {(filteredData?.length > 0 && !(editVariantIndices.snack !== -1 && keywordType === "snack title"))
+                ?
+                  <FlatList
+                    className="max-h-[200px] bg-zinc500 border-2 border-zinc600 mb-3"
+                    ref={verticalScrollRef}
+                    data={filteredData}
+                    keyExtractor={(_, index) => index.toString()}
+                    renderItem={({ item: snack, index }) => (
+                      <View className="flex flex-col items-center justify-center pb-2">
+                        {/* GENERAL DETAILS */}
+                        <View className="flex flex-row border-y-[1px] border-zinc600">
+                          
+                          {/* Overall Name Display */}
+                          <View className={`flex flex-row w-[85%] h-full pr-1 justify-between ${(editNameIndex === index || filteredNames[index] === editedName || filteredNames[index] === editedVariant?.name || filteredNames[index] === editedVariant?.snackTitle || filteredNames[index] === scrollName) ? "bg-mauve200" : "bg-theme300"}`}>
+
+                            {/* edit name button */}
+                            {(isEditing && editNameIndex === -1 && !(openIndex === index && keywordType === "snack title")) && (
+                              <View className={`flex bg-zinc100 px-1 justify-center items-center`}>
+                                <Icon
+                                  name="pencil"
+                                  size={15}
+                                  color="black"
+                                  onPress={() => {
+                                    setEditNameIndex(index);
+                                    setEditedName(filteredNames[index]);
+                                  }}
+                                />
+                              </View>
+                            )}
+
+                            {/* name */}
+                            <View className="flex-1 ml-1 px-2 py-1 justify-center">
+                              {(editNameIndex !== index)
+                              ? // viewing
+                                <Text className="text-left text-[13px] italic">
+                                  {filteredNames[index]}
+                                </Text>
+                              : // editing
+                              <View className="flex flex-row justify-between space-x-2 ">
+                                <TextInput
+                                  value={editedName}
+                                  onChangeText={setEditedName}
+                                  placeholder={filteredNames[index]}
+                                  placeholderTextColor={colors.zinc500}
+                                  className="flex-1 text-left text-[13px] italic bg-zinc200 ml-[-5px] pl-[5px] pr-1 py-0.5 border border-zinc300 rounded-md"
+                                  multiline={true}
+                                  blurOnSubmit={true}
+                                />
+
+                                {/* BUTTONS */}
+                                <View className="flex flex-row justify-center items-center mr-[-5px]">
+                                  {/* Submit */}
+                                  <Icon
+                                    name="checkmark"
+                                    size={20}
+                                    color="black"
+                                    onPress={() => {keywordType === "snack" ? changeSnackName() : keywordType === "snack title" && changeSnackTitle()}}
+                                  />
+                                  {/* Close */}
+                                  <Icon
+                                    name="close-outline"
+                                    size={20}
+                                    color="black"
+                                    onPress={() => {
+                                      setEditNameIndex(-1);
+                                      setEditedName("");
+                                    }}
+                                  />
+                                </View>
+                              </View>
+                              }
+                            </View>
+                                          
+                            {/* indicator of selected option */}
+                            {(keywordType === "snack" || (keywordType === "snack title" && !showSpecifics && (openIndex !== index)))
+                            ? (editNameIndex !== index)
+                            &&
+                              // (#)
+                              <View className="flex justify-center items-center">
+                                <Text className="text-[12px] font-semibold text-theme900">
+                                  {`(${snack.length})`}
+                                </Text>
+                              </View>
+                            : (editNameIndex !== index)
+                            &&
+                              // #/#
+                              <TouchableOpacity 
+                                className="flex justify-center items-center"
+                                onPress={() => setCurrIndex((currIndex + 1) % snack.length)}
                               >
-                                {variant.map((date, i) => (
+                                <Text className="text-[12px] font-semibold text-theme900">
+                                  {`${currIndex + 1}/${snack.length}`}
+                                </Text>
+                              </TouchableOpacity>
+                            }
+
+                            {/* edit variant button */}
+                            {(isEditing && openIndex === index && keywordType === "snack title" && editNameIndex !== index) && (
+                              <View className={`flex px-1 justify-center items-center`}>
+                                <Icon
+                                  name="pencil"
+                                  size={15}
+                                  color="black"
+                                  onPress={() => {
+                                    setEditVariantIndices({"snack": index, "variant": currIndex});
+                                    setEditedVariant(filteredData[index][currIndex]);
+                                  }}
+                                />
+                              </View>
+                            )}
+                          </View>
+
+                          {/* open information button */}
+                          <View className={`flex w-[15%] py-2 justify-center items-center ${(editNameIndex === index || filteredNames[index] === editedName || filteredNames[index] === editedVariant?.name || filteredNames[index] === editedVariant?.snackTitle || filteredNames[index] === scrollName) ? "bg-mauve400" : "bg-theme400"}`}>
+                            <Icon
+                              name="information-circle"
+                              color={colors.zinc800}
+                              size={18}
+                              onPress={() => setOpenIndex(openIndex === index ? -1 : index)}
+                            />
+                          </View>
+                        </View>
+
+                        {/* SNACK DATES */}
+                        {(openIndex === index && infoType === "dates") && (
+                          <View className="bg-zinc300 w-full justify-center items-center">
+                            { keywordType === "snack"
+                            ?
+                              <ScrollView
+                                horizontal
+                                scrollEventThrottle={16}
+                                contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
+                                className="flex flex-row py-2 space-x-2"
+                              >
+                                {filteredDates[index].map((variant, idx) => (
+                                  <View 
+                                    key={idx}
+                                    className="flex flex-col bg-zinc200 space-y-0.5 w-[100px] justify-center items-center px-2 py-1 border-[0.5px] border-dashed rounded-lg"
+                                  >
+                                    {variant.map((date, i) => (
+                                      <View
+                                        key={i}
+                                        className="flex flex-row space-x-1"
+                                      >
+                                        {/* goto arrow */}
+                                        {!isEditing && (
+                                          <Icon
+                                            name="arrow-back"
+                                            size={14}
+                                            color={colors.zinc700}
+                                            onPress={() => {
+                                              const [year, month, day] = date.split("-");
+                                              closeModal("SNACK", {
+                                                dateString: date,
+                                                day: parseInt(day, 10).toString(),
+                                                month: parseInt(month, 10).toString(),
+                                                year: parseInt(year, 10).toString(),
+                                                timestamp: new Date(year, month, day).getTime(),
+                                              });
+                                            }}
+                                          />
+                                        )}
+
+                                        {/* date */}
+                                        <Text className="text-theme900 font-medium text-[11px] text-center">
+                                          {formatDateShort(date)}
+                                        </Text>
+                                      </View>
+                                    ))}
+                                  </View>
+                                ))}
+                              </ScrollView>
+                            : keywordType === "snack title"
+                            &&
+                              <View className="flex flex-col bg-zinc200 my-2 space-y-0.5 w-[100px] justify-center items-center px-2 py-1 border-[0.5px] border-dashed rounded-lg">
+                                {filteredDates[index][currIndex].map((date, idx) => (
                                   <View
-                                    key={i}
+                                    key={idx}
                                     className="flex flex-row space-x-1"
                                   >
                                     {/* goto arrow */}
@@ -835,591 +1053,904 @@ const SnackSearchModal = ({
                                   </View>
                                 ))}
                               </View>
-                            ))}
-                          </ScrollView>
-                        : keywordType === "snack title"
-                        &&
-                          <View className="flex flex-col bg-zinc200 my-2 space-y-0.5 w-[100px] justify-center items-center px-2 py-1 border-[0.5px] border-dashed rounded-lg">
-                            {filteredDates[index][currIndex].map((date, idx) => (
-                              <View
-                                key={idx}
-                                className="flex flex-row space-x-1"
-                              >
-                                {/* goto arrow */}
-                                {!isEditing && (
-                                  <Icon
-                                    name="arrow-back"
-                                    size={14}
-                                    color={colors.zinc700}
-                                    onPress={() => {
-                                      const [year, month, day] = date.split("-");
-                                      closeModal("SNACK", {
-                                        dateString: date,
-                                        day: parseInt(day, 10).toString(),
-                                        month: parseInt(month, 10).toString(),
-                                        year: parseInt(year, 10).toString(),
-                                        timestamp: new Date(year, month, day).getTime(),
-                                      });
-                                    }}
-                                  />
-                                )}
-
-                                {/* date */}
-                                <Text className="text-theme900 font-medium text-[11px] text-center">
-                                  {formatDateShort(date)}
-                                </Text>
-                              </View>
-                            ))}
+                            }
                           </View>
-                        }
-                      </View>
-                    )}
+                        )}
 
-                    {/* DETAILS */}
-                    {(openIndex === index && infoType === "details") && (
-                      <View className={`w-full justify-center items-center ${(editVariantIndices.snack !== index) ? "bg-zinc300" : "bg-mauve100"}`}>
+                        {/* DETAILS */}
+                        {(openIndex === index && infoType === "details") && (
+                          <View className={`w-full justify-center items-center ${(editVariantIndices.snack !== index) ? "bg-zinc300" : "bg-mauve100"}`}>
 
-                        {/* Snack */}
-                        {(keywordType === "snack")
-                        ?
-                          <>
-                            {(editVariantIndices.snack !== index)
+                            {/* Snack */}
+                            {(keywordType === "snack")
                             ?
-                              <ScrollView
-                                horizontal
-                                scrollEventThrottle={16}
-                                contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
-                                className="flex flex-row p-2 space-x-2"
-                              >
-                                {snack.map((variant, i) => (
-                                  <View 
-                                    key={i}
-                                    className="flex flex-col bg-zinc200 space-y-0.5 w-[100px] justify-center items-center px-2 py-1 border border-dashed rounded-lg"
+                              <>
+                                {(editVariantIndices.snack !== index)
+                                ?
+                                  <ScrollView
+                                    horizontal
+                                    scrollEventThrottle={16}
+                                    contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
+                                    className="flex flex-row p-2 space-x-2"
                                   >
-                                    {/* amount */}
-                                    <Text className="text-theme900 font-medium text-[11px] text-center">
-                                      {`${variant.amount} ${extractUnit(variant.unit, variant.amount)}`}
-                                    </Text>
+                                    {snack.map((variant, i) => (
+                                      <View 
+                                        key={i}
+                                        className="flex flex-col bg-zinc200 space-y-0.5 w-[100px] justify-center items-center px-2 py-1 border border-dashed rounded-lg"
+                                      >
+                                        {/* amount */}
+                                        <Text className="text-theme900 font-medium text-[11px] text-center">
+                                          {`${variant.amount} ${extractUnit(variant.unit, variant.amount)}`}
+                                        </Text>
+
+                                        {/* DIVIDER */}
+                                        <View className="h-[1px] bg-zinc400 w-5/6 mb-0.5"/>
+
+                                        <View className="flex flex-col justify-center items-center">
+                                          {/* calories */}
+                                          <Text className="text-zinc700 font-medium text-[10px] text-center">
+                                            {`${variant.cal} cal`}
+                                          </Text>
+                                          {/* price */}
+                                          <Text className="text-zinc700 font-medium text-[10px] text-center">
+                                            {`$${variant.price}`}
+                                          </Text>
+
+                                          {/* Edit Button */}
+                                          {isEditing && (
+                                            <View className="absolute h-full w-full justify-center items-end">
+                                              <Icon
+                                                name="pencil"
+                                                size={15}
+                                                color={colors.theme900}
+                                                onPress={() => {
+                                                  setEditVariantIndices({"snack": index, "variant": i});
+                                                  setEditedVariant(variant);
+                                                }}
+                                              />
+                                            </View>
+                                          )}
+                                        </View>
+                                      </View>
+                                    ))}
+                                  </ScrollView>
+                                :
+                                  <View className="flex flex-col bg-zinc200 my-2 space-y-0.5 w-[100px] justify-center items-center px-2 py-1 border border-dashed rounded-lg">
+                                    
+                                    <View className="flex flex-row space-x-1">
+                                      {/* amount */}
+                                      <TextInput 
+                                        value={editedVariant?.amount}
+                                        onChangeText={(value) => {
+                                          setEditedVariant((prev) => {
+                                            const updated = { ...prev }; 
+                                            updated["amount"] = validateFractionInput(value);
+                                            return updated;
+                                          })
+                                        }}
+                                        placeholder={editedVariant?.amount}
+                                        placeholderTextColor={colors.zinc500}
+                                        className="text-theme900 font-medium text-[11px] text-center"
+                                      />
+
+                                      {/* unit */}
+                                      <TextInput 
+                                        value={editedVariant?.unit}
+                                        onChangeText={(value) => {
+                                          setEditedVariant((prev) => {
+                                            const updated = { ...prev }; 
+                                            updated["unit"] = extractUnit(value, editedVariant?.amount);
+                                            return updated;
+                                          })
+                                        }}
+                                        placeholder={editedVariant?.unit}
+                                        placeholderTextColor={colors.zinc500}
+                                        className="text-theme900 font-medium text-[11px] text-center"
+                                      />
+                                    </View>
 
                                     {/* DIVIDER */}
                                     <View className="h-[1px] bg-zinc400 w-5/6 mb-0.5"/>
 
                                     <View className="flex flex-col justify-center items-center">
                                       {/* calories */}
-                                      <Text className="text-zinc700 font-medium text-[10px] text-center">
-                                        {`${variant.cal} cal`}
-                                      </Text>
-                                      {/* price */}
-                                      <Text className="text-zinc700 font-medium text-[10px] text-center">
-                                        {`$${variant.price}`}
-                                      </Text>
+                                      <View className="flex flex-row space-x-1">
+                                        <TextInput 
+                                          value={editedVariant?.cal}
+                                          onChangeText={(value) => {
+                                            setEditedVariant((prev) => {
+                                              const updated = { ...prev }; 
+                                              updated["cal"] = validateWholeNumberInput(value);
+                                              return updated;
+                                            })
+                                          }}
+                                          placeholder={editedVariant?.cal}
+                                          placeholderTextColor={colors.zinc500}
+                                          className="text-zinc700 font-medium text-[10px] text-center"
+                                        />
+                                        {/* label */}
+                                        <Text className="text-zinc700 font-medium text-[10px] text-center">
+                                          cal
+                                        </Text>
+                                      </View>
 
-                                      {/* Edit Button */}
-                                      {isEditing && (
-                                        <View className="absolute h-full w-full justify-center items-end">
-                                          <Icon
-                                            name="pencil"
-                                            size={15}
-                                            color={colors.theme900}
-                                            onPress={() => {
-                                              setEditVariantIndices({"snack": index, "variant": i});
-                                              setEditedVariant(variant);
-                                            }}
-                                          />
-                                        </View>
-                                      )}
+                                      {/* price */}
+                                      <View className="flex flex-row">
+                                        {/* label */}
+                                        <Text className="text-zinc700 font-medium text-[10px] text-center">
+                                          $
+                                        </Text>
+                                        <TextInput 
+                                          value={editedVariant?.price}
+                                          onChangeText={(value) => {
+                                            setEditedVariant((prev) => {
+                                              const updated = { ...prev }; 
+                                              updated["price"] = validateDecimalInput(value);
+                                              return updated;
+                                            })
+                                          }}
+                                          placeholder={editedVariant?.price}
+                                          placeholderTextColor={colors.zinc500}
+                                          className="text-zinc700 font-medium text-[10px] text-center"
+                                        />
+                                      </View>
+                                    </View>
+
+                                    {/* Buttons */}
+                                    <View className="absolute flex flex-col right-[-30px]">
+                                      {/* change */}
+                                      <Icon
+                                        name="checkmark-circle"
+                                        size={22}
+                                        color={colors.zinc800}
+                                        onPress={() => changeSnackNameData()}
+                                      />
+                                      {/* close */}
+                                      <Icon
+                                        name="close-circle"
+                                        size={22}
+                                        color={colors.zinc800}
+                                        onPress={() => setEditVariantIndices({"snack": -1, "variant": -1})}
+                                      />
                                     </View>
                                   </View>
-                                ))}
-                              </ScrollView>
-                            :
-                              <View className="flex flex-col bg-zinc200 my-2 space-y-0.5 w-[100px] justify-center items-center px-2 py-1 border border-dashed rounded-lg">
-                                
-                                <View className="flex flex-row space-x-1">
-                                  {/* amount */}
-                                  <TextInput 
-                                    value={editedVariant?.amount}
-                                    onChangeText={(value) => {
-                                      setEditedVariant((prev) => {
-                                        const updated = { ...prev }; 
-                                        updated["amount"] = validateFractionInput(value);
-                                        return updated;
-                                      })
-                                    }}
-                                    placeholder={editedVariant?.amount}
-                                    placeholderTextColor={colors.zinc500}
-                                    className="text-theme900 font-medium text-[11px] text-center"
-                                  />
+                                }
+                              </>
+                            : keywordType === "snack title"
+                            &&
+                              <View className="flex flex-row w-full bg-black">
 
-                                  {/* unit */}
-                                  <TextInput 
-                                    value={editedVariant?.unit}
-                                    onChangeText={(value) => {
-                                      setEditedVariant((prev) => {
-                                        const updated = { ...prev }; 
-                                        updated["unit"] = extractUnit(value, editedVariant?.amount);
-                                        return updated;
-                                      })
-                                    }}
-                                    placeholder={editedVariant?.unit}
-                                    placeholderTextColor={colors.zinc500}
-                                    className="text-theme900 font-medium text-[11px] text-center"
-                                  />
+                                {/* Ingredient List */}
+                                {!showSpecifics
+                                ? // not showing specific amounts
+                                <View className="flex flex-col w-3/4 bg-zinc300 py-1 items-start justify-center">
+                                  {snack[currIndex]?.snackData?.map((current, i) => 
+                                    current !== null && (
+                                      <View key={i} className="flex flex-row w-full pl-2 pr-5 space-x-1">
+                                        {/* current ingredient name */}
+                                        <Text className="text-zinc800 text-[11px] text-center">
+                                          {"⁃"}
+                                        </Text>
+                                        <Text className="text-zinc800 text-[11px] text-left pr-2">
+                                          {current.name}
+                                        </Text>
+                                      </View>
+                                    )
+                                  )}
                                 </View>
+                                : 
+                                // showing specific amounts
+                                <View className="flex w-full bg-zinc300 items-start justify-center">
+                                  <>
+                                  {snack[currIndex]?.snackData?.map((current, i) => 
+                                    current !== null && (
+                                      <View key={i} className="flex flex-row">
 
-                                {/* DIVIDER */}
-                                <View className="h-[1px] bg-zinc400 w-5/6 mb-0.5"/>
+                                        {/* INGREDIENT NAME */}
+                                        <View className={`${(i === 0) && "pt-1"} ${(i === snack[currIndex].snackData.filter(curr => curr !== null).length - 1) && "pb-1"} w-3/4 flex flex-row pl-2 pr-5 space-x-1`}>
+                                          <Text className="text-zinc800 text-[11px] text-center">
+                                            {"⁃"}
+                                          </Text>
+                                          <Text className="text-zinc800 text-[11px] text-left pr-2">
+                                            {`${current.name}`}
+                                          </Text>
+                                        </View>
 
-                                <View className="flex flex-col justify-center items-center">
-                                  {/* calories */}
-                                  <View className="flex flex-row space-x-1">
-                                    <TextInput 
-                                      value={editedVariant?.cal}
-                                      onChangeText={(value) => {
-                                        setEditedVariant((prev) => {
-                                          const updated = { ...prev }; 
-                                          updated["cal"] = validateWholeNumberInput(value);
-                                          return updated;
-                                        })
-                                      }}
-                                      placeholder={editedVariant?.cal}
-                                      placeholderTextColor={colors.zinc500}
-                                      className="text-zinc700 font-medium text-[10px] text-center"
-                                    />
-                                    {/* label */}
-                                    <Text className="text-zinc700 font-medium text-[10px] text-center">
-                                      cal
-                                    </Text>
-                                  </View>
+                                        {/* INGREDIENT AMOUNT */}
+                                        <View className={`${(i === 0) && "pt-1"} ${(i === snack[currIndex].snackData.filter(curr => curr !== null).length - 1) && "pb-1"} w-1/4 justify-center items-center bg-zinc350`}>
+                                          <Text className="text-theme900 font-medium text-[9px] text-center">
+                                            {`${current.amount} ${current.unit}`}
+                                          </Text>
+                                        </View>
+                                      </View>
+                                    )
+                                  )}
+                                  </>
 
-                                  {/* price */}
-                                  <View className="flex flex-row">
-                                    {/* label */}
-                                    <Text className="text-zinc700 font-medium text-[10px] text-center">
-                                      $
-                                    </Text>
-                                    <TextInput 
-                                      value={editedVariant?.price}
-                                      onChangeText={(value) => {
-                                        setEditedVariant((prev) => {
-                                          const updated = { ...prev }; 
-                                          updated["price"] = validateDecimalInput(value);
-                                          return updated;
-                                        })
-                                      }}
-                                      placeholder={editedVariant?.price}
-                                      placeholderTextColor={colors.zinc500}
-                                      className="text-zinc700 font-medium text-[10px] text-center"
+                                  {/* collapse specifics */}
+                                  <View className="absolute w-1/4 right-0 mr-[20px] z-20 h-full items-start justify-center">
+                                    <Icon
+                                      name="chevron-collapse"
+                                      color={colors.zinc900}
+                                      size={16}
+                                      onPress={() => setShowSpecifics(false)}
                                     />
                                   </View>
                                 </View>
-
-                                {/* Buttons */}
-                                <View className="absolute flex flex-col right-[-30px]">
-                                  {/* change */}
-                                  <Icon
-                                    name="checkmark-circle"
-                                    size={22}
-                                    color={colors.zinc800}
-                                    onPress={() => changeSnackNameData()}
-                                  />
-                                  {/* close */}
-                                  <Icon
-                                    name="close-circle"
-                                    size={22}
-                                    color={colors.zinc800}
-                                    onPress={() => setEditVariantIndices({"snack": -1, "variant": -1})}
-                                  />
-                                </View>
+                                }
+                                                          
+                                {/* Details */}
+                                {!showSpecifics && (
+                                  <View className="flex flex-col w-1/4 bg-zinc350 justify-center space-y-0.5 py-1">
+            
+                                    {/* expand specifics */}
+                                    <View className="absolute left-[-20px] h-full items-center justify-center">
+                                      <Icon
+                                        name="resize"
+                                        color={colors.zinc900}
+                                        size={16}
+                                        onPress={() => setShowSpecifics(true)}
+                                      />
+                                    </View>
+                                    
+                                    {/* total calories */}
+                                    <Text className="text-theme900 font-medium text-[11px] text-center">
+                                      {snack[currIndex].snackCal} {"cal"}
+                                    </Text>
+                                    {/* total price */}
+                                    <Text className="text-theme900 font-medium text-[11px] text-center">
+                                      {"$"}{snack[currIndex].snackPrice}
+                                    </Text>
+                                  </View>
+                                )}
                               </View>
                             }
-                          </>
-                        : keywordType === "snack title"
-                        &&
-                          <View className="flex flex-row w-full bg-black">
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  />
+                : !(editVariantIndices.snack !== -1 && keywordType === "snack title")
+                &&
+                  <View className="py-1 px-3 bg-zinc500 border-2 border-zinc600">
+                    <Text className="italic text-center text-white font-medium">
+                      no snacks match the current filter
+                    </Text>
+                  </View>
+                }
+              </View>
 
-                            {/* Ingredient List */}
-                            {!showSpecifics
-                            ? // not showing specific amounts
-                            <View className="flex flex-col w-3/4 bg-zinc300 py-1 items-start justify-center">
-                              {snack[currIndex]?.snackData?.map((current, i) => 
-                                current !== null && (
-                                  <View key={i} className="flex flex-row w-full pl-2 pr-5 space-x-1">
-                                    {/* current ingredient name */}
-                                    <Text className="text-zinc800 text-[11px] text-center">
-                                      {"⁃"}
-                                    </Text>
-                                    <Text className="text-zinc800 text-[11px] text-left pr-2">
-                                      {current.name}
-                                    </Text>
-                                  </View>
-                                )
-                              )}
-                            </View>
-                            : 
-                            // showing specific amounts
-                            <View className="flex w-full bg-zinc300 items-start justify-center">
-                              <>
-                              {snack[currIndex]?.snackData?.map((current, i) => 
-                                current !== null && (
-                                  <View key={i} className="flex flex-row">
 
-                                    {/* INGREDIENT NAME */}
-                                    <View className={`${(i === 0) && "pt-1"} ${(i === snack[currIndex].snackData.filter(curr => curr !== null).length - 1) && "pb-1"} w-3/4 flex flex-row pl-2 pr-5 space-x-1`}>
-                                      <Text className="text-zinc800 text-[11px] text-center">
-                                        {"⁃"}
-                                      </Text>
-                                      <Text className="text-zinc800 text-[11px] text-left pr-2">
-                                        {`${current.name}`}
-                                      </Text>
-                                    </View>
+              {/* Editing Snack Title Data */}
+              {(editVariantIndices.snack !== -1 && keywordType === "snack title") && (
+                <View className="flex flex-col justify-center items-center w-full ml-[-10px] mb-2">
 
-                                    {/* INGREDIENT AMOUNT */}
-                                    <View className={`${(i === 0) && "pt-1"} ${(i === snack[currIndex].snackData.filter(curr => curr !== null).length - 1) && "pb-1"} w-1/4 justify-center items-center bg-zinc350`}>
-                                      <Text className="text-theme900 font-medium text-[9px] text-center">
-                                        {`${current.amount} ${current.unit}`}
-                                      </Text>
-                                    </View>
-                                  </View>
-                                )
-                              )}
-                              </>
+                  {/* TOP ROW */}
+                  <View className="flex flex-row items-center justify-center border-0.5 ml-[20px] mb-2 bg-zinc600">
 
-                              {/* collapse specifics */}
-                              <View className="absolute w-1/4 right-0 mr-[20px] z-20 h-full items-start justify-center">
-                                <Icon
-                                  name="chevron-collapse"
-                                  color={colors.zinc900}
-                                  size={16}
-                                  onPress={() => setShowSpecifics(false)}
+                    {/* Title */}
+                    <View className="flex justify-center items-center px-1.5 py-1 w-1/2 border-r-0.5 bg-zinc700">
+                      <TextInput
+                        className="w-full text-center mb-1 font-semibold text-[12px] text-white leading-[15px]"
+                        placeholder={filteredNames[editVariantIndices.snack]}
+                        placeholderTextColor={colors.zinc400}
+                        multiline={true}
+                        blurOnSubmit={true}
+                        value={editedVariant?.snackTitle}
+                        onChangeText={(value) => {
+                          setEditedVariant((prev) => {
+                            const updated = { ...prev }; 
+                            updated["snackTitle"] = value;
+                            return updated;
+                          })
+                        }}
+                      />
+                    </View>
+
+                    {/* Meal Details */}
+                    <View className="flex flex-row space-x-4 justify-center items-center w-1/2 py-1">
+
+                      {/* calories */}
+                      <Text className="text-[11px] text-white">
+                          {editedVariant?.snackCal === "" ? "0" : editedVariant?.snackCal || "0"}{" cal"}
+                      </Text>
+
+                      {/* price */}
+                      <Text className="text-[11px] text-white">
+                        {"$"}{editedVariant?.snackPrice === "" ? "0.00" : editedVariant?.snackPrice || "0.00"}
+                      </Text>
+                    </View>
+
+                    {/* Clearing Data */}
+                    <View className="absolute right-[-20px]">
+                      <Icon
+                        name="trash"
+                        size={18}
+                        color={colors.mauve500}
+                        onPress={() => clearData()}
+                      />
+                    </View>
+                  </View> 
+
+                  {/* GRID */}
+                  {(editedVariant?.snackData !== null) && (
+                    <ScrollView 
+                      className={`flex flex-col w-full mr-[-40px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) && "max-h-[100px]"}`}
+                      scrollEnabled={keyboardType === "grid" && isKeyboardOpen}
+                    >
+                        
+                      {/* Frozen Columns */}
+                      {editedVariant?.snackData?.map((snack, index) =>  
+                        <View key={`frozen-${index}`} className="flex flex-row min-h-[30px]">
+                        
+                          {/* snack */}
+                          <View className={`flex-1 flex-row bg-zinc500 border-x-[1px] ${(index === 0) && "border-t-[1px]"} ${(index === editedVariant?.snackData.length - 1) && "border-b-[1px]"} border-zinc700`}>
+                            
+                            {/* snack names */}
+                            <View className="flex items-center justify-center w-1/2 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">
+                              <View className="flex flex-wrap flex-row">
+                                {/* Input */}
+                                <TextInput
+                                  className="w-full text-white font-semibold text-[10px] text-center px-2 pb-1"
+                                  placeholder="snack name"
+                                  placeholderTextColor={colors.zinc350}
+                                  value={snack.name || ""}
+                                  onChangeText={(value) => {
+                                    setEditedVariant((prev) => ({
+                                      ...prev,
+                                      snackData: prev.snackData.map((snack, idx) =>
+                                        index === idx ? { ...snack, name: value } : snack
+                                      ),
+                                    }));
+                                  }}
+                                  multiline={true}
+                                  blurOnSubmit={true}
+                                  onFocus={() => setKeyboardType("grid")}
+                                  onBlur={() => setKeyboardType("")}
                                 />
                               </View>
                             </View>
-                            }
-                                                      
+
+                            {/* amount */}
+                            <View className="flex flex-row px-2 w-1/3 space-x-1 items-center justify-center bg-zinc100 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc300">
+                              {/* Amount Input */}
+                              <TextInput
+                                className="text-[9px] flex text-center h-full pl-4"
+                                placeholder="_"
+                                placeholderTextColor={colors.zinc450}
+                                value={snack.amount}
+                                onChangeText={(value) => {
+                                  setEditedVariant((prev) => ({
+                                    ...prev,
+                                    snackData: prev.snackData.map((snack, idx) =>
+                                      index === idx ? { ...snack, amount: validateFractionInput(value) } : snack
+                                    ),
+                                  }));
+                                }}
+                                onFocus={() => setKeyboardType("grid")}
+                                onBlur={() => setKeyboardType("")}
+                              />
+                              {/* Unit Input */}
+                              <TextInput
+                                className="text-[9px] leading-[12px] flex text-center pr-4 py-1"
+                                placeholder="unit(s)"
+                                placeholderTextColor={colors.zinc450}
+                                value={snack.unit}
+                                onChangeText={(value) => {
+                                  setEditedVariant((prev) => ({
+                                    ...prev,
+                                    snackData: prev.snackData.map((snack, idx) =>
+                                      index === idx ? { ...snack, unit: value } : snack
+                                    ),
+                                  }));
+                                }}
+                                multiline={true}
+                                blurOnSubmit={true}
+                                onFocus={() => setKeyboardType("grid")}
+                                onBlur={() => setKeyboardType("")}
+                              />
+                            </View>
+                            
                             {/* Details */}
-                            {!showSpecifics && (
-                              <View className="flex flex-col w-1/4 bg-zinc350 justify-center space-y-0.5 py-1">
-        
-                                {/* expand specifics */}
-                                <View className="absolute left-[-20px] h-full items-center justify-center">
-                                  <Icon
-                                    name="resize"
-                                    color={colors.zinc900}
-                                    size={16}
-                                    onPress={() => setShowSpecifics(true)}
-                                  />
-                                </View>
+                            <View className="flex flex-col w-1/6 items-center justify-center py-1.5 px-1 space-y-0.5 bg-white border-b-0.5 border-zinc400">
+
+                              {/* calories */}
+                              <View className="flex flex-row w-full space-x-0.5 justify-center items-center bg-white">
                                 
-                                {/* total calories */}
-                                <Text className="text-theme900 font-medium text-[11px] text-center">
-                                  {snack[currIndex].snackCal} {"cal"}
-                                </Text>
-                                {/* total price */}
-                                <Text className="text-theme900 font-medium text-[11px] text-center">
-                                  {"$"}{snack[currIndex].snackPrice}
+                                {/* Amount Input */}
+                                <TextInput
+                                  className="text-[8px] flex-auto text-right"
+                                  placeholder="_"
+                                  placeholderTextColor={colors.zinc400}
+                                  value={snack.cal}
+                                  onChangeText={(value) => {
+                                    setEditedVariant((prev) => {
+                                      const updatedSnackData = prev.snackData.map((snack, i) =>
+                                        i === index ? { ...snack, cal: validateWholeNumberInput(value) } : snack
+                                      );
+                                      return {
+                                        ...prev,
+                                        snackData: updatedSnackData,
+                                        snackCal: updatedSnackData.reduce((sum, snack) => sum + Number(snack.cal || 0), 0).toFixed(0),
+                                      };
+                                    });
+                                  }}
+                                  onFocus={() => setKeyboardType("grid")}
+                                  onBlur={() => {
+                                    setKeyboardType("");
+                                    setEditedVariant((prev) => {
+                                      const updatedSnackData = prev.snackData.map((snack, i) =>
+                                        i === index ? { ...snack, cal: snack.cal === "" ? "0" : (snack.cal * 1).toFixed(0) } : snack
+                                      );
+                                      return {
+                                        ...prev,
+                                        snackData: updatedSnackData,
+                                        snackCal: updatedSnackData.reduce((sum, snack) => sum + Number(snack.cal || 0), 0).toFixed(0),
+                                      };
+                                    });
+                                  }}
+                                />
+
+                                {/* Label */}
+                                <Text className="text-[8px] flex-auto text-left">
+                                  {"cal"}
                                 </Text>
                               </View>
-                            )}
+
+                              {/* price */}
+                              <View className="flex flex-row w-full justify-center items-center bg-white">
+
+                                {/* Label */}
+                                <Text className="text-[8px] flex-auto text-right">
+                                  {"$"}
+                                </Text>
+                                
+                                {/* Amount Input */}
+                                <TextInput
+                                  className="text-[8px] flex-auto text-left"
+                                  placeholder="_"
+                                  placeholderTextColor={colors.zinc400}
+                                  value={snack.price}
+                                  onChangeText={(value) => {
+                                    setEditedVariant((prev) => {
+                                      const updatedSnackData = prev.snackData.map((snack, i) =>
+                                        i === index ? { ...snack, price: validateDecimalInput(value) } : snack
+                                      );
+                                      return {
+                                        ...prev,
+                                        snackData: updatedSnackData,
+                                        snackPrice: updatedSnackData.reduce((sum, snack) => sum + Number(snack.price || 0), 0).toFixed(2),
+                                      };
+                                    });
+                                  }}
+                                  onFocus={() => setKeyboardType("grid")}
+                                  onBlur={() => {
+                                    setKeyboardType("");
+                                    setEditedVariant((prev) => {
+                                      const updatedSnackData = prev.snackData.map((snack, i) =>
+                                        i === index ? { ...snack, price: snack.price === "" ? "0.00" : (snack.price * 1).toFixed(2), } : snack
+                                      );
+                                      return {
+                                        ...prev,
+                                        snackData: updatedSnackData,
+                                        snackPrice: updatedSnackData.reduce((sum, snack) => sum + Number(snack.price || 0), 0).toFixed(2),
+                                      };
+                                    });
+                                  }}
+                                />
+                              </View>
+                            </View>
                           </View>
-                        }
-                      </View>
-                    )}
+
+                          {/* Delete Current Snack */}
+                          <View className="flex w-[20px] z-50 justify-center items-center">
+                            <Icon
+                              name="close"
+                              size={15}
+                              color={colors.zinc600}
+                              onPress={() => deleteSnack(index)}
+                            />
+                          </View>
+                        </View>
+                      )}
+                    </ScrollView>
+                  )}
+
+                  {/* Add Another Snack Row */}
+                  <View className="flex flex-row items-center justify-center ml-[20px]">
+                    <TouchableOpacity 
+                      className="flex justify-center items-center bg-zinc350 w-full py-0.5 border-b-[1px] border-x-[1px] border-zinc400"
+                      onPress={() => addSnack()}
+                    >
+                      <Icon
+                        name="add"
+                        size={14}
+                        color={colors.zinc900}
+                      />
+                    </TouchableOpacity>
                   </View>
-                )}
-              />
-            : !(editVariantIndices.snack !== -1 && keywordType === "snack title")
-            &&
-              <View className="py-1 px-3 bg-zinc500 border-2 border-zinc600">
-                <Text className="italic text-center text-white font-medium">
-                  no snacks match the current filter
-                </Text>
-              </View>
-            }
-          </View>
-
-
-
-
-          {/* Editing Snack Title Data */}
-          {(editVariantIndices.snack !== -1 && keywordType === "snack title") && (
-            <View className="flex flex-col justify-center items-center w-full ml-[-10px] mb-2">
-
-              {/* TOP ROW */}
-              <View className="flex flex-row items-center justify-center border-0.5 ml-[20px] mb-2 bg-zinc600">
-
-                {/* Title */}
-                <View className="flex justify-center items-center px-1.5 py-1 w-1/2 border-r-0.5 bg-zinc700">
-                  <TextInput
-                    className="w-full text-center mb-1 font-semibold text-[12px] text-white leading-[15px]"
-                    placeholder={filteredNames[editVariantIndices.snack]}
-                    placeholderTextColor={colors.zinc400}
-                    multiline={true}
-                    blurOnSubmit={true}
-                    value={editedVariant?.snackTitle}
-                    onChangeText={(value) => {
-                      setEditedVariant((prev) => {
-                        const updated = { ...prev }; 
-                        updated["snackTitle"] = value;
-                        return updated;
-                      })
-                    }}
-                  />
                 </View>
+              )}
+                                      
+              
+              {(isEditing && !(editVariantIndices.snack !== -1 && keywordType === "snack title")) && (
+                <>
+                  {/* Divider */}
+                  <View className="h-[1px] bg-zinc400 w-full my-2"/>
 
-                {/* Meal Details */}
-                <View className="flex flex-row space-x-4 justify-center items-center w-1/2 py-1">
+                  {/* BOTTOM ROW */}
+                  <View className="flex flex-row items-center justify-between w-full">
 
-                  {/* calories */}
-                  <Text className="text-[11px] text-white">
-                      {editedVariant?.snackCal === "" ? "0" : editedVariant?.snackCal || "0"}{" cal"}
-                  </Text>
+                    {/* Buttons */}
+                    <View className="flex flex-row w-full justify-end items-center ml-auto">
 
-                  {/* price */}
-                  <Text className="text-[11px] text-white">
-                    {"$"}{editedVariant?.snackPrice === "" ? "0.00" : editedVariant?.snackPrice || "0.00"}
-                  </Text>
-                </View>
+                      {/* submit */}
+                      <Icon 
+                        size={24}
+                        color="black"
+                        name="checkmark-done"
+                        onPress={() => submitChanges()}
+                      />
+                    </View>
+                  </View>
+                </>
+              )}
+            </View>
 
-                {/* Clearing Data */}
-                <View className="absolute right-[-20px]">
-                  <Icon
-                    name="trash"
-                    size={18}
-                    color={colors.mauve500}
-                    onPress={() => clearData()}
-                  />
-                </View>
-              </View> 
 
-              {/* GRID */}
-              {(editedVariant?.snackData !== null) && (
-                <ScrollView 
-                  className={`flex flex-col w-full mr-[-40px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) && "max-h-[100px]"}`}
-                  scrollEnabled={keyboardType === "grid" && isKeyboardOpen}
-                >
+
+          // INVENTORY
+          ) : (
+            <View className="flex flex-col items-center justify-center w-full">
+
+              {/* Inventory Map */}
+              {(inventoryList !== null && inventoryList?.length > 0) ? (
+                <View className="ml-6 pr-6 w-full">
+                  {/* COLLECTIONS */}
+                  <View className="w-full flex flex-col justify-center items-center bg-white border-2 border-zinc400">
                     
-                  {/* Frozen Columns */}
-                  {editedVariant?.snackData?.map((snack, index) =>  
-                    <View key={`frozen-${index}`} className="flex flex-row min-h-[30px]">
-                    
-                      {/* snack */}
-                      <View className={`flex-1 flex-row bg-zinc500 border-x-[1px] ${(index === 0) && "border-t-[1px]"} ${(index === editedVariant?.snackData.length - 1) && "border-b-[1px]"} border-zinc700`}>
-                        
-                        {/* snack names */}
-                        <View className="flex items-center justify-center w-1/2 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">
-                          <View className="flex flex-wrap flex-row">
-                            {/* Input */}
-                            <TextInput
-                              className="w-full text-white font-semibold text-[10px] text-center px-2 pb-1"
-                              placeholder="snack name"
-                              placeholderTextColor={colors.zinc350}
-                              value={snack.name || ""}
-                              onChangeText={(value) => {
-                                setEditedVariant((prev) => ({
-                                  ...prev,
-                                  snackData: prev.snackData.map((snack, index) =>
-                                    index === editVariantIndices.variant
-                                      ? { ...snack, name: value }
-                                      : snack
-                                  ),
-                                }));
-                              }}
-                              multiline={true}
-                              blurOnSubmit={true}
-                              onFocus={() => setKeyboardType("grid")}
-                              onBlur={() => setKeyboardType("")}
-                            />
-                          </View>
+                    {/* Name & Header */}
+                    <View className="flex flex-row justify-center items-center w-full py-1 px-2 border-b border-b-zinc450 bg-zinc-400">
+                      
+                      {/* EDIT */}
+                      {isEditingCollection ? (
+                        <TextInput
+                          className={`text-center font-bold pt-1.5 h-[30px] text-zinc100 px-4 ${(inventoryList.find(c => c.id === selectedCollection)?.data?.collectionName === "") && "italic"}`}
+                          placeholder="collection name"
+                          placeholderTextColor={colors.zinc300}
+                          value={inventoryList.find(c => c.id === selectedCollection)?.data?.collectionName || ""}
+                          onChangeText={(value) => {
+                            setInventoryList(prevList =>
+                              prevList.map((item) =>
+                                item.id === selectedCollection
+                                  ? { ...item, data: { ...item.data, collectionName: value } } 
+                                  : item
+                              )
+                            );
+                          }}
+                          multiline={true}
+                          blurOnSubmit={true}
+                          onFocus={() => setKeyboardType("inventory")}
+                          onBlur={() => updateCollection()}
+                        />
+
+                      // SELECT
+                      ) : (
+                        <View className="flex w-full overflow-hidden">
+                          <Picker
+                            selectedValue={selectedCollection}
+                            onValueChange={setSelectedCollection}
+                            style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, backgroundColor: colors.zinc400 }}
+                            itemStyle={{ color: selectedCollection === null ? colors.mauve950 : 'white', fontWeight: '700', textAlign: 'center', fontSize: 14, }}
+                          >
+                            {[{ id: null, data: {collectionName: "no collection selected" } }, ...inventoryList].map((coll) => (
+                                <Picker.Item
+                                  key={coll.id}
+                                  label={coll.data.collectionName}
+                                  value={coll.id}
+                                />
+                              ))
+                            }
+                          </Picker>
                         </View>
+                      )}
 
-                        {/* amount */}
-                        <View className="flex flex-row px-2 w-1/3 space-x-1 items-center justify-center bg-zinc100 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc300">
-                          {/* Amount Input */}
-                          <TextInput
-                            className="text-[9px] flex text-center h-full pl-4"
-                            placeholder="_"
-                            placeholderTextColor={colors.zinc450}
-                            value={snack.amount}
-                            onChangeText={(value) => {
-                              setEditedVariant((prev) => ({
-                                ...prev,
-                                snackData: prev.snackData.map((snack, index) =>
-                                  index === editVariantIndices.variant
-                                    ? { ...snack, amount: validateFractionInput(value) }
-                                    : snack
-                                ),
-                              }));
-                            }}
-                            onFocus={() => setKeyboardType("grid")}
-                            onBlur={() => setKeyboardType("")}
+                      {/* inner buttons */}
+                      {(selectedCollection !== null && !isEditingCollection) ? (
+                        <View className="absolute flex flex-col right-1">
+                          {/* edit */}
+                          <Icon
+                            name="create"
+                            color={colors.zinc100}
+                            size={16}
+                            onPress={() => setIsEditingCollection(true)}
                           />
-                          {/* Unit Input */}
-                          <TextInput
-                            className="text-[9px] leading-[12px] flex text-center pr-4 py-1"
-                            placeholder="unit(s)"
-                            placeholderTextColor={colors.zinc450}
-                            value={snack.unit}
-                            onChangeText={(value) => {
-                              setEditedVariant((prev) => ({
-                                ...prev,
-                                snackData: prev.snackData.map((snack, index) =>
-                                  index === editVariantIndices.variant
-                                    ? { ...snack, unit: value }
-                                    : snack
-                                ),
-                              }));
-                            }}
-                            multiline={true}
-                            blurOnSubmit={true}
-                            onFocus={() => setKeyboardType("grid")}
-                            onBlur={() => setKeyboardType("")}
+                          {/* delete */}
+                          <Icon
+                            name="close"
+                            color={colors.zinc100}
+                            size={16}
+                            onPress={() => deleteCollection()}
                           />
                         </View>
-                        
-                        {/* Details */}
-                        <View className="flex flex-col w-1/6 items-center justify-center py-1.5 px-1 space-y-0.5 bg-white border-b-0.5 border-zinc400">
-
-                          {/* calories */}
-                          <View className="flex flex-row w-full space-x-0.5 justify-center items-center bg-white">
-                            
-                            {/* Amount Input */}
-                            <TextInput
-                              className="text-[8px] flex-auto text-right"
-                              placeholder="_"
-                              placeholderTextColor={colors.zinc400}
-                              value={snack.cal}
-                              onChangeText={(value) => {
-                                setEditedVariant((prev) => {
-                                  const updatedSnackData = prev.snackData.map((snack, i) =>
-                                    i === index ? { ...snack, cal: validateWholeNumberInput(value) } : snack
-                                  );
-                                  return {
-                                    ...prev,
-                                    snackData: updatedSnackData,
-                                    snackCal: updatedSnackData.reduce((sum, snack) => sum + Number(snack.cal || 0), 0).toFixed(0),
-                                  };
-                                });
-                              }}
-                              onFocus={() => setKeyboardType("grid")}
-                              onBlur={() => {
-                                setKeyboardType("");
-                                setEditedVariant((prev) => {
-                                  const updatedSnackData = prev.snackData.map((snack, i) =>
-                                    i === index ? { ...snack, cal: snack.cal === "" ? "0" : (snack.cal * 1).toFixed(0) } : snack
-                                  );
-                                  return {
-                                    ...prev,
-                                    snackData: updatedSnackData,
-                                    snackCal: updatedSnackData.reduce((sum, snack) => sum + Number(snack.cal || 0), 0).toFixed(0),
-                                  };
-                                });
-                              }}
-                            />
-
-                            {/* Label */}
-                            <Text className="text-[8px] flex-auto text-left">
-                              {"cal"}
-                            </Text>
-                          </View>
-
-                          {/* price */}
-                          <View className="flex flex-row w-full justify-center items-center bg-white">
-
-                            {/* Label */}
-                            <Text className="text-[8px] flex-auto text-right">
-                              {"$"}
-                            </Text>
-                            
-                            {/* Amount Input */}
-                            <TextInput
-                              className="text-[8px] flex-auto text-left"
-                              placeholder="_"
-                              placeholderTextColor={colors.zinc400}
-                              value={snack.price}
-                              onChangeText={(value) => {
-                                setEditedVariant((prev) => {
-                                  const updatedSnackData = prev.snackData.map((snack, i) =>
-                                    i === index ? { ...snack, price: validateDecimalInput(value) } : snack
-                                  );
-                                  return {
-                                    ...prev,
-                                    snackData: updatedSnackData,
-                                    snackPrice: updatedSnackData.reduce((sum, snack) => sum + Number(snack.price || 0), 0).toFixed(2),
-                                  };
-                                });
-                              }}
-                              onFocus={() => setKeyboardType("grid")}
-                              onBlur={() => {
-                                setKeyboardType("");
-                                setEditedVariant((prev) => {
-                                  const updatedSnackData = prev.snackData.map((snack, i) =>
-                                    i === index ? { ...snack, price: snack.price === "" ? "0.00" : (snack.price * 1).toFixed(2), } : snack
-                                  );
-                                  return {
-                                    ...prev,
-                                    snackData: updatedSnackData,
-                                    snackPrice: updatedSnackData.reduce((sum, snack) => sum + Number(snack.price || 0), 0).toFixed(2),
-                                  };
-                                });
-                              }}
-                            />
-                          </View>
+                      ) : (selectedCollection !== null) && (
+                        <View className="absolute flex flex-col right-1">
+                          {/* done */}
+                          <Icon
+                            name="checkbox"
+                            color={colors.zinc100}
+                            size={20}
+                            onPress={() => {
+                              setIsEditingCollection(false);
+                              updateCollection();
+                            }}
+                          />
                         </View>
-                      </View>
+                      )}
 
-                      {/* Delete Current Snack */}
-                      <View className="flex w-[20px] z-50 justify-center items-center">
+                      {/* outer button - add */}
+                      <View className="absolute -right-[24px]">
                         <Icon
-                          name="close"
-                          size={15}
-                          color={colors.zinc600}
-                          onPress={() => deleteSnack(index)}
+                          name="add-circle"
+                          color={colors.theme800}
+                          size={20}
+                          onPress={() => addCollection()}
                         />
                       </View>
                     </View>
+                    
+                    {/* SNACKS */}
+                    <ScrollView className={`${(keyboardType === "inventory") ? "max-h-[300px]" : "max-h-[400px]"} bg-zinc300`}>
+                      {inventoryList.find(c => c.id === selectedCollection)?.data?.collectionSnacks?.map((snack, idx) => (
+                        <View key={idx} className="relative w-full flex flex-row bg-white border-b border-b-zinc400">
+
+                          {/* Name */}
+                          <View className={`w-[32.5%] justify-center items-center bg-theme200 py-3 px-2 ${(snack?.totalAmount === "" || new Fraction(snack?.totalAmount).numerator / new Fraction(snack?.totalAmount).denominator > 0) ? "bg-theme200" : "bg-mauve100"}`}>
+                            <TextInput
+                              className={`text-[12px] text-center pb-0.5 font-medium ${(snack?.name === "" && "italic")}`}
+                              placeholder="snack name"
+                              placeholderTextColor={colors.zinc450}
+                              value={snack?.name || ""}
+                              onChangeText={(value) => {
+                                setInventoryList(prevList =>
+                                  prevList.map((item) =>
+                                    item.id === selectedCollection
+                                      ? {...item, data: {
+                                            ...item.data,
+                                            collectionSnacks: item.data.collectionSnacks.map((snack, j) => j === idx ? { ...snack, name: value } : snack ),
+                                          },
+                                        }
+                                      : item
+                                  )
+                                );
+                              }}
+                              multiline={true}
+                              blurOnSubmit={true}
+                              scrollEnabled={false}
+                              onFocus={() => setKeyboardType("inventory")}
+                              onBlur={() => updateCollection()}
+                            />
+                          </View>
+
+                          {/* Details */}
+                          <View className="w-[50%] flex flex-col justify-center items-center space-y-1 py-2 px-2">
+
+                            {/* amount */}
+                            <View className="flex flex-row items-center space-x-1">
+                              {/* total */}
+                              <TextInput
+                                className="text-[12px] text-center text-zinc900"
+                                placeholder="_"
+                                placeholderTextColor={colors.zinc450}
+                                value={snack?.totalAmount || ""}
+                                onChangeText={(value) => {
+                                  setInventoryList(prevList =>
+                                    prevList.map((item) =>
+                                      item.id === selectedCollection
+                                        ? {...item, data: {
+                                              ...item.data,
+                                              collectionSnacks: item.data.collectionSnacks.map((snack, j) => j === idx 
+                                                ? { ...snack, totalAmount: validateFractionInput(value) } 
+                                                : snack 
+                                              ),
+                                            },
+                                          }
+                                        : item
+                                    )
+                                  );
+                                }}
+                                onFocus={() => setKeyboardType("inventory")}
+                                onBlur={() => updateCollection()}
+                              />
+                              {/* unit */}
+                              <TextInput
+                                className="text-[12px] text-center text-zinc900"
+                                placeholder="unit(s)"
+                                placeholderTextColor={colors.zinc450}
+                                value={snack?.unit || ""}
+                                onChangeText={(value) => {
+                                  setInventoryList(prevList =>
+                                    prevList.map((item) =>
+                                      item.id === selectedCollection
+                                        ? {...item, data: {
+                                              ...item.data,
+                                              collectionSnacks: item.data.collectionSnacks.map((snack, j) => j === idx 
+                                                ? { ...snack, unit: value } 
+                                                : snack 
+                                              ),
+                                            },
+                                          }
+                                        : item
+                                    )
+                                  );
+                                }}
+                                onFocus={() => setKeyboardType("inventory")}
+                                onBlur={() => updateCollection()}
+                              />
+                            </View>
+
+                            {/* per serving */}
+                            <View className="flex flex-row w-full justify-evenly items-center">
+                              {/* PER */}
+                              <View className="flex flex-row">
+                                <Text className="text-[11px] text-theme700 font-semibold pr-1">PER</Text>
+                                <TextInput
+                                  className="text-[11px] text-theme700 font-semibold"
+                                  placeholder="_"
+                                  placeholderTextColor={colors.zinc450}
+                                  value={snack?.servingSize || ""}
+                                  onChangeText={(value) => {
+                                    setInventoryList(prevList =>
+                                      prevList.map((item) =>
+                                        item.id === selectedCollection
+                                          ? {...item, data: {
+                                                ...item.data,
+                                                collectionSnacks: item.data.collectionSnacks.map((snack, j) => j === idx 
+                                                  ? { ...snack, servingSize: validateFractionInput(value) } 
+                                                  : snack 
+                                                ),
+                                              },
+                                            }
+                                          : item
+                                      )
+                                    );
+                                  }}
+                                  onFocus={() => setKeyboardType("inventory")}
+                                  onBlur={() => updateCollection()}
+                                />
+                                <Text className="text-[11px] text-theme700 font-semibold pr-1">:</Text>
+                              </View>
+                              {/* cal */}
+                              <View className="flex flex-row">
+                                <TextInput
+                                  className="text-[11px] text-theme700"
+                                  placeholder="_"
+                                  placeholderTextColor={colors.zinc450}
+                                  value={snack?.calServing || ""}
+                                  onChangeText={(value) => {
+                                    setInventoryList(prevList =>
+                                      prevList.map((item) =>
+                                        item.id === selectedCollection
+                                          ? {...item, data: {
+                                                ...item.data,
+                                                collectionSnacks: item.data.collectionSnacks.map((snack, j) => j === idx 
+                                                  ? { ...snack, calServing: validateWholeNumberInput(value) } 
+                                                  : snack 
+                                                ),
+                                              },
+                                            }
+                                          : item
+                                      )
+                                    );
+                                  }}
+                                  onFocus={() => setKeyboardType("inventory")}
+                                  onBlur={() => updateCollection()}
+                                />
+                                <Text className="text-[11px] text-theme700 pl-1">cal</Text>
+                              </View>
+                              {/* price */}
+                              <View className="flex flex-row">
+                                <Text className="text-[11px] text-theme700">$</Text>
+                                <TextInput
+                                  className="text-[11px] text-theme700"
+                                  placeholder="_"
+                                  placeholderTextColor={colors.zinc450}
+                                  value={snack?.priceServing || ""}
+                                  onChangeText={(value) => {
+                                    setInventoryList(prevList =>
+                                      prevList.map((item) =>
+                                        item.id === selectedCollection
+                                          ? {...item, data: {
+                                                ...item.data,
+                                                collectionSnacks: item.data.collectionSnacks.map((snack, j) => j === idx 
+                                                  ? { ...snack, priceServing: validateDecimalInput(value) } 
+                                                  : snack 
+                                                ),
+                                              },
+                                            }
+                                          : item
+                                      )
+                                    );
+                                  }}
+                                  onFocus={() => setKeyboardType("inventory")}
+                                  onBlur={() => updateCollection()}
+                                />
+                              </View>
+                            </View>
+                          </View>
+
+                          {/* Expiration Date */}
+                          <TouchableOpacity 
+                            className={`w-[17.5%] flex flex-col justify-center items-center bg-zinc100 px-2  ${(snack?.expDate?.toDate() < new Date()) ? "bg-rose-200" : (snack?.expDate?.toDate() < new Date(new Date().setMonth(new Date().getMonth() + 3))) ? "bg-amber-200" : snack?.expDate !== null && "bg-emerald-200"}`}
+                            onPress={() => {
+                              setCalendarCollection(inventoryList.find(c => c.id === selectedCollection))
+                              setCalendarSnack(idx)
+                              setCalendarModalVisible(true)
+                              setCalendarDate(formatCalendarDate(snack.expDate))
+                            }}
+                          >
+                            {/* m / d */}
+                            <Text className="text-[12px] italic text-zinc700">
+                              {snack?.expDate?.toDate().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) || ""}
+                            </Text>
+                            {/* yyyy */}
+                            {(snack?.expDate?.toDate().getFullYear() !== new Date().getFullYear()) && (
+                              <Text className="text-[12px] text-zinc700 italic">
+                                {snack.expDate?.toDate().toLocaleDateString('en-US', { year: 'numeric' }) || ""}
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+
+                          {/* Delete */}
+                          <View className="z-50 absolute h-full right-0 top-0">
+                            <Icon
+                              name="close-outline"
+                              size={14}
+                              color={colors.zinc700}
+                              onPress={() => deleteCollSnack(idx)}
+                            />
+                          </View>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  {/* Add Snack */}
+                  {(selectedCollection !== null) && (
+                    <View className="w-full pt-4">
+                      <TouchableOpacity 
+                        className="flex flex-row justify-center items-center py-1 border border-zinc450 bg-zinc-400"
+                        onPress={() => addCollSnack()}  
+                      >
+                        {/* name */}
+                        <Text className="text-center font-bold text-white text-[16px]">
+                          +
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   )}
-                </ScrollView>
-              )}
 
-              {/* Add Another Snack Row */}
-              <View className="flex flex-row items-center justify-center ml-[20px]">
-                <TouchableOpacity 
-                  className="flex justify-center items-center bg-zinc350 w-full py-0.5 border-b-[1px] border-x-[1px] border-zinc400"
-                  onPress={() => addSnack()}
-                >
-                  <Icon
-                    name="add"
-                    size={14}
-                    color={colors.zinc900}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-                                  
-          
-          {(isEditing && !(editVariantIndices.snack !== -1 && keywordType === "snack title")) && (
-            <>
-              {/* Divider */}
-              <View className="h-[1px] bg-zinc400 w-full my-2"/>
-
-              {/* BOTTOM ROW */}
-              <View className="flex flex-row items-center justify-between w-full">
-
-                {/* Buttons */}
-                <View className="flex flex-row w-full justify-end items-center ml-auto">
-
-                  {/* submit */}
-                  <Icon 
-                    size={24}
-                    color="black"
-                    name="checkmark-done"
-                    onPress={() => submitChanges()}
-                  />
+                  {/* CALENDAR MODAL */}
+                  {calendarModalVisible && (
+                    <CalendarModal
+                      modalVisible={calendarModalVisible}
+                      setModalVisible={setCalendarModalVisible}
+                      closeModal={closeCalendarModal}
+                      globalDate={calendarDate}
+                      allowNull={true}
+                    />
+                  )}
                 </View>
-              </View>
-            </>
+
+              // no collections
+              ) : (
+                <View className="py-1 px-3 bg-zinc500 border-2 border-zinc600">
+                  <Text className="italic text-center text-white font-medium">
+                    no snack collections are available
+                  </Text>
+                </View>
+              )}
+            </View>
           )}
         </View>
       </View>

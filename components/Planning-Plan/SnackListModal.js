@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 
 // UI components
 import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, Keyboard } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 
 // visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -21,7 +22,7 @@ import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
 import { deepSnackIndexOf } from '../Validation/deepSnackSearch';
 
 // initialize firebase app
-import { getFirestore, updateDoc, setDoc, getDoc, doc } from 'firebase/firestore';
+import { getFirestore, updateDoc, setDoc, getDoc, getDocs, collection, doc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
 
@@ -90,6 +91,7 @@ const SnackListModal = ({
       setSnackTitle(data?.snackTitle || "SNACKS");
       setSnackData(data?.snackData || null);
       setIsEditing(data === null || data.snackData === null || data?.snackData?.length === 0);
+      loadInventory();
     }
   }, [modalVisible]);
   
@@ -245,6 +247,23 @@ const SnackListModal = ({
       setDoc(doc(db, 'PLANS', formattedDate), docData);
     }
     
+    // loops over the inventory and updates amounts
+    for (let index = 0; index < updatedInventoryList.length; index++) {
+      const coll = updatedInventoryList[index];
+      let changeColl = false;
+
+      coll.data.collectionSnacks.forEach((snack, idx) => {
+        if (snack.totalAmount !== initialInventoryList[index].data.collectionSnacks[idx].totalAmount) {
+          changeColl = true;
+        }
+      });
+
+      if (changeColl) {
+        await updateDoc(doc(db, 'SNACKS', coll.id), coll.data);
+      }
+    }
+
+
     // closes the modal, indicating that a custom prep was made
     closeModal();
     setModalVisible(false);
@@ -382,7 +401,7 @@ const SnackListModal = ({
   const [filteredNames, setFilteredNames] = useState(null);
   const [filteredData, setFilteredData] = useState(null);
 
-  const [keywordType, setKeywordType] = useState("snack");
+  const [keywordType, setKeywordType] = useState("inventory");
   
   // to filter the list of snacks in the search section
   const filterSnacks = (searchQuery, type) => {
@@ -451,7 +470,7 @@ const SnackListModal = ({
     setCurrIndex(0);
     setShowSnackSearch(false);
     setSnackKeywordQuery("");
-    setKeywordType("snack");
+    setKeywordType("inventory");
   }
 
   // to copy a title from the snack search
@@ -465,7 +484,159 @@ const SnackListModal = ({
     setCurrIndex(0);
     setShowSnackSearch(false);
     setSnackKeywordQuery("");
-    setKeywordType("snack");
+    setKeywordType("inventory");
+  }
+
+
+  ///////////////////////////////// INVENTORY /////////////////////////////////
+  
+  const [inventoryList, setInventoryList] = useState(null);
+  const [initialInventoryList, setInitialInventoryList] = useState(null);
+  const [updatedInventoryList, setUpdatedInventoryList] = useState(null);
+  const [selectedCollection, setSelectedCollection] = useState(null);
+  
+  // gets the snack inventory
+  const loadInventory = async () => {
+    // gets the collection of snacks
+    const querySnapshot = await getDocs(collection(db, 'SNACKS'));
+    
+    // reformats each one to fit initial format
+    const snacksArray1 = querySnapshot.docs
+    .map((docSnap) => {
+      const data = docSnap.data();
+
+      return {
+        id: docSnap.id,
+        data: {
+          collectionName: data.collectionName,
+          collectionSnacks: [...data.collectionSnacks].sort((a, b) => a.name.localeCompare(b.name)),
+        }
+      };
+    })
+    .sort((a, b) => a.data.collectionName.localeCompare(b.data.collectionName));
+    
+    // reformats each one to fit data entry format
+    const snacksArray2 = querySnapshot.docs
+    .map((docSnap) => {
+      const data = docSnap.data();
+
+      return {
+        id: docSnap.id,
+        data: {
+          collectionName: data.collectionName,
+          collectionSnacks: data.collectionSnacks
+            .map(snack => ({
+              ...snack,
+              currAmount: "",
+              currCal: "0",
+              currPrice: "0.00",
+              used: false,
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        }
+      };
+    })
+    .sort((a, b) => a.data.collectionName.localeCompare(b.data.collectionName));
+    
+    // stores the data
+    setInitialInventoryList(snacksArray1);
+    setUpdatedInventoryList(snacksArray1);
+    setInventoryList(snacksArray2);
+  }
+
+  // updates the current amount of a snack
+  const updateCurrInventory = (idx, snack, amt) => {
+
+    // calculations
+    const servingSize = new Fraction(snack.servingSize).numerator / new Fraction(snack.servingSize).denominator;
+    const amount = new Fraction(amt).numerator / new Fraction(amt).denominator;
+    const cal = (Number(snack.calServing) / servingSize) * amount;
+    const price = (Number(snack.priceServing) / servingSize) * amount;
+    
+    // stores data in state
+    setInventoryList(prevList =>
+      prevList.map((item) =>
+        item.id === selectedCollection
+          ? {...item, data: {
+                ...item.data,
+                collectionSnacks: 
+                  item.data.collectionSnacks.map((snack, j) => j === idx 
+                    ? { ...snack, 
+                        currAmount: amt, 
+                        currCal: isNaN(cal) ? "0" : cal.toFixed(0), 
+                        currPrice: isNaN(price) ? "0.00" : price.toFixed(2) 
+                      } 
+                    : snack 
+                  ),
+              },
+            }
+          : item
+      )
+    );
+  }
+
+  // to store the snack from the inventory
+  const useSnack = async (snack, idx) => {
+
+    // calculations
+    const startAmt = new Fraction(snack.totalAmount).numerator / new Fraction(snack.totalAmount).denominator;
+    const subAmt = new Fraction(snack.currAmount).numerator / new Fraction(snack.currAmount).denominator;
+    const remaining = snack.totalAmount === "" ? "" : new Fractional(startAmt - subAmt).toString();
+    
+    // stores data in state
+    setUpdatedInventoryList(prevList =>
+      prevList.map((item) =>
+        item.id === selectedCollection
+          ? {...item, data: {
+                ...item.data,
+                collectionSnacks: 
+                  item.data.collectionSnacks.map((snack, j) => j === idx 
+                    ? { ...snack, totalAmount: remaining.toString() } 
+                    : snack 
+                  ),
+              },
+            }
+          : item
+      )
+    );
+
+    // stores that this snack was used
+    setInventoryList(prevList =>
+      prevList.map((item) =>
+        item.id === selectedCollection
+          ? {...item, data: {
+                ...item.data,
+                collectionSnacks: 
+                  item.data.collectionSnacks.map((snack, j) => j === idx 
+                    ? { ...snack, used: true } 
+                    : snack 
+                  ),
+              },
+            }
+          : item
+      )
+    );
+    
+    // adds this snack to the list
+    setSnackData((prev) => {
+      const updated = prev === null ? [] : [...prev];
+      updated[updated.length] = {
+        name: snack.name,
+        amount: snack.currAmount,
+        unit: extractUnit(snack.unit, snack.currAmount),
+        cal: snack.currCal,
+        price: snack.currPrice,
+      }
+      return updated;
+    })
+
+    // resets states
+    setOpenIndex(-1);
+    setShowSpecifics(false);
+    setCurrIndex(0);
+    setShowSnackSearch(false);
+    setSnackKeywordQuery("");
+    setKeywordType("inventory");
   }
 
 
@@ -479,7 +650,7 @@ const SnackListModal = ({
       visible={modalVisible}
       onRequestClose={() => setModalVisible(false)}
     >
-      <View className="flex-1 justify-center items-center">
+      <View className={`flex-1 justify-center items-center ${(isKeyboardOpen && keyboardType === "inventory") && "mb-[200px]"}`}>
       
         {/* Background Overlay */}
         <View className="absolute bg-black opacity-50 w-full h-full"/>
@@ -754,7 +925,7 @@ const SnackListModal = ({
               {/* SEARCH TOGGLE */}
               {isEditing && (
                 <TouchableOpacity 
-                  className={`flex flex-row justify-center items-center px-5 py-1 mt-4 ml-[20px] ${(keyboardType === "grid" && isKeyboardOpen) && "mb-6"} rounded-full space-x-1 bg-theme200 border-[1px] border-zinc350`}
+                  className={`flex flex-row justify-center items-center px-5 py-1 mt-4 ml-[20px] ${(keyboardType === "grid" && isKeyboardOpen) && "mb-0"} rounded-full space-x-1 bg-theme200 border-[1px] border-zinc350`}
                   onPress={() => setShowSnackSearch(true)}
                 >
                   {/* search button */}
@@ -770,8 +941,9 @@ const SnackListModal = ({
                 </TouchableOpacity>
               )}
             </View>
-          : 
-            // SEARCHING
+
+          // GENERAL SEARCHING
+          : (keywordType !== "inventory") ? (
             <View className="flex w-full mb-2">
                       
               {/* Snack Filtering */}
@@ -811,16 +983,16 @@ const SnackListModal = ({
                 {/* Keyword Type Selector */}
                 <View className="h-full justify-center bg-zinc300 px-1 rounded-r-md">
                   <Icon
-                    name={keywordType === "snack title" ? "code-working" : keywordType === "snack" && "list"}
+                    name={keywordType === "snack title" ? "code-working" : keywordType === "snack" ? "list" : keywordType === "inventory" && "file-tray-full"}
                     color={colors.theme900}
                     size={20}
-                    onPress={() => filterSnacks(snackKeywordQuery, keywordType === "snack title" ? "snack" : "snack title") }
+                    onPress={() => filterSnacks(snackKeywordQuery, keywordType === "snack title" ? "snack" : keywordType === "snack" ? "inventory" : "snack title") }
                   />
                 </View>
               </View>
             
-              {/* Filtered List of Snacks */}
-              {filteredData?.length > 0 
+              {/* NOT INVENTORY - Filtered List of Snacks */}
+              {(filteredData?.length > 0) 
               ?
                 <ScrollView
                   vertical
@@ -1019,7 +1191,7 @@ const SnackListModal = ({
                     </View>
                   )}
                 </ScrollView>
-              :
+              : 
                 <View className="py-1 px-3 bg-zinc500 border-2 border-zinc600">
                   <Text className="italic text-center text-white font-medium">
                     no snacks match the current filter
@@ -1027,7 +1199,144 @@ const SnackListModal = ({
                 </View>
               }
             </View>
-          }
+          
+          
+          // INVENTORY SEARCHING
+          ) : (
+            <View className="w-full mb-2 space-y-2 flex justify-center items-center">
+                      
+              {/* Snack Filtering */}
+              <View className="flex flex-row w-full h-[30px] pl-8 pr-10 mb-2 items-center justify-center">
+
+                {/* back button */}
+                <View className="pr-1">
+                  <Icon 
+                    size={24}
+                    color={colors.zinc700}
+                    name="caret-back"
+                    onPress={() => setShowSnackSearch(false)}
+                  />
+                </View>
+      
+                {/* collection selector */}
+                <View className="flex w-full overflow-hidden">
+                  <Picker
+                    selectedValue={selectedCollection}
+                    onValueChange={setSelectedCollection}
+                    style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, backgroundColor: colors.zinc400 }}
+                    itemStyle={{ color: selectedCollection === null ? colors.mauve950 : 'white', fontWeight: '700', textAlign: 'center', fontSize: 14, }}
+                  >
+                    {[{ id: null, data: {collectionName: "no collection selected" } }, ...inventoryList].map((coll) => (
+                        <Picker.Item
+                          key={coll.id}
+                          label={coll.data.collectionName}
+                          value={coll.id}
+                        />
+                      ))
+                    }
+                  </Picker>
+                </View>
+                            
+                {/* Keyword Type Selector */}
+                <View className="h-full justify-center bg-zinc300 px-1 rounded-r-md">
+                  <Icon
+                    name={keywordType === "snack title" ? "code-working" : keywordType === "snack" ? "list" : keywordType === "inventory" && "file-tray-full"}
+                    color={colors.theme900}
+                    size={20}
+                    onPress={() => filterSnacks(snackKeywordQuery, keywordType === "snack title" ? "snack" : keywordType === "snack" ? "inventory" : "snack title") }
+                  />
+                </View>
+              </View>
+                    
+              {/* SNACKS */}
+              <ScrollView className={`w-11/12 border border-zinc400 ${(keyboardType === "inventory") ? "max-h-[300px]" : "max-h-[400px]"} bg-zinc300`}>
+                {inventoryList.find(c => c.id === selectedCollection)?.data?.collectionSnacks?.map((snack, idx) => (
+                  <View key={idx} className="relative w-full flex flex-row bg-white border-b border-b-zinc400">
+
+                    {/* Name */}
+                    <View className={`w-[32.5%] justify-center items-center bg-theme200 py-3 px-2 ${(snack?.totalAmount === "" || new Fraction(snack?.totalAmount).numerator / new Fraction(snack?.totalAmount).denominator > 0) ? "bg-theme200" : "bg-mauve100"}`}>
+                      <Text className="text-[12px] text-center pb-0.5 font-medium">
+                        {snack.name}
+                      </Text>
+                    </View>
+
+                    {/* Details */}
+                    <View className="w-[50%] flex flex-row">
+
+                      {/* SUBMIT */}
+                      {(!snack.used && snack.currAmount !== "" && !isNaN(new Fraction(snack.currAmount).numerator) && !isNaN(new Fraction(snack.currAmount).denominator)) && (
+                        <TouchableOpacity 
+                          className="w-[30px] bg-zinc200 justify-center items-center z-50"
+                          onPress={() => useSnack(snack, idx)}
+                        >
+                          <Icon
+                            name="checkmark-done"
+                            color={colors.theme800}
+                            size={20}
+                          />
+                        </TouchableOpacity>
+                      )}
+
+                      <View className="flex flex-1 flex-col z-40 justify-center items-center space-y-1 py-2 px-2">
+                        {/* amount */}
+                        <View className="flex flex-row items-center space-x-2">
+                          <View className="flex flex-row space-x-1">
+                            {/* total */}
+                            <TextInput
+                              className="text-[12px] text-center text-zinc900"
+                              placeholder="_"
+                              placeholderTextColor={colors.zinc450}
+                              value={snack?.currAmount || ""}
+                              onChangeText={(value) => updateCurrInventory(idx, snack, value)}
+                              onFocus={() => setKeyboardType("inventory")}
+                            />
+                            {/* remaining */}
+                            <Text className="text-[12px] text-center text-zinc500">
+                              {`| ${snack.totalAmount === "" ? "?" : snack.totalAmount}`}
+                            </Text>
+                          </View>
+                          {/* unit */}
+                          <Text className="text-[12px] text-center text-zinc900">
+                            {snack.unit}
+                          </Text>
+                        </View>
+
+                        {/* per serving */}
+                        <View className="flex flex-row space-x-2">
+                          {/* cal */}
+                          <View className="flex flex-row">
+                            <Text className="text-[11px] text-theme700 pl-1">
+                              {`${snack.currCal} cal`}
+                            </Text>
+                          </View>
+                          {/* price */}
+                          <View className="flex flex-row">
+                            <Text className="text-[11px] text-theme700">
+                              {`$${snack.currPrice}`}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Expiration Date */}
+                    <View className={`w-[17.5%] z-50 flex flex-col justify-center items-center bg-zinc100 px-2  ${(snack?.expDate?.toDate() < new Date()) ? "bg-rose-200" : (snack?.expDate?.toDate() < new Date(new Date().setMonth(new Date().getMonth() + 3))) ? "bg-amber-200" : snack?.expDate !== null && "bg-emerald-200"}`}>
+                      {/* m / d */}
+                      <Text className="text-[12px] italic text-zinc700">
+                        {snack?.expDate?.toDate().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) || ""}
+                      </Text>
+                      {/* yyyy */}
+                      {(snack?.expDate?.toDate().getFullYear() !== new Date().getFullYear()) && (
+                        <Text className="text-[12px] text-zinc700 italic">
+                          {snack.expDate?.toDate().toLocaleDateString('en-US', { year: 'numeric' }) || ""}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
                         
 
           {/* Divider */}

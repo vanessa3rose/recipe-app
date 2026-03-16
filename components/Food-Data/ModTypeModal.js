@@ -718,11 +718,11 @@ const ModTypeModal = ({
             </View>
 
             {/* Type Picker */}
-            <View className="flex w-[55%] bg-zinc300 h-[30px]">
+            <View className="flex w-[55%] bg-zinc300 h-[30px] overflow-hidden">
               <Picker
                 selectedValue={selectedType}
                 onValueChange={setSelectedType}
-                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -10, }}
+                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, }}
                 itemStyle={{ textAlign: 'center', fontSize: 12, fontStyle: "italic", fontWeight: "bold", }}
               >
                 {typeList.map((item) => (

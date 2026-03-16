@@ -7,6 +7,7 @@ import { useNavigationState } from '@react-navigation/native';
 // UI components
 import { View, Text, TouchableOpacity } from 'react-native';
 import DropDownPicker from 'react-native-dropdown-picker';
+import { Picker } from '@react-native-picker/picker';
 
 // visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -14,6 +15,9 @@ import colors from '../../assets/colors';
 
 // fractions
 var Fractional = require('fractional').Fraction;
+
+// validation
+import { numberToRoman } from '../../components/Validation/numberToRoman';
 
 // modals
 import CalendarModal from '../../components/Planning-Plan/CalendarModal';
@@ -78,7 +82,6 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     setPrepData(prepsArray);
 
 
-
     // gets all weekly plan data
     const planSnapshot = await getDocs(collection(db, 'PLANS'));
     setPlansSnapshot(planSnapshot);
@@ -94,10 +97,30 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       // if the date is on or past today
       if (planDoc.id >= today.dateString) {
         const planData = planDoc.data();
-
+        
         // finds the lunch and dinner in the planData
-        const lunchPrep = prepMap.get(planData.meals.lunch.prepId);
-        const dinnerPrep = prepMap.get(planData.meals.dinner.prepId);
+        const lunchPrep = prepMap.get(planData.meals.lunch.prepData?.prepId)?.variants.find(v => v.variantId === planData.meals.lunch.prepData.variantId);
+        const dinnerPrep = prepMap.get(planData.meals.dinner.prepData?.prepId)?.variants.find(v => v.variantId === planData.meals.dinner.prepData.variantId);
+        
+        // prep and variant ids
+        const pIds = prepSnapshot.docs.map(prep => prep.id);
+        const vIds = prepSnapshot.docs.map(prep => prep.data().variants.map(variant => variant.variantId)).flat();
+        
+        // checks whether the lunch prep is a deleted variant
+        let lunchRemoved = false;
+        if (planDoc.id > today.dateString && planData.meals.lunch.prepId !== null && !planData.meals.lunch.prepId.includes(".") && !planData.meals.lunch.prepId.includes("LUNCH")) {
+          if (!(pIds.includes(planData?.meals?.lunch?.prepId) && vIds.includes(planData?.meals?.lunch?.prepData?.variantId))) {
+            lunchRemoved = true;
+          }
+        }
+        // checks whether the dinner prep is a deleted variant
+        let dinnerRemoved = false;
+        if (planDoc.id > today.dateString && planData.meals.dinner.prepId !== null && !planData.meals.dinner.prepId.includes(".") && !planData.meals.dinner.prepId.includes("DINNER")) {
+          if (!(pIds.includes(planData?.meals?.dinner?.prepId) && vIds.includes(planData?.meals?.dinner?.prepData?.variantId))) {
+            dinnerRemoved = true;
+          }
+        }
+        
         let lunchData = lunchPrep ? (({ id, ...rest }) => rest)(lunchPrep) : planData.meals.lunch.prepData;
         let dinnerData = dinnerPrep ? (({ id, ...rest }) => rest)(dinnerPrep) : planData.meals.dinner.prepData;
 
@@ -138,12 +161,12 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           date: planDoc.id,
           meals: {
             lunch: {
-              prepId: planData.meals.lunch.prepId,          
-              prepData: lunchData,
+              prepId: lunchRemoved ? null : planData.meals.lunch.prepId,          
+              prepData: lunchRemoved ? null : lunchData,
             },
             dinner: {
-              prepId: planData.meals.dinner.prepId,         
-              prepData: dinnerData,
+              prepId: dinnerRemoved ? null : planData.meals.dinner.prepId,         
+              prepData: dinnerRemoved ? null : dinnerData,
             },
           },
           ...(planData?.snacks && { snacks: planData?.snacks }),
@@ -167,23 +190,23 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     
     // resets the available and remaining amounts
     if (selectedPrepId) {
-      calcRemaining(selectedPrepId, prepMap.get(selectedPrepId));
+      calcRemaining(selectedPrepId, selectedPrepVariant, selectedPrepVariant, prepMap.get(selectedPrepId).variants[selectedPrepVariant]);
     } else {
       setCurrAvailable(0);
       setCurrRemaining(0);
     }
 
 
-    // gets the global preps and stores dropdown items & completed
+    // gets the global preps and stores dropdown items & completed/custom
     const prepGlobal = await getDoc(doc(db, 'GLOBALS', 'prep')); 
     if (prepGlobal.exists()) {
-      setGlobalCompleted(prepGlobal.data().preps); 
+      setGlobalPrepInfo(prepGlobal.data().preps); 
       fetchDropdownItems(prepGlobal.data().preps, prepsArray);
     }
     
 
     // gets the global weekly plan document
-    const planGlobal = ((await getDoc(doc(db, 'GLOBALS', 'plan'))));
+    const planGlobal = await getDoc(doc(db, 'GLOBALS', 'plan'));
     // if the data is not null, calculate the week range of the global date
     if (planGlobal?.data()?.selectedDate) {
       calculateWeekRange(planGlobal.data().selectedDate);
@@ -196,10 +219,24 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   }
   
 
+  ///////////////////////////////// VARIANTS /////////////////////////////////
+
+  const [selectedPrepVariant, setSelectedPrepVariant] = useState(0);
+
+  // updates data on variant change
+  const changeVariant = async (index) => {
+    setSelectedPrepVariant(index);
+
+    if (prepData?.find(prep => prep.id === selectedPrepId)?.variants?.[index]) {
+      await calcRemaining(selectedPrepId, index, index, prepData?.find(prep => prep.id === selectedPrepId)?.variants[index])
+    }
+  }
+  
+
   ///////////////////////////////// GLOBALS /////////////////////////////////
 
   const [globalDate, setGlobalDate] = useState(today);
-  const [globalCompleted, setGlobalCompleted] = useState(null);
+  const [globalPrepInfo, setGlobalPrepInfo] = useState(null);
 
   // to change the data of the prep document under the global collection
   const changeGlobalPlan = async (date) => {
@@ -374,7 +411,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     setWeekData(data);
     
     // recalculates the number of remaining meal preps based on the selected meal prep in the dropdown
-    calcRemaining(selectedPrepId, prepData[(prepData.map((prep) => prep.id)).indexOf(selectedPrepId)]);
+    calcRemaining(selectedPrepId, selectedPrepVariant, selectedPrepVariant, prepData[(prepData.map((prep) => prep.id)).indexOf(selectedPrepId)].variants[selectedPrepVariant]);
   }
 
   // calls the previous function when changing the week range
@@ -433,15 +470,25 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     let lunchChecked = [...isLunchChecked];
     let dinnerChecked = [...isDinnerChecked];
 
+    // the current variant id
+    const varId = prepData?.find(prep => prep.id === selectedPrepId)?.variants[selectedPrepVariant].variantId;
+
     // determines whether to toggle on or off
-    const numMatching = weekData.filter(data => data?.meals?.lunch?.prepId === selectedPrepId).length + weekData.filter(data => data?.meals?.dinner?.prepId === selectedPrepId).length;
-    const numChecked = weekData.filter((data, index) => data?.meals?.lunch?.prepId === selectedPrepId && isLunchChecked[index]).length + weekData.filter((data, index) => data?.meals?.dinner?.prepId === selectedPrepId && isDinnerChecked[index]).length
+    const numMatching = 
+      weekData.filter(data => data?.meals?.lunch?.prepData?.prepId === selectedPrepId && data?.meals?.lunch?.prepData?.variantId === varId).length 
+      + weekData.filter(data => data?.meals?.dinner?.prepData?.prepId === selectedPrepId && data?.meals?.dinner?.prepData?.variantId === varId).length;
+    const numChecked = 
+      weekData.filter((data, index) => data?.meals?.lunch?.prepData?.prepId === selectedPrepId && data?.meals?.lunch?.prepData?.variantId === varId && isLunchChecked[index]).length
+      + weekData.filter((data, index) => data?.meals?.dinner?.prepData?.prepId === selectedPrepId && data?.meals?.dinner?.prepData?.variantId === varId && isDinnerChecked[index]).length
     const toggle = numMatching - numChecked >= numMatching / 2;
     
     // loops over each day
     weekData.forEach((data, index) => {
-      if (data?.meals?.lunch?.prepId === selectedPrepId) { lunchChecked[index] = toggle; }
-      if (data?.meals?.dinner?.prepId === selectedPrepId) { dinnerChecked[index] = toggle; }
+      if (data?.meals?.lunch?.prepData?.prepId === selectedPrepId && data?.meals?.lunch?.prepData?.variantId === varId) { 
+        lunchChecked[index] = toggle; 
+      } if (data?.meals?.dinner?.prepData?.prepId === selectedPrepId && data?.meals?.dinner?.prepData?.variantId === varId) { 
+        dinnerChecked[index] = toggle; 
+      }
     })
     
     // stores data
@@ -466,21 +513,25 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       // gets the data of the selected meal prep
       const docSnap = await getDoc(doc(db, 'PREPS', selectedPrepId));   
       let selectedPrepData = docSnap.exists() ? docSnap.data() : null;
+      let selectedVariant = selectedPrepData?.variants?.[selectedPrepVariant];
+
+      // currents, complex, simple
+      const type = globalPrepInfo.map((prep) => prep.custom).map(p => p[selectedVariant.variantId]).find(p => p);
 
       // filters out any non-included currents
-      if (selectedPrepData !== null) {
+      if (selectedVariant !== null) {
         // the list of included (or blank) indices
-        const includedIdx = selectedPrepData.currentIncluded.map((included, index) => included !== false ? index : null).filter(index => index !== null)
+        const includedIdx = selectedVariant.currentIncluded.map((included, index) => included !== false ? index : null).filter(index => index !== null)
         
         // the newly formatted prep data
-        selectedPrepData = {
-          ...selectedPrepData,
-          currentAmounts: selectedPrepData.currentAmounts.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
-          currentCals: selectedPrepData.currentCals.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
-          currentData: selectedPrepData.currentData.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill(null)),
-          currentIds: selectedPrepData.currentIds.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
-          currentIncluded: selectedPrepData.currentIncluded.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
-          currentPrices: selectedPrepData.currentPrices.filter((_, index) => includedIdx.includes(index)).concat(Array(12 - includedIdx.length).fill("")),
+        selectedVariant = {
+          ...selectedVariant,
+          currentAmounts: selectedVariant.currentAmounts.filter((_, index) => includedIdx.includes(index)).concat(Array(selectedVariant.currentIncluded.length - includedIdx.length).fill("")),
+          currentCals: selectedVariant.currentCals.filter((_, index) => includedIdx.includes(index)).concat(Array(selectedVariant.currentIncluded.length - includedIdx.length).fill("")),
+          currentData: selectedVariant.currentData.filter((_, index) => includedIdx.includes(index)).concat(Array(selectedVariant.currentIncluded.length - includedIdx.length).fill(null)),
+          currentIds: selectedVariant.currentIds.filter((_, index) => includedIdx.includes(index)).concat(Array(selectedVariant.currentIncluded.length - includedIdx.length).fill("")),
+          currentIncluded: selectedVariant.currentIncluded.filter((_, index) => includedIdx.includes(index)).concat(Array(selectedVariant.currentIncluded.length - includedIdx.length).fill("")),
+          currentPrices: selectedVariant.currentPrices.filter((_, index) => includedIdx.includes(index)).concat(Array(selectedVariant.currentIncluded.length - includedIdx.length).fill("")),
         }
       }
 
@@ -491,17 +542,20 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         const planDate = (new Date(weekRange[index])).toLocaleDateString('en-CA');
         const planData = weekData[index];
         
+        const lunchId = (type === "complex") ? ("." + doc(collection(db, 'PREPS')).id) : (type === "simple") ? ("LUNCH " + formatDateShort(new Date(weekRange[index]))) : selectedPrepId;
+        const dinnerId = (type === "complex") ? ("." + doc(collection(db, 'PREPS')).id) : (type === "simple") ? ("DINNER " + formatDateShort(new Date(weekRange[index]))) : selectedPrepId;
+        
         // prepares the doc data
         const docData = {
           date: planDate,
           meals: {
             lunch: {
-              prepId: isLunchChecked[index] ? selectedPrepId : planData?.meals?.lunch?.prepId ?? null,          
-              prepData: isLunchChecked[index] ? selectedPrepData : planData?.meals?.lunch?.prepData ?? null,
+              prepId: isLunchChecked[index] ? lunchId : planData?.meals?.lunch?.prepId ?? null,          
+              prepData: isLunchChecked[index] ? selectedVariant : planData?.meals?.lunch?.prepData ?? null,
             },
             dinner: {
-              prepId: isDinnerChecked[index] ? selectedPrepId : planData?.meals?.dinner?.prepId ?? null,         
-              prepData: isDinnerChecked[index] ? selectedPrepData : planData?.meals?.dinner?.prepData ?? null,
+              prepId: isDinnerChecked[index] ? dinnerId : planData?.meals?.dinner?.prepId ?? null,         
+              prepData: isDinnerChecked[index] ? selectedVariant : planData?.meals?.dinner?.prepData ?? null,
             },
           },
           ...(planData?.snacks && { snacks: planData.snacks }),
@@ -514,12 +568,12 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
         // LUNCH - toggles the radio button if needed
         if (isLunchChecked[index]) { 
-          ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + new Date(weekRange[index]))); // removes original
-          ogSelected.push({ filled: true, meal: "LUNCH " + new Date(weekRange[index]), });               // readds it
+          ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + new Date(weekRange[index])));                      // removes original
+          if (lunchId === selectedPrepId) ogSelected.push({ filled: true, meal: "LUNCH " + new Date(weekRange[index]), });    // readds it
         // DINNER - toggles the radio button if needed
         } if (isDinnerChecked[index]) { 
-          ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + new Date(weekRange[index]))); // removes original
-          ogSelected.push({ filled: true, meal: "DINNER " + new Date(weekRange[index]), });               // readds it
+          ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + new Date(weekRange[index])));                     // removes original
+          if (dinnerId === selectedPrepId) ogSelected.push({ filled: true, meal: "DINNER " + new Date(weekRange[index]), });  // readds it
         }
       }
         
@@ -531,7 +585,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       await batch.commit();
     
       // refreshes and updates the dropdown amounts
-      fetchDropdownItems(globalCompleted, prepData);
+      fetchDropdownItems(globalPrepInfo, prepData);
       getCollectionPlans();
     }
   }
@@ -591,7 +645,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     await batch.commit();
     
     // updates the dropdown amounts
-    fetchDropdownItems(globalCompleted, prepData);
+    fetchDropdownItems(globalPrepInfo, prepData);
     getCollectionPlans();
   }
 
@@ -656,11 +710,25 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         detailsOne.data.prepId = detailsOne.data.prepId.replace("DINNER", "LUNCH");
       }
 
+      // swaps the prepData's id meal if the first one is completely custom
+      if (detailsOne.meal === "LUNCH" && detailsOne?.data?.prepData?.prepId !== null && detailsOne?.data?.prepData?.prepId?.includes("LUNCH")) {
+        detailsOne.data.prepData.prepId = detailsOne.data.prepData.prepId.replace("LUNCH", "DINNER");
+      } else if (detailsOne.meal === "DINNER" && detailsOne?.data?.prepData?.prepId !== null && detailsOne?.data?.prepData?.prepId?.includes("DINNER")) {
+        detailsOne.data.prepData.prepId = detailsOne.data.prepData.prepId.replace("DINNER", "LUNCH");
+      }
+
       // swaps the id meal if the second one is custom
       if (detailsTwo.meal === "LUNCH" && detailsTwo?.data?.prepId !== null && detailsTwo?.data?.prepId?.includes("LUNCH")) {
         detailsTwo.data.prepId = detailsTwo.data.prepId.replace("LUNCH", "DINNER");
       } else if (detailsTwo.meal === "DINNER" && detailsTwo?.data?.prepId !== null && detailsTwo?.data?.prepId?.includes("DINNER")) {
         detailsTwo.data.prepId = detailsTwo.data.prepId.replace("DINNER", "LUNCH");
+      }
+
+      // swaps the prepData's id meal if the second one is completely custom
+      if (detailsTwo.meal === "LUNCH" && detailsTwo?.data?.prepData?.prepId !== null && detailsTwo?.data?.prepData?.prepId?.includes("LUNCH")) {
+        detailsTwo.data.prepData.prepId = detailsTwo.data.prepData.prepId.replace("LUNCH", "DINNER");
+      } else if (detailsTwo.meal === "DINNER" && detailsTwo?.data?.prepData?.prepId !== null && detailsTwo?.data?.prepData?.prepId?.includes("DINNER")) {
+        detailsTwo.data.prepData.prepId = detailsTwo.data.prepData.prepId.replace("DINNER", "LUNCH");
       }
       
       // only one swap in the db is needed for a single day
@@ -750,6 +818,20 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       } if (swappedDayTwo?.meals?.dinner?.prepId?.includes("LUNCH") || swappedDayTwo?.meals?.dinner?.prepId?.includes("DINNER")) {
         swappedDayTwo.meals.dinner.prepId = `DINNER ${month2}/${day2}/${year2 % 100}`;
       } 
+      
+      // changes the prepData's id meal if the first lunch is custom
+      if (swappedDayOne?.meals?.lunch?.prepData?.prepId?.includes("LUNCH") || swappedDayOne?.meals?.lunch?.prepData?.prepId?.includes("DINNER")) {
+        swappedDayOne.meals.lunch.prepData.prepId = `LUNCH ${month1}/${day1}/${year1 % 100}`;
+      // changes the prepData's id meal if the first dinner is custom
+      } if (swappedDayOne?.meals?.dinner?.prepData?.prepId?.includes("LUNCH") || swappedDayOne?.meals?.dinner?.prepData?.prepId?.includes("DINNER")) {
+        swappedDayOne.meals.dinner.prepData.prepId = `DINNER ${month1}/${day1}/${year1 % 100}`;
+      // changes the prepData's id meal if the second lunch is custom
+      } if (swappedDayTwo?.meals?.lunch?.prepData?.prepId?.includes("LUNCH") || swappedDayTwo?.meals?.lunch?.prepData?.prepId?.includes("DINNER")) {
+        swappedDayTwo.meals.lunch.prepData.prepId = `LUNCH ${month2}/${day2}/${year2 % 100}`;
+      // changes the prepData's id meal if the second dinner is custom
+      } if (swappedDayTwo?.meals?.dinner?.prepData?.prepId?.includes("LUNCH") || swappedDayTwo?.meals?.dinner?.prepData?.prepId?.includes("DINNER")) {
+        swappedDayTwo.meals.dinner.prepData.prepId = `DINNER ${month2}/${day2}/${year2 % 100}`;
+      } 
 
       // changed dates
       batch.set(doc(db, 'PLANS', detailsOne.date), swappedDayOne);
@@ -787,7 +869,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         
     // stores the new list
     setSelectedList(ogSelected);
-    updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected }); 
+    await updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected }); 
 
     // commits the batch
     await batch.commit();
@@ -796,7 +878,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     getCollectionPlans();
     
     // updates the dropdown amounts
-    fetchDropdownItems(globalCompleted, prepData);
+    fetchDropdownItems(globalPrepInfo, prepData);
   }
 
 
@@ -819,14 +901,15 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   const [currRemaining, setCurrRemaining] = useState(0);
 
   const [dropdownItems, setDropdownItems] = useState([]);
+  const [filteredPrepData, setFilteredPrepData] = useState(null);
 
   // to calculate the number of meal preps remaining of the selected one
-  const calcRemaining = async (currPrepId, currPrepData) => {
+  const calcRemaining = async (currPrepId, currVariant, selectedVariant, currVariantData) => {
 
     // initially the multiplicity of the meal prep
-    let remaining = currPrepData.prepMult;
-    if (selectedPrepId === currPrepId) { setCurrAvailable(remaining); }
-      
+    const initial = currVariantData.prepMult;
+    let remaining = currVariantData.prepMult;
+    
     // gets all weekly plan data
     const snapshot = await getDocs(collection(db, 'PLANS'));
     setPlansSnapshot(snapshot);
@@ -840,54 +923,90 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       
       // if the current plan's date is after today
       if (planId > today.dateString) {
-
-        // if the meal prep is found at lunch and/or dinner of the date, decrement remaining
-        if (planData.meals.lunch.prepId === currPrepId) { remaining = remaining - 1; }
-        if (planData.meals.dinner.prepId === currPrepId) { remaining = remaining - 1; }
+        
+        // if the meal prep variant is found at lunch and/or dinner of the date, decrement remaining
+        if (planData?.meals?.lunch?.prepData?.prepId === currPrepId && (planData?.meals?.lunch?.prepData?.variantId || "") === currVariantData?.variantId) { 
+          remaining = remaining - 1; 
+        } if (planData?.meals?.dinner?.prepData?.prepId === currPrepId && (planData?.meals?.dinner?.prepData?.variantId || "") === currVariantData?.variantId) { 
+          remaining = remaining - 1; 
+        }
       }
     });
 
-    // sets the number of remaining meal preps after looping
-    if (selectedPrepId === currPrepId) { setCurrRemaining(remaining); }
+    // sets the number of available & remaining meal preps after looping
+    if (selectedPrepId === currPrepId && selectedVariant === currVariant) { 
+      setCurrAvailable(initial);
+      setCurrRemaining(remaining); 
+    }
     return remaining;
   }
 
   // calls the previous function when the selected meal prep changes
   useEffect(() => {
-    calcRemaining(selectedPrepId, prepData[(prepData.map((prep) => prep.id)).indexOf(selectedPrepId)]);
+    if (selectedPrepId && filteredPrepData) {
+      const index = filteredPrepData[(prepData.map((prep) => prep.id)).indexOf(selectedPrepId)]?.variants.findIndex(v => v !== null) || 0;
+      setSelectedPrepVariant(index);
+      calcRemaining(selectedPrepId, index, index, prepData[(prepData.map((prep) => prep.id)).indexOf(selectedPrepId)].variants[index]);
+    }
   }, [selectedPrepId]);
 
   // function to loop over the prepData to create dropdown items for each
   const fetchDropdownItems = async (completed, data) => {
-    
+
+    // flattens the completed preps
+    const completedFlattened = completed.reduce((acc, prep) => { return { ...acc, ...prep.completed }; }, {});
+    // filters the data to replace noncompleted with null
+    const filteredData = data.map(prep => ({
+      ...prep,
+      variants: prep.variants.map(v => completedFlattened[v.variantId] ? v : null)
+    }));
+
+    setFilteredPrepData(filteredData);
+
+    // stores the updated dropdown items
     let updatedItems = await Promise.all(
-      data.map(async (prep) => {
-        const remaining = await calcRemaining(prep.id, prep);
+      filteredData.map(async (prep) => {
+        
+        // gets all variant's remaining amounts
+        const variantRemainings = await Promise.all(prep.variants.map((variant, index) => ((variant !== null) ? calcRemaining(prep.id, index, selectedPrepVariant, variant) : null)));
+        const remaining = variantRemainings.filter(rem => rem !== null).join(':');
+        
+        // gets totals
+        const split = remaining.split(":").filter(amt => amt !== "");
+        const length = split.length;
+        const numPositive = split.filter(amt => Number(amt) > 0).length;
+        const numZero = split.filter(amt => Number(amt) === 0).length;
+        const numNegative = split.filter(amt => Number(amt) < 0).length;
 
         // reformats
         return {
-          label: `(${remaining || 0}) ${prep.prepName}`,
+          label: `(${remaining}) ${prep.prepName}`,
           value: prep.id,
           key: prep.id,
           labelStyle: { color: 'black' },
-          containerStyle: {
-            backgroundColor: remaining > 0 ? colors.theme200 : remaining < 0 ? colors.zinc200 : colors.zinc350,
-          },
+          containerStyle: { backgroundColor: 
+            numPositive === length ? colors.theme200 
+            : numNegative === length ? colors.mauve100
+            : numZero === length ? colors.zinc200 
+            : numNegative > 0 ? colors.mauve50
+            : numZero > 0 ? colors.zinc300
+            : "white"},
         };
       })
     );
 
-    // filters out the non-completed meal preps
-    updatedItems = updatedItems.filter(prep => 
-      completed[completed.map(completed => completed.id).indexOf(prep.value)].completed
-    );
+    // resets selection if removed
+    if (!updatedItems.map(item => item.value).includes(selectedPrepId)) {
+      setSelectedPrepId(null);
+      setSelectedPrepVariant(0);
+    }
     
-    setDropdownItems(updatedItems);
+    setDropdownItems(updatedItems.filter((item) => item.label[1] !== ")"));
   };
 
   // calls the previous function whenever prepData is changed
   useEffect(() => {
-    fetchDropdownItems(globalCompleted, prepData);
+    fetchDropdownItems(globalPrepInfo, prepData);
   }, [prepData]);
 
 
@@ -964,7 +1083,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     setMealModalData(null);
       
     // updates the dropdown amounts and refreshes
-    fetchDropdownItems(globalCompleted, prepData);
+    fetchDropdownItems(globalPrepInfo, prepData);
     getCollectionPlans();
   }
 
@@ -977,7 +1096,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
     // only opens the modal and stores data if there is data
     if (selectedPrepId && id !== null) {
-      setPrepModalData(prepData.find((data) => data.id === id));
+      setPrepModalData(prepData.find((data) => data.id === id).variants[selectedPrepVariant]);
       setPrepModalVisible(true);
 
     // otherwise, just closes it
@@ -995,14 +1114,25 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
   // to update the list of selected meals
   const toggleSelected = async (type, index) => {
-    
     let ogSelected = [...selectedList];
+    const isSelected = selectedList.map(item => item.meal).includes(type + " " + new Date(weekRange[index]).toString());
     
     // gets the current data
     const planDocSnap = await getDoc(doc(db, 'PLANS', (new Date(weekRange[index])).toLocaleDateString('en-CA')));
+    const id = planDocSnap?.data()?.meals?.[type.toLowerCase()]?.prepId;
+    const isCustom = id?.includes(type) || id?.[0] === ".";
 
     // if the meal is not already in the list, add it
-    if (!selectedList.map(item => item.meal).includes(type + " " + new Date(weekRange[index]).toString())) {
+    if (id !== null && (isSelected && !isCustom) || (!isSelected && isCustom)) {
+      setWarningModalType(type);
+      setWarningModalIndex(index);
+      setWarningModalDocSnap(planDocSnap);
+      setWarningModalVisible(true);
+      setWarningModaCustom(isCustom);
+
+
+    // issue a warning before deleting if meal present
+    } else if (!isSelected) { 
       
       // adds it
       ogSelected.push({
@@ -1017,16 +1147,6 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       setSelectedList(ogSelected);
       updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected });
 
-
-    // issue a warning before deleting if meal present
-    } else if (
-      planDocSnap.exists() && planDocSnap.data()?.meals?.[type.toLowerCase()]?.prepId 
-      && !planDocSnap.data()?.meals?.[type.toLowerCase()]?.prepId?.includes(type)
-    ){ 
-      setWarningModalType(type);
-      setWarningModalIndex(index);
-      setWarningModalDocSnap(planDocSnap);
-      setWarningModalVisible(true);
 
     // otherwise, remove it
     } else {
@@ -1043,19 +1163,23 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   const [warningModalType, setWarningModalType] = useState("");
   const [warningModalDocSnap, setWarningModalDocSnap] = useState(null);
   const [warningModalVisible, setWarningModalVisible] = useState(false);
+  const [warningModalCustom, setWarningModaCustom] = useState(false);
 
   // to submit the warning modal
-  const submitWarningModal = () => {
+  const submitWarningModal = (isCustom) => {
     
     let ogSelected = [...selectedList];
     ogSelected = ogSelected.filter(item => item.meal !== (warningModalType + " " + new Date(weekRange[warningModalIndex]))); 
+    if (isCustom) {
+      ogSelected.push({ filled: true, meal: warningModalType + " " + new Date(weekRange[warningModalIndex]) });
+    }
   
     // if there is already a meal prep there, remove it - LUNCH
-    if (warningModalType === "LUNCH" && warningModalDocSnap.exists() && warningModalDocSnap.data().meals.lunch.prepId !== null && !warningModalDocSnap.data().meals.lunch.prepId.includes("LUNCH")) {
+    if (warningModalType === "LUNCH" && warningModalDocSnap.exists() && warningModalDocSnap.data().meals.lunch.prepId !== null) {
       updateDoc(doc(db, 'PLANS', (new Date(weekRange[warningModalIndex])).toLocaleDateString('en-CA')), { "meals.lunch.prepData": null, "meals.lunch.prepId": null });
       
     // DINNER
-    } else if (warningModalType === "DINNER" && warningModalDocSnap.data().meals.dinner.prepId !== null && !warningModalDocSnap.data().meals.dinner.prepId.includes("DINNER")) {
+    } else if (warningModalType === "DINNER" && warningModalDocSnap.exists() && warningModalDocSnap.data().meals.dinner.prepId !== null) {
       updateDoc(doc(db, 'PLANS', (new Date(weekRange[warningModalIndex])).toLocaleDateString('en-CA')), { "meals.dinner.prepData": null, "meals.dinner.prepId": null });
     }
     
@@ -1064,7 +1188,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected });
     
     // updates the dropdown amounts and refreshes
-    fetchDropdownItems(globalCompleted, prepData);
+    fetchDropdownItems(globalPrepInfo, prepData);
     getCollectionPlans();
 
     closeWarningModal();
@@ -1078,21 +1202,48 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     setWarningModalVisible(false);
   }
 
-  // to update the number of future selected meals
+  // updates number of future selected meals on change
   useEffect(() => {
-    
+    if (selectedList && weekData !== null && weekRange !== null) {
+      countSelected();
+    }
+  }, [selectedList, weekData, weekRange]);
+
+  // to update the number of future selected meals
+  const countSelected = async () => {
     let newCount = 0;
+    let list = [...selectedList];
+    let updatedList = false;
 
     // loops over the list of selected meals and counts future ones
-    selectedList.forEach((item) => {
-      if (new Date(item.meal.split(" ").slice(1).join(" ")).toISOString() > new Date(today.dateString).toISOString()
-          && !item.filled) {
-        newCount = newCount + 1;
+    list.forEach((item, index) => {
+      const currDate = new Date(item.meal.split(" ").slice(1).join(" ")).toISOString();
+      const currMeal = item.meal.split(" ")[0].toLowerCase();
+      
+      if (currDate > new Date(today.dateString).toISOString()) {
+        const dateString = currDate.split("T")[0];
+        const dateIndex = weekRange.map(day => new Date(day).toISOString().split("T")[0]).indexOf(dateString);
+        
+        // fixes mismatch
+        if ((weekData[dateIndex].meals[currMeal].prepId === null) === item.filled) {
+          list[index].filled = !item.filled;
+          updatedList = true;
+        }
+
+        if (!item.filled) { 
+          newCount = newCount + 1; 
+        }
       }
     })
 
+    // updates global doc
+    if (updatedList) {
+      await updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: list });
+      setSelectedList(list);
+    }
+
     setSelectedCount(newCount);
-  }, [selectedList]);
+  }
 
 
   ///////////////////////////////// SEARCH MODALS /////////////////////////////////
@@ -1156,7 +1307,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     setSnackModalData(null);
       
     // updates the dropdown amounts and refreshes
-    fetchDropdownItems(globalCompleted, prepData);
+    fetchDropdownItems(globalPrepInfo, prepData);
     getCollectionPlans();
   }
   
@@ -1164,8 +1315,6 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   ///////////////////////////////// NOTE MODAL /////////////////////////////////
 
   const [noteModalVisible, setNoteModalVisible] = useState(false);
-
-
 
 
   ///////////////////////////////// HTML /////////////////////////////////
@@ -1224,7 +1373,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
               name="calendar-clear" 
               size={20} 
               color={colors.zinc700}
-              onClick={calendarModalVisible}
+              onPress={() => setCalendarModalVisible(true)}
             />
           </TouchableOpacity>
 
@@ -1235,6 +1384,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
               setModalVisible={setCalendarModalVisible}
               closeModal={closeCalendarModal} 
               globalDate={globalDate}
+              allowNull={false}
             />
           )}
         </View>
@@ -1403,7 +1553,11 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                   activeOpacity={0.6}
                   className="flex flex-row bg-zinc350 w-full justify-center items-center h-1/2 px-1"
                 >
-                  <Text className={`text-[11px] font-bold text-center ${(gotoMealDate?.meal === "LUNCH" && gotoMealDate?.date?.dateString === data?.date) ? "text-pink-800" : (data?.meals?.lunch?.prepId === selectedPrepId) ? "text-theme700" : (data?.meals?.lunch?.prepData?.prepPrice === "0.00" && data?.meals?.lunch?.prepData?.prepCal === "0") ? "text-zinc500 italic": "text-black"}`}>
+                  <Text className={`text-[11px] font-bold text-center 
+                                    ${(data?.meals?.lunch?.prepData?.prepPrice === "0.00" && data?.meals?.lunch?.prepData?.prepCal === "0") && "italic"}
+                                    ${(data?.meals?.lunch?.prepData?.variantId && prepData?.find(prep => prep.id === selectedPrepId)?.variants.length > 0 && data?.meals?.lunch?.prepData?.variantId === prepData?.find(prep => prep.id === selectedPrepId)?.variants?.[selectedPrepVariant]?.variantId) && "border-b-[1.5px] border-zinc-700"} 
+                                    ${(gotoMealDate?.meal === "LUNCH" && gotoMealDate?.date?.dateString === data?.date) ? "text-pink-800" : (data?.meals?.lunch?.prepData?.prepId === selectedPrepId) ? "text-theme700" : (data?.meals?.lunch?.prepData?.prepPrice === "0.00" && data?.meals?.lunch?.prepData?.prepCal === "0") ? "text-zinc500" : "text-black"}
+                                  `}>
                     {data?.meals?.lunch?.prepData?.prepName ?? ""}
                   </Text>
                 </TouchableOpacity>
@@ -1414,7 +1568,11 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                   activeOpacity={0.6}
                   className="bg-zinc400 w-full justify-center items-center h-1/2 px-1"
                 >
-                  <Text className={`text-[11px] font-bold text-center ${(gotoMealDate?.meal === "DINNER" && gotoMealDate?.date?.dateString === data?.date) ? "text-pink-800" : (data?.meals?.dinner?.prepId === selectedPrepId) ? "text-theme800" : (data?.meals?.dinner?.prepData?.prepPrice === "0.00" && data?.meals?.dinner?.prepData?.prepCal === "0") ? "text-zinc600 italic": "text-black"}`}>
+                  <Text className={`text-[11px] font-bold text-center 
+                                    ${(data?.meals?.dinner?.prepData?.prepPrice === "0.00" && data?.meals?.dinner?.prepData?.prepCal === "0") && "italic"}
+                                    ${(data?.meals?.dinner?.prepData?.variantId && prepData?.find(prep => prep.id === selectedPrepId)?.variants.length > 0 && data?.meals?.dinner?.prepData?.variantId === prepData?.find(prep => prep.id === selectedPrepId)?.variants?.[selectedPrepVariant]?.variantId) && "border-b-[1.5px] border-zinc-800"} 
+                                    ${(gotoMealDate?.meal === "DINNER" && gotoMealDate?.date?.dateString === data?.date) ? "text-pink-800" : (data?.meals?.dinner?.prepData?.prepId === selectedPrepId) ? "text-theme800" : (data?.meals?.dinner?.prepData?.prepPrice === "0.00" && data?.meals?.dinner?.prepData?.prepCal === "0") ? "text-zinc600" : "text-black"}
+                                  `}>
                     {data?.meals?.dinner?.prepData?.prepName ?? ""}
                   </Text>
                 </TouchableOpacity>
@@ -1543,6 +1701,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         <RadioWarningModal
           prepName={warningModalType === "LUNCH" ? warningModalDocSnap.data().meals.lunch.prepData.prepName : warningModalDocSnap.data().meals.dinner.prepData.prepName}
           prepDate={(warningModalType === "LUNCH" ? "Lunch " : "Dinner ") + formatDateShort(weekRange[warningModalIndex])}
+          isCustom={warningModalCustom}
           modalVisible={warningModalVisible}
           closeModal={closeWarningModal}
           submitModal={submitWarningModal}
@@ -1588,47 +1747,64 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         )}
 
         {/* Meal Prep Search */}
-        <View className="flex flex-col w-1/2 h-[70px] space-y-1 justify-center items-center">
+        <View className="relative flex flex-col w-1/2 h-[70px] space-y-1 justify-center items-center z-30">
         
-        {/* dropdown */}
-        {(dropdownItems.length > 0) && (
-          <DropDownPicker 
-            open={prepDropdownOpen}
-            setOpen={setPrepDropdownOpen}
-            value={selectedPrepId}
-            setValue={setSelectedPrepId}
-            items={ prepDropdownOpen ?
-              // if dropdown is open, display the amounts
-              dropdownItems
-            : // if not, just display the names
-              prepData.map((prep) => ({
-                label: prep.prepName,
-                value: prep.id,
-                key: prep.id,
-                labelStyle: { color: 'black' },
-                containerStyle: {
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.zinc50,
-              }}))
-            }
-            placeholder=""
-            style={{ height: 50, backgroundColor: colors.zinc600, borderWidth: 1, borderColor: colors.zinc800, justifyContent: 'center', }}
-            dropDownContainerStyle={{ borderLeftWidth: 1, borderRightWidth: 1, borderTopWidth: 1, borderColor: colors.zinc500, borderRadius: 0, backgroundColor: colors.theme200 }}
-            textStyle={{ color: prepData.length === 0 ? colors.theme200 : "white", fontWeight: 500, textAlign: 'center', fontSize: 13, }}
-            listItemContainerStyle={{ borderBottomWidth: 0.5, borderBottomColor: colors.zinc450, }}
-            ArrowDownIconComponent={() => {
-              return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
-            }}
-            ArrowUpIconComponent={() => {
-              return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
-            }}
-          />
-        )}
+          {/* dropdown */}
+          {(dropdownItems.length > 0) && (
+            <DropDownPicker 
+              open={prepDropdownOpen}
+              setOpen={setPrepDropdownOpen}
+              value={selectedPrepId}
+              setValue={setSelectedPrepId}
+              items={ prepDropdownOpen ?
+                // if dropdown is open, display the amounts
+                dropdownItems
+              : // if not, just display the names
+                prepData.map((prep) => ({
+                  label: prep.prepName,
+                  value: prep.id,
+                  key: prep.id,
+                  labelStyle: { color: 'black' },
+                  containerStyle: { borderBottomWidth: 1, borderBottomColor: colors.zinc50 }
+                }))
+              }
+              placeholder=""
+              style={{ height: 50, backgroundColor: colors.zinc600, borderWidth: 1, borderColor: colors.zinc800, justifyContent: 'center', borderBottomLeftRadius: ((prepData?.find(prep => prep.id === selectedPrepId)?.variants?.length) > 1) ? 0 : 5, borderBottomRightRadius: ((prepData?.find(prep => prep.id === selectedPrepId)?.variants?.length) > 1) ? 0 : 5 }}
+              dropDownContainerStyle={{ borderLeftWidth: 1, borderRightWidth: 1, borderTopWidth: 1, borderColor: colors.zinc500, borderRadius: 0, backgroundColor: colors.theme200 }}
+              textStyle={{ color: prepData.length === 0 ? colors.theme200 : "white", fontWeight: 500, textAlign: 'center', fontSize: 13, }}
+              listItemContainerStyle={{ borderBottomWidth: 0.5, borderBottomColor: colors.zinc450, }}
+              ArrowDownIconComponent={() => {
+                return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
+              }}
+              ArrowUpIconComponent={() => {
+                return ( <Icon size={18} color={ colors.theme100 } name="chevron-up" /> );
+              }}
+            />
+          )}
+
+          {/* variant selection */}
+          {((filteredPrepData?.find(prep => prep.id === selectedPrepId)?.variants?.length) > 1) && (
+            <View className="absolute w-full bottom-[-10px] flex bg-white overflow-hidden">
+              <Picker
+                selectedValue={selectedPrepVariant}
+                onValueChange={(value) => changeVariant(value)}
+                style={{ height: 20, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, backgroundColor: colors.zinc100 }}
+                itemStyle={{ color: colors.theme800, fontWeight: '700', textAlign: 'center', fontSize: 10, }}
+              >
+                {(filteredPrepData?.find(prep => prep.id === selectedPrepId)?.variants || []).map((v, index) => ((v !== null) && (
+                  <Picker.Item
+                    label={"VARIANT " + numberToRoman(index + 1)}
+                    value={index}
+                    key={index}
+                  />
+                )))}
+              </Picker>
+            </View>
+          )}
         </View>
 
-
         {/* Amounts Section */}
-        {(selectedPrepId) && (
+        {(selectedPrepId && selectedPrepId !== null) && (
           <TouchableOpacity
             className="flex flex-col justify-evenly items-left pl-2 ml-3 w-[27.5%] h-[45px] bg-theme700 rounded border-[1.5px] border-theme900"
             onPress={() => displayPrep(selectedPrepId)}
@@ -1652,6 +1828,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                 color="white"
                 onPress={() => {
                   setSelectedPrepId(null);
+                  setSelectedPrepVariant(0);
                   setCurrAvailable(0);
                   setCurrRemaining(0);
                 }}
@@ -1661,7 +1838,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
         )}
 
         {/* Selected Checkbox */}
-        {(selectedPrepId && weekData.filter(data => data?.meals?.lunch?.prepId === selectedPrepId).length + weekData.filter(data => data?.meals?.dinner?.prepId === selectedPrepId).length !== 0) 
+        {(selectedPrepId && weekData.filter(data => data?.meals?.lunch?.prepData?.prepId === selectedPrepId).length + weekData.filter(data => data?.meals?.dinner?.prepData?.prepId === selectedPrepId).length !== 0) 
         && (
           <View className="flex pl-1">
             <Icon

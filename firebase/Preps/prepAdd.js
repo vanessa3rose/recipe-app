@@ -1,7 +1,11 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
+// id
+import { nanoid } from 'nanoid/non-secure';
+const generateVariantId = () => nanoid(12);
+
 // initialize firebase app
-import { getFirestore, collection, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { getFirestore, collection, setDoc, updateDoc, doc } from 'firebase/firestore';
 import { app } from '../../firebase.config';
 const db = getFirestore(app);
 
@@ -14,14 +18,28 @@ const prepAdd = async (prep) => {
   ///////////////////////////////// FUNCTION /////////////////////////////////
 
   try {
+
+    // creates doc ref FIRST
+    const prepRef = doc(collection(db, 'PREPS'));
+    const prepId = prepRef.id;
     
-    // adds the new prep to the 'PREPS' collection
-    const docRef = await addDoc(collection(db, 'PREPS'), prep);
+    // sets up variants
+    const prepDoc = {
+      prepName: prep.prepName,
+      variants: [{
+        ...prep,
+        prepId: prepId,
+        variantId: generateVariantId(),
+      }],
+    };
 
-    // stores the prep data in the firebase
-    updateDoc(doc(db, 'GLOBALS', 'prep'), { id: docRef.id });
+    // write once
+    await setDoc(prepRef, prepDoc);
 
-    return [docRef.id, prep];
+    // update globals
+    await updateDoc(doc(db, 'GLOBALS', 'prep'), { id: prepId });
+
+    return [prepId, prepDoc];
 
   } catch (e) {
     console.error("Error adding document: ", e);

@@ -4,11 +4,14 @@
 import React, { useState, useEffect } from 'react';
 
 // UI components
-import { Modal, View, Text, TextInput } from 'react-native';
+import { Modal, View, Text, TextInput, FlatList, TouchableOpacity } from 'react-native';
 
 // visual effects
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
+
+// store lists
+import storeKeys from '../../assets/storeKeys';
 
 // validation
 import validateFractionInput from '../Validation/validateFractionInput';
@@ -16,16 +19,11 @@ import validateFractionInput from '../Validation/validateFractionInput';
 // firebase
 import currentEdit from '../../firebase/Currents/currentEdit';
 
-// initialize firebase app
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { app } from '../../firebase.config';
-const db = getFirestore(app);
-
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const ModCurrentModal = ({ 
-  modalVisible, closeModal, initialData, editingId,
+  modalVisible, closeModal, initialData, editingId, unitData
 }) => {
 
 
@@ -90,6 +88,8 @@ const ModCurrentModal = ({
     setCalServing(initialData.ingredientData[initialData.ingredientStore].calServing || '');
     setServingSize(initialData.ingredientData[initialData.ingredientStore].servingSize || '');
     setUnit(initialData.ingredientData[initialData.ingredientStore].unit);
+    setUnitList(unitData);
+    setFilteredUnitList(unitData);
   }
 
   // on open (ie, when the id or data changes)
@@ -110,6 +110,32 @@ const ModCurrentModal = ({
     setServingSize("");
     setUnit("");
   };
+  
+  
+  ///////////////////////////////// UNIT LIST /////////////////////////////////
+
+  const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
+  const [unitList, setUnitList] = useState(null);
+  const [filteredUnitList, setFilteredUnitList] = useState(null);
+
+  // filters the list of units on keyword entry
+  const filterUnits = (value) => {
+
+    // stores the updated unit
+    setUnit(value)
+    
+    // filters by keyword
+    const queryWords = value
+      .toLowerCase().split(" ").filter((word) => word.trim() !== "");
+  
+    let units = unitList.filter((unit) =>
+      queryWords.every((word) => unit.toLowerCase().includes(word))
+    );
+
+    // stores filtering
+    setFilteredUnitList(units);
+    setUnitDropdownOpen(value !== "" && units.length !== 0);
+  }
 
 
   ///////////////////////////////// HTML /////////////////////////////////
@@ -172,13 +198,52 @@ const ModCurrentModal = ({
               />
 
               {/* Units */}
-              <TextInput
-                className="p-1 flex-auto text-left text-[14px] leading-[17px]"
-                placeholder="unit(s)"
-                placeholderTextColor={colors.zinc400}
-                value={unit}
-                onChangeText={setUnit}
-              />
+              <View className="p-1 flex-auto relative mr-[-16.5px]">
+                <TextInput
+                  className="text-left text-[14px] leading-[17px] mr-[16.5px]"
+                  placeholder="unit(s)"
+                  placeholderTextColor={colors.zinc400}
+                  value={unit}
+                  onChangeText={(value) => filterUnits(value)}
+                />
+                
+                {/* dropdown */}
+                {unitDropdownOpen && (
+                  <FlatList
+                    className="absolute top-[100%] mt-2 max-h-[50px] w-full border bg-zinc100 border-zinc400 ml-[-0.5px] z-50"
+                    data={filteredUnitList}
+                    keyExtractor={(_, index) => index.toString()}
+                    renderItem={({ item: item }) => (
+                      <TouchableOpacity
+                        className="bg-zinc100 border-b-0.5 border-zinc350 p-1"
+                        onPress={() => {
+                          setUnitDropdownOpen(false);
+                          setUnit(item)
+                        }}
+                      >
+                        <Text 
+                          className="text-[12px] italic text-zinc600"
+                          numberOfLines={1}
+                        >
+                          {item}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  />
+                )}
+              </View>
+              
+              {/* Button to close the dropdown */}
+              {unitDropdownOpen && (
+                <View className="absolute -right-5">
+                  <Icon
+                    name="chevron-up-outline"
+                    size={15}
+                    color={colors.zinc450}
+                    onPress={() => setUnitDropdownOpen(false)}
+                  />
+                </View>
+              )}
             </View>
           </View>
           

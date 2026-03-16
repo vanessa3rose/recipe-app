@@ -53,56 +53,64 @@ export async function currentDelete (currentId) {
     
     // loops over all meal preps
     prepsSnapshot.docs.forEach((prepDoc) => {
-      const prepData = prepDoc.data();
+      let prepData = prepDoc.data();
+      let prepModified = false; // tracks if prep changes were made
 
-      if (prepData.currentIds && Array.isArray(prepData.currentIds)) {
-        let prepModified = false; // tracks if changes were made
+      // loops over the variants
+      prepData.variants?.forEach((variant) => {
+        if (variant.currentIds && Array.isArray(variant.currentIds)) {
+          let variantModified = false; // tracks if variant changes were made
 
-        // only updates meal prep ingredients if they match the edited one's id
-        prepData.currentIds.forEach((id, index) => {
-          if (id !== null && id === currentId) {
+          // only updates meal prep ingredients if they match the edited one's id
+          variant.currentIds.forEach((id, index) => {
+            if (id !== null && id === currentId) {
 
-            // stores that the prep was modified
-            prepModified = true;
+              // stores that the prep was modified
+              prepModified = true;
+              variantModified = true;
 
-            // clears the attributes of deleted current
-            prepData.currentAmounts[index] = "";
-            prepData.currentCals[index] = "";
-            prepData.currentData[index] = null;
-            prepData.currentIds[index] = "";
-            prepData.currentPrices[index] = "";
-            prepData.currentIncluded[index] = "";
-          }
-        });
+              // clears the attributes of deleted current
+              variant.currentAmounts[index] = "";
+              variant.currentCals[index] = "";
+              variant.currentData[index] = null;
+              variant.currentIds[index] = "";
+              variant.currentPrices[index] = "";
+              variant.currentIncluded[index] = false;
+            }
+          })
         
 
-        // only updates if the prep has been modified
-        if (prepModified) {
-               
-          // running totals
-          let totalCal = 0;
-          let totalPrice = 0;
-    
-          // loops over the 12 ingredients and performs calculations
-          for (var i = 0; i < 12; i++) {
-            // total calories
-            if (prepData.currentCals[i] !== "" && prepData.currentIncluded[i]) { totalCal += prepData.currentCals[i]; }
-            // total price
-            if (prepData.currentPrices[i] !== "" && prepData.currentIncluded[i]) { totalPrice += prepData.currentPrices[i]; }
-          }
+          // only updates if the variant has been modified
+          if (variantModified) {
+                  
+            // running totals
+            let totalCal = 0;
+            let totalPrice = 0;
+      
+            // loops over the 12 ingredients and performs calculations
+            for (var i = 0; i < 12; i++) {
+              // total calories
+              if (variant.currentCals[i] !== "" && variant.currentIncluded[i]) { totalCal += variant.currentCals[i]; }
+              // total price
+              if (variant.currentPrices[i] !== "" && variant.currentIncluded[i]) { totalPrice += variant.currentPrices[i]; }
+            }
 
-          // sets the calculated data
-          prepData.prepCal = ((new Fraction(totalCal.toString())) * 1).toFixed(0);
-          prepData.prepPrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
-          
-          // add the update operation to the batch
-          prepBatch.update(doc(db, 'PREPS', prepDoc.id), prepData);
-          updatedPreps.push({"id": prepDoc.id, "data": prepData});
+            // sets the calculated data
+            variant.prepCal = ((new Fraction(totalCal.toString())) * 1).toFixed(0);
+            variant.prepPrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
+          }
         }
+      })
+
+      // only updates if the prep has been modified
+      if (prepModified) {
+        // add the update operation to the batch
+        prepBatch.update(doc(db, 'PREPS', prepDoc.id), prepData);
+        updatedPreps.push({"id": prepDoc.id, "data": prepData});
       }
     });
 
-    // commit the recipe batch
+    // commit the prep batch
     await prepBatch.commit();
 
     // extracts data
@@ -124,24 +132,30 @@ export async function currentDelete (currentId) {
 
       // only looks at plans past today
       if (planDoc.id >= today.dateString) {
+        const updates = {};
       
         // if the current meal prep is the lunch of the current plan date, update the data
-        if (planData.meals.lunch.prepId && updatedIds.includes(planData.meals.lunch.prepId)) {
-          planBatch.update(doc(db, 'PLANS', planDoc.id), {
-            'meals.lunch.prepData': updatedData[updatedIds.indexOf(planData.meals.lunch.prepId)],
-          });
+        const lunchPrepId = planData.meals.lunch.prepId;
+        const lunchVariantId = planData.meals.lunch.prepData?.variantId;
+        if (lunchPrepId && lunchVariantId && updatedIds.includes(lunchPrepId)) {
+          const updatedVariant = updatedData[updatedIds.indexOf(lunchPrepId)]?.variants.find(v => v.variantId === lunchVariantId);
+          if (updatedVariant) { updates['meals.lunch.prepData'] = updatedVariant; }
         }
 
         // if the current meal prep is the dinner of the current plan date, update the data
-        if (planData.meals.dinner.prepId && updatedIds.includes(planData.meals.dinner.prepId)) {
-          planBatch.update(doc(db, 'PLANS', planDoc.id), {
-            'meals.dinner.prepData': updatedData[updatedIds.indexOf(planData.meals.dinner.prepId)],
-          });
+        const dinnerPrepId = planData.meals.dinner.prepId;
+        const dinnerVariantId = planData.meals.dinner.prepData?.variantId;
+        if (dinnerPrepId && dinnerVariantId && updatedIds.includes(dinnerPrepId)) {
+          const updatedVariant = updatedData[updatedIds.indexOf(dinnerPrepId)]?.variants.find(v => v.variantId === dinnerVariantId);
+          if (updatedVariant) { updates['meals.dinner.prepData'] = updatedVariant; }
         }
+
+        // adds the batches separately
+        if (Object.keys(updates).length > 0) { planBatch.update(doc(db, 'PLANS', planDoc.id), updates); }
       }
     });
 
-    // commit the batches separately
+    // commit the plan batch
     await planBatch.commit();
 
   } catch (error) {

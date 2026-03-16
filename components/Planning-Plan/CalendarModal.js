@@ -15,7 +15,7 @@ import colors from '../../assets/colors';
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const CalendarModal = ({
-  modalVisible, setModalVisible, closeModal, globalDate,
+  modalVisible, setModalVisible, closeModal, globalDate, allowNull
 }) => {
 
 
@@ -39,7 +39,9 @@ const CalendarModal = ({
 
   // when opening the modal, stores the date
   useEffect(() => {
-    setDate(globalDate)
+    if (modalVisible) {
+      setDate(globalDate)
+    }
   }, [modalVisible]);
 
 
@@ -91,14 +93,25 @@ const CalendarModal = ({
             onPress={() => closeModal(date)}
           />
 
-          {/* TODAY button */}
-          <TouchableOpacity
-            onPress={() => setDate(today)}
-          >
-            <Text className="bg-theme300 text-black px-5 py-2 rounded-3xl">
-              TODAY
-            </Text>
-          </TouchableOpacity>
+          <View className="flex flex-row space-x-2 justify-center items-center">
+            {/* TODAY button */}
+            <TouchableOpacity
+              onPress={() => setDate(today)}
+            >
+              <Text className="bg-theme300 text-black px-5 py-2 rounded-3xl">
+                TODAY
+              </Text>
+            </TouchableOpacity>
+
+            {/* NULL button */}
+            {allowNull && (
+              <Icon
+                name="ban"
+                size={20}
+                onPress={() => setDate({})}
+              />
+            )}
+          </View>
           
           {/* Cancel button */}
           <Icon

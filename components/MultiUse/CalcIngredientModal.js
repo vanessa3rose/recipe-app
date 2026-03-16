@@ -19,6 +19,7 @@ import validateDecimalInput from '../Validation/validateDecimalInput';
 import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
 import validateFractionInput from '../Validation/validateFractionInput';
 import extractUnit from '../Validation/extractUnit';
+import { numberToRoman } from '../Validation/numberToRoman';
 
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
@@ -28,6 +29,7 @@ const CalcIngredientModal = ({
   ingredientData, ingredientName, ingredientStore,
   initialCals, initialPrice, initialServings, initialAmount, 
   totalAmountUsed, amountsUsed, othersUsed, selectedUsed, 
+  altPrepVariants,
   amountContainer, servingSize
 }) => {
 
@@ -61,7 +63,7 @@ const CalcIngredientModal = ({
         
         while (new Fraction(remaining) * 1 <= 0) {
           count = count + 1;
-          remaining = ((new Fractional(count)).multiply(new Fractional(amountContainer)).subtract(new Fractional(totalAmountUsed))).toString();
+          remaining = ((new Fractional(count)).multiply(new Fractional(amountContainer)).subtract(new Fractional(isNaN(totalAmountUsed) ? 0 : totalAmountUsed))).toString();
         }  
         
         setNumContainers(count);
@@ -86,7 +88,7 @@ const CalcIngredientModal = ({
       // stores the calculation data (meal prep)
       } else {
         setCalContainer(new Fraction (ingredientData.ingredientData[ingredientStore].calServing) * amountContainer / servingSize);
-        setPriceContainer(new Fraction (ingredientData.unitPrice) * amountContainer / servingSize);
+        setPriceContainer(new Fraction (ingredientData.unitPrice) * amountContainer);
       }
     }
   }, [modalVisible])
@@ -94,7 +96,9 @@ const CalcIngredientModal = ({
 
   ///////////////////////////////// CHOOSING OTHERS /////////////////////////////////
 
-  const [isCounted, setIsCounted] = useState(null);
+  const [totalAmount, setTotalAmount] = useState(0);
+
+  const [isOtherCounted, setIsCounted] = useState(null);
   const [totalOtherAmount, setTotalOtherAmount] = useState(0);
 
   // when othersUsed is populated (on open), select others to be true
@@ -104,18 +108,59 @@ const CalcIngredientModal = ({
     }
   }, [othersUsed])
 
-  // when toggling an other's checkbox
+  const [isAltCounted, setIsAltCounted] = useState(null);
+  const [altAmountsUsed, setAltAmountsUsed] = useState(null);
+  const [totalAltAmount, setTotalAltAmount] = useState(0);
+  
+  // when prepVariants is given (on open), select others to be true
   useEffect(() => {
-    if (isCounted) {
-      let total = 0;
+    if (altPrepVariants?.length > 0) {
 
-      // resums total and stores it
-      isCounted.forEach((counted, index) => { 
-        if (counted) { total = (new Fractional(total).add(amountsUsed[index])).toString() }
-      })
-      setTotalOtherAmount(total);
+      // gets the largest variant number
+      const maxVariant = Math.max(...altPrepVariants.map(alt => alt.variant));
+      let amounts = Array(maxVariant).fill("0");
+
+      // gets the totals for each
+      altPrepVariants.forEach(({ amount, mult, variant }) => {
+        amounts[variant - 1] = ((new Fractional(amount)).multiply(new Fractional(mult))).toString();
+      });
+
+      // stores data locally
+      setAltAmountsUsed(amounts);
+      setIsAltCounted(Array(amounts.length).fill(false).map((alt, index) => amounts[index] !== "0" ? true : false));
     }
-  }, [isCounted])
+  }, [altPrepVariants])
+
+  // when toggling an other's or an alt variant's checkbox
+  useEffect(() => {
+    if (isOtherCounted) {
+      let total = 0;
+      let totalOther = 0;
+      let totalAlt = 0;
+
+      // resums total - others
+      isOtherCounted.forEach((counted, index) => { 
+        if (counted) { 
+          total = (new Fractional(total).add(isNaN(amountsUsed[index]) ? 0 : amountsUsed[index])).toString() 
+          totalOther = (new Fractional(totalOther).add(isNaN(amountsUsed[index]) ? 0 : amountsUsed[index])).toString() 
+        }
+      })
+
+      // resums total - alt
+      if (altAmountsUsed !== null) {
+        isAltCounted.forEach((counted, index) => {
+          if (counted) { 
+            total = (new Fractional(total).add(isNaN(altAmountsUsed[index]) ? 0 : altAmountsUsed[index])).toString()
+            totalAlt = (new Fractional(totalAlt).add(isNaN(altAmountsUsed[index]) ? 0 : altAmountsUsed[index])).toString() 
+          }
+        })
+      }
+
+      setTotalAmount(total);
+      setTotalOtherAmount(totalOther);
+      setTotalAltAmount(totalAlt);
+    }
+  }, [isOtherCounted, isAltCounted])
 
 
   ///////////////////////////////// INPUTS /////////////////////////////////
@@ -130,7 +175,7 @@ const CalcIngredientModal = ({
     if (total !== "") {
       
       // stores the total yield
-      setTotalYield(new Fractional(new Fraction(total).simplify(1 / 1000).toFraction()).toString());
+      setTotalYield(total);
 
       // if yield is valid, update the servings
       if (!isNaN(new Fractional(total).denominator) && !isNaN(new Fractional(total).numerator)) {
@@ -307,7 +352,7 @@ const CalcIngredientModal = ({
                 CALCULATED AMOUNT TO USE:
               </Text>
             </View>
-
+            
             {/* Amount Section */}
             <View className="flex flex-row w-11/12 mr-[0px] px-1 justify-center items-center bg-zinc350 border-b-[1px] border-x-[1px] border-zinc400">
               {/* calculated amount and unit*/} 
@@ -362,7 +407,7 @@ const CalcIngredientModal = ({
                   </View>
                 </View>
               )}
-
+              
               {/* Cost - IF CONTAINER COST ISN'T 0 */}
               {(priceContainer !== 0) && (
                 <View className={`flex flex-col ${calContainer === 0 ? "w-1/2" : "w-1/3"} justify-center items-center space-y-1`}>
@@ -432,13 +477,13 @@ const CalcIngredientModal = ({
                 {/* OTHER PREPS */}
                 {(othersUsed?.length > 0) ? (
                   <View className="flex flex-col w-11/12 border-[1px] border-zinc350 mb-2">
-                    <View className="flex flex-row justify-center items-center border-b-2 border-b-zinc350">
+                    <View className="flex flex-row justify-center items-center border-b-2 bg-zinc100 border-b-zinc350">
                       {/* header */}
                       <Text className="flex-1 py-1 px-2 text-right text-[12px] font-medium text-theme800 bg-zinc300">
                         AMOUNT IN OTHER MEAL PREPS
                       </Text>
                       {/* amount */}
-                      <Text className="font-medium text-theme700 bg-zinc100 py-1 px-2 text-center text-[12px]">
+                      <Text className="font-medium text-theme700 py-1 px-2 text-center text-[12px]">
                         {totalOtherAmount}
                       </Text>
                     </View>
@@ -451,7 +496,7 @@ const CalcIngredientModal = ({
                           {/* count indicator */}
                           <View className="w-1/12 justify-center items-center py-1">
                             <Icon
-                              name={isCounted?.[index] ? "checkbox" : "square-outline"}
+                              name={isOtherCounted?.[index] ? "checkbox" : "square-outline"}
                               color={colors.zinc500}
                               size={13}
                               onPress={() =>
@@ -472,7 +517,7 @@ const CalcIngredientModal = ({
                             </Text>
                             {/* amount */}
                             <Text className="font-medium text-zinc600 italic px-2 py-1 text-center text-[11px]">
-                              {`${amountsUsed[index]}`}
+                              {`${isNaN(amountsUsed[index]) ? 0 : amountsUsed[index]}`}
                             </Text>
                           </View>
                         </View>
@@ -483,6 +528,68 @@ const CalcIngredientModal = ({
                   <View className="flex w-11/12 border-[1px] bg-zinc300 border-zinc350 mb-2">
                     <Text className="text-center py-1 px-2 text-[12px] italic font-medium text-zinc600 bg-zinc300">
                       {`no other ${type}s use this ingredient`}
+                    </Text>
+                  </View>
+                )}
+
+                {/* ALT VARIANTS */}
+                {(altAmountsUsed?.length > 0) ? (
+                  <View className="flex flex-col w-11/12 border-[1px] border-zinc350 mb-2">
+                    <View className="flex flex-row justify-center items-center bg-zinc100 border-b-2 border-b-zinc350">
+                      {/* header */}
+                      <Text className="flex-1 py-1 px-2 text-right text-[12px] font-medium text-theme800 bg-zinc300">
+                        AMOUNT IN OTHER VARIANTS
+                      </Text>
+                      {/* amount */}
+                      <Text className="font-medium text-theme700 bg-zinc100 px-2 text-center text-[12px]">
+                        {totalAltAmount}
+                      </Text>
+                    </View>
+
+                    {/* selection */}
+                    <View className="flex flex-col items-start">
+                      {altAmountsUsed?.map((alt, index) => (
+                        <View key={index}>
+                          {(alt !== "0") && (
+                            <View className="flex flex-row bg-theme100 border-b-0.5 border-theme400">
+                              
+                              {/* count indicator */}
+                              <View className="w-1/12 justify-center items-center py-1">
+                                <Icon
+                                  name={isAltCounted?.[index] ? "checkbox" : "square-outline"}
+                                  color={colors.zinc500}
+                                  size={13}
+                                  onPress={() =>
+                                    setIsAltCounted(prev => {
+                                      const updated = [...prev];
+                                      updated[index] = !updated[index];
+                                      return updated;
+                                    })
+                                  }
+                                />
+                              </View>
+
+                              {/* Details */}
+                              <View className="w-11/12 flex flex-row">
+                                {/* name */}
+                                <Text className="flex-1 px-1 text-left text-[11px] text-zinc600 italic py-1">
+                                  {`VARIANT ${numberToRoman(index + 1)}`}
+                                </Text>
+                                {/* amount */}
+                                <Text className="font-medium text-zinc600 italic px-2 py-1 text-center text-[11px]">
+                                  {`${isNaN(altAmountsUsed[index]) ? 0 : altAmountsUsed[index]}`}
+                                </Text>
+                              </View>
+                            </View>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : (type === "prep") && (
+                  <View className="flex w-11/12 border-[1px] bg-zinc300 border-zinc350 mb-2">
+                    <Text className="text-center py-1 px-2 text-[12px] italic font-medium text-zinc600 bg-zinc300">
+                      {`no other variants use this ingredient`}
                     </Text>
                   </View>
                 )}
@@ -533,7 +640,7 @@ const CalcIngredientModal = ({
                     {/* arrow */}
                     <TouchableOpacity 
                       className="h-full absolute right-[-30px] bottom-1.5 flex flex-row -rotate-90"
-                      onPress={() => updateTotalYield(((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(new Fractional(totalOtherAmount))).toString())}
+                      onPress={() => updateTotalYield(((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(new Fractional(totalAmount))).toString())}
                     >
                       <Icon
                         name="return-down-forward"
@@ -553,7 +660,7 @@ const CalcIngredientModal = ({
                       {(type !== "recipe") && (
                         <Text className="text-[13px] text-zinc800">
                           {new Fractional((
-                            new Fraction((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(totalOtherAmount).numerator / (new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(totalOtherAmount).denominator)
+                            new Fraction((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(isNaN(totalAmount) ? 0 : totalAmount).numerator / (new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(isNaN(totalAmount) ? 0 : totalAmount).denominator)
                           .simplify(1 / 1000)).toFraction()).toString()}
                         </Text>
                       )}

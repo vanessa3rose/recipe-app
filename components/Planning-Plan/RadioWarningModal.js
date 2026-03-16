@@ -10,7 +10,7 @@ import { Modal, View, Text, TouchableOpacity } from 'react-native';
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const RadioWarningModal = ({ 
-  prepName, prepDate, modalVisible, closeModal, submitModal,
+  prepName, prepDate, isCustom, modalVisible, closeModal, submitModal,
 }) => {
 
   
@@ -33,7 +33,7 @@ const RadioWarningModal = ({
 
           {/* Confirmation Text */}
             <Text className="text-[20px] font-bold text-center leading-[27.5px]">
-              {"un-toggling this radio button will remove "}
+              {`${isCustom ? "" : "un-"}toggling this radio button will remove `}
             </Text>
             <Text className="text-[20px] font-bold text-center text-theme400 leading-[27.5px]">
               {prepName}
@@ -61,7 +61,7 @@ const RadioWarningModal = ({
             {/* Delete Button */}
             <TouchableOpacity
               className="bg-theme500 p-2.5 rounded-[5px]"
-              onPress={submitModal}
+              onPress={() => submitModal(isCustom)}
             >
               <Text className="text-white font-bold text-[16px]">PROCEED</Text>
             </TouchableOpacity>

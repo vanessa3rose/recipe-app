@@ -4,7 +4,6 @@ import React from 'react';
 import ScreenTabView from '../../components/ScreenTabView';
 import CurrentFood from './CurrentFood';
 import MealPrep from './MealPrep';
-import { SceneMap } from 'react-native-tab-view';
 
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////

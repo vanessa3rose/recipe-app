@@ -717,12 +717,12 @@ const ExtraIngredientsModal = ({
               <View className="flex flex-row w-[225px] items-center justify-between pr-[5px]">
     
                 {/* Type Picker */}
-                <View className="flex w-[160px] z-0 bg-zinc350 border-0.5 border-zinc400">
+                <View className="flex w-[160px] z-0 bg-zinc350 border-0.5 border-zinc400 overflow-hidden">
                   <Picker
                     selectedValue={selectedIngredientType}
                     onValueChange={(itemValue) => setSelectedIngredientType(itemValue)}
-                    style={{ height: 30, justifyContent: 'center', overflow: 'hidden', }}
-                    itemStyle={{ color:'black', fontWeight: 'bold', textAlign: 'center', fontSize: 12, marginHorizontal: -10, }}
+                    style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, }}
+                    itemStyle={{ color:'black', fontWeight: 'bold', textAlign: 'center', fontSize: 12, }}
                   >
                     {typeList.length > 1 ? (
                       typeList.map((item) => (

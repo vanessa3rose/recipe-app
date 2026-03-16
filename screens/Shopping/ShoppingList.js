@@ -882,11 +882,11 @@ export default function ShoppingList ({ isSelectedTab }) {
             </View>
 
             {/* Selection */}
-            <View className="w-[45%] ml-[-25px] h-[30px] z-0">
+            <View className="w-[45%] ml-[-25px] h-[30px] z-0 overflow-hidden">
               <Picker
                 selectedValue={selectedStore}
                 onValueChange={setSelectedStore}
-                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', backgroundColor: (selectedStore === "-" && storeListLengths["-"] !== 0) ? colors.mauve800 : calcNumLeft() !== 0 ? colors.theme600 : colors.zinc500, borderWidth: 1, }}
+                style={{ height: 30, justifyContent: 'center', overflow: 'hidden', marginHorizontal: -20, backgroundColor: (selectedStore === "-" && storeListLengths["-"] !== 0) ? colors.mauve800 : calcNumLeft() !== 0 ? colors.theme600 : colors.zinc500, borderWidth: 1, }}
                 itemStyle={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 13, }}
               >
                 {miscStoreLabels.map((storeLabel, index) => {
