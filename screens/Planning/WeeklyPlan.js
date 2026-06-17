@@ -262,18 +262,22 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
   // to format the given date as "mm/dd/yy"
   const formatDateShort = (currDate) => {
-    const mm = currDate.getMonth() + 1; // Months are 0-based
-    const dd = currDate.getDate();
-    const yy = currDate.getFullYear() % 100;
-    
-    return `${mm}/${dd}/${yy}`;
+    if (currDate) {
+      const mm = currDate.getMonth() + 1;
+      const dd = currDate.getDate();
+      const yy = currDate.getFullYear() % 100;
+      
+      return `${mm}/${dd}/${yy}`;
+    }
+
+    return "";
   };
 
   const formatDateMed = (currDate) => {
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const dayName = days[currDate.getDay()];
   
-    const mm = currDate.getMonth() + 1; // Months are 0-based
+    const mm = currDate.getMonth() + 1;
     const dd = currDate.getDate();
     const yy = currDate.getFullYear() % 100;
     
@@ -1119,9 +1123,9 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     
     // gets the current data
     const planDocSnap = await getDoc(doc(db, 'PLANS', (new Date(weekRange[index])).toLocaleDateString('en-CA')));
-    const id = planDocSnap?.data()?.meals?.[type.toLowerCase()]?.prepId;
+    const id = planDocSnap?.data()?.meals?.[type.toLowerCase()]?.prepId ?? null;
     const isCustom = id?.includes(type) || id?.[0] === ".";
-
+    
     // if the meal is not already in the list, add it
     if (id !== null && (isSelected && !isCustom) || (!isSelected && isCustom)) {
       setWarningModalType(type);
@@ -1204,7 +1208,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
   // updates number of future selected meals on change
   useEffect(() => {
-    if (selectedList && weekData !== null && weekRange !== null) {
+    if (selectedList && plansSnapshot) {
       countSelected();
     }
   }, [selectedList, weekData, weekRange]);
@@ -1222,14 +1226,14 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       
       if (currDate > new Date(today.dateString).toISOString()) {
         const dateString = currDate.split("T")[0];
-        const dateIndex = weekRange.map(day => new Date(day).toISOString().split("T")[0]).indexOf(dateString);
         
         // fixes mismatch
-        if ((weekData[dateIndex].meals[currMeal].prepId === null) === item.filled) {
+        const match = plansSnapshot.docs.find(plan => plan.id === dateString);
+        if ((!match || match.data() === null || (match.data().meals[currMeal].prepId === null)) === item.filled) {
           list[index].filled = !item.filled;
           updatedList = true;
         }
-
+        
         if (!item.filled) { 
           newCount = newCount + 1; 
         }
@@ -1551,9 +1555,9 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                 <TouchableOpacity
                   onPress={() => displayMeal(index, "LUNCH", data?.meals?.lunch?.prepData, data?.meals?.lunch?.prepId)}
                   activeOpacity={0.6}
-                  className="flex flex-row bg-zinc350 w-full justify-center items-center h-1/2 px-1"
+                  className="bg-zinc350 w-full justify-center items-center h-1/2 px-1"
                 >
-                  <Text className={`text-[11px] font-bold text-center 
+                  <Text className={`text-[11px] font-bold text-center w-full px-1
                                     ${(data?.meals?.lunch?.prepData?.prepPrice === "0.00" && data?.meals?.lunch?.prepData?.prepCal === "0") && "italic"}
                                     ${(data?.meals?.lunch?.prepData?.variantId && prepData?.find(prep => prep.id === selectedPrepId)?.variants.length > 0 && data?.meals?.lunch?.prepData?.variantId === prepData?.find(prep => prep.id === selectedPrepId)?.variants?.[selectedPrepVariant]?.variantId) && "border-b-[1.5px] border-zinc-700"} 
                                     ${(gotoMealDate?.meal === "LUNCH" && gotoMealDate?.date?.dateString === data?.date) ? "text-pink-800" : (data?.meals?.lunch?.prepData?.prepId === selectedPrepId) ? "text-theme700" : (data?.meals?.lunch?.prepData?.prepPrice === "0.00" && data?.meals?.lunch?.prepData?.prepCal === "0") ? "text-zinc500" : "text-black"}
@@ -1568,7 +1572,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                   activeOpacity={0.6}
                   className="bg-zinc400 w-full justify-center items-center h-1/2 px-1"
                 >
-                  <Text className={`text-[11px] font-bold text-center 
+                  <Text className={`text-[11px] font-bold text-center w-full px-1
                                     ${(data?.meals?.dinner?.prepData?.prepPrice === "0.00" && data?.meals?.dinner?.prepData?.prepCal === "0") && "italic"}
                                     ${(data?.meals?.dinner?.prepData?.variantId && prepData?.find(prep => prep.id === selectedPrepId)?.variants.length > 0 && data?.meals?.dinner?.prepData?.variantId === prepData?.find(prep => prep.id === selectedPrepId)?.variants?.[selectedPrepVariant]?.variantId) && "border-b-[1.5px] border-zinc-800"} 
                                     ${(gotoMealDate?.meal === "DINNER" && gotoMealDate?.date?.dateString === data?.date) ? "text-pink-800" : (data?.meals?.dinner?.prepData?.prepId === selectedPrepId) ? "text-theme800" : (data?.meals?.dinner?.prepData?.prepPrice === "0.00" && data?.meals?.dinner?.prepData?.prepCal === "0") ? "text-zinc600" : "text-black"}
@@ -1697,9 +1701,9 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
 
       {/* WARNING MODAL */}
-      {warningModalVisible && (
+      {(warningModalVisible && warningModalType !== "" && warningModalDocSnap.data() && ((warningModalType === "LUNCH" && warningModalDocSnap.data().meals.lunch.prepData !== null) || (warningModalType === "DINNER" && warningModalDocSnap.data().meals.dinner.prepData !== null))) && (
         <RadioWarningModal
-          prepName={warningModalType === "LUNCH" ? warningModalDocSnap.data().meals.lunch.prepData.prepName : warningModalDocSnap.data().meals.dinner.prepData.prepName}
+          prepName={warningModalType === "LUNCH" ? warningModalDocSnap?.data().meals.lunch.prepData.prepName : warningModalDocSnap?.data().meals.dinner.prepData.prepName}
           prepDate={(warningModalType === "LUNCH" ? "Lunch " : "Dinner ") + formatDateShort(weekRange[warningModalIndex])}
           isCustom={warningModalCustom}
           modalVisible={warningModalVisible}

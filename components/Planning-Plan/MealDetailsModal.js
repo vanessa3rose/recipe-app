@@ -1286,24 +1286,12 @@ const MealDetailsModal = ({
                           }}
                         />
                       </View>
-                    </View>
-
-                    {/* First Index Add Indicator */}
-                    <View className="absolute w-[20px] left-[-15px] top-[32.5px] pr-1 z-50 justify-end items-center">
-                      {(showNewIndex && numIngredients !== 0) && (
-                        <Icon
-                          name="send"
-                          size={10}
-                          color={colors.zinc600}
-                          onPress={() => addPrepIngredient(0)}
-                        />
-                      )}
-                    </View>   
+                    </View> 
                   </View> 
     
                   {/* GRID */}
                   {(numIngredients !== 0) && (
-                    <ScrollView className={`flex flex-col w-full mr-[-10px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) ? "max-h-[100px]" : "max-h-[430px]"}`}>
+                    <ScrollView className={`overflow-visible flex flex-col w-full mr-[-10px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) ? "max-h-[100px]" : "max-h-[430px]"}`}>
                       
                       {/* Frozen Columns */}
                       {Array.from({ length: numIngredients }, (_, index) => index < numIngredients && (
@@ -1311,7 +1299,7 @@ const MealDetailsModal = ({
 
                           {/* Add Indicator */}
                           <View className="w-[20px] h-[10px] mt-[-5px] mx-[-5px] pr-1 z-50 justify-end items-center">
-                            {(index !== 0 && showNewIndex) && (
+                            {(showNewIndex) && (
                               <Icon
                                 name="send"
                                 size={10}

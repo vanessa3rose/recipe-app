@@ -1264,7 +1264,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                       </View>
       
                       {/* Archive Button */}
-                      <View className="flex justify-center items-center h-[50px] w-[20px] bg-zinc200">
+                      <View className={`flex justify-center items-center h-${ITEM_HEIGHT} w-[20px]`}>
                         <Icon
                           name={showArchive ? "lock-closed" : "lock-open"}
                           color={colors.zinc700}
