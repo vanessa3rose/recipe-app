@@ -59,8 +59,6 @@ export default function Details ({ isSelectedTab }) {
     previousIndexRef.current = currentIndex;
   }, [currentIndex]);
 
-  const [variantIds, setVariantIds] = useState(null);
-
   // on navigation
   const onNav = async () => {
 
@@ -69,7 +67,6 @@ export default function Details ({ isSelectedTab }) {
     const prepsArray = querySnapshot.docs
       .map(doc => ({ id: doc.id, ...doc.data() }))
       .sort((a, b) => a.prepName.localeCompare(b.prepName));
-    setPrepData(prepsArray);
 
                 
     // gets current global prep info and stores it
@@ -82,56 +79,58 @@ export default function Details ({ isSelectedTab }) {
     
     // to calculate the amounts
     if (prepsArray) {
-      const prepIds = prepsArray.map((prep) => prep.id);
-      const varIds = prepsArray.map((prep) => prep.variants.map((v) => v.variantId || ""));
-      setVariantIds(varIds);
-
-      // for calculations of the three prior states, per variant
-      const available = prepsArray.map((prep) => prep.variants.map((v) => v.prepMult || 0));
-      let remaining = prepsArray.map((prep) => prep.variants.map((v) => v.prepMult || 0));
-      let dates = prepsArray.map((prep) => prep.variants.map(() => []));
+      let flattenedPreps = [];
+      prepsArray.forEach(prep => {
+        prep.variants.map((variant, idx) => {
+          flattenedPreps.push({
+            id: prep.id,
+            prepName: prep.prepName,
+            variantData: variant,
+            variantIndex: prep.variants.length === 1 ? -1 : idx,
+            dates: [],
+            remaining: 0,
+            available: 0,
+          })
+        })
+      })
       
       // gets all current ingredient data
       const plansSnapshot = await getDocs(collection(db, 'PLANS'));
       const plansArray = plansSnapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
       const filteredPlans = plansArray.filter(plan => plan.id >= today.dateString);
-
-      // loops over the meal preps
-      prepIds.forEach((prep, index) => {
-
-        // loops over the variants of the current prep
-        varIds[index].forEach((variant, idx) => {
-
-          // loops over the filtered plans
-          filteredPlans.forEach((plan) => {
-
-            // if the current meal prep id and variant id is stored in the plan's lunch
-            if (plan.data.meals.lunch.prepData?.prepId === prep && plan.data.meals.lunch.prepData.variantId === variant) { 
-              // decrement the number of remaining preps and store the date
-              remaining[index][idx] = plan.id > today.dateString ? remaining[index][idx] - 1 : remaining[index][idx];
-              dates[index][idx].push(formatDateExtended(plan.id) + "  LUNCH");
-            }
-
-            // if the current meal prep id and variant id is stored in the plan's dinner
-            if (plan.data.meals.dinner.prepData?.prepId === prep && plan.data.meals.dinner.prepData.variantId === variant) { 
-              // decrement the number of remaining preps and store the date
-              remaining[index][idx] = plan.id > today.dateString ? remaining[index][idx] - 1 : remaining[index][idx];
-              dates[index][idx].push(formatDateExtended(plan.id) + "  DINNER");
-            }
-          })
-        })
-      })
-    
-      // sets the states and filters based on the unfinished preps
-      setCurrAvailable(available);
-      setFilteredAvailable(available.map((variants, idx) => unfinished ? variants : variants.map((v, i) => (completed[varIds[idx][i]] ? v : null))));
-
-      setCurrRemaining(remaining);
-      setFilteredRemaining(remaining.map((variants, idx) => unfinished ? variants : variants.map((v, i) => (completed[varIds[idx][i]] ? v : null))));
       
-      setCurrDates(dates);
-      setFilteredDates(dates.map((variants, idx) => unfinished ? variants : variants.map((v, i) => (completed[varIds[idx][i]] ? v : null))));
+      // loops over the meal prep variants
+      flattenedPreps.forEach((prep) => {
+        let dates = [];
+        let remaining = prep.variantData.prepMult || 0;
+
+        // loops over the filtered plans
+        filteredPlans.forEach((plan) => {
+
+          // if the current meal prep id and variant id is stored in the plan's lunch
+          if (plan.data.meals.lunch.prepData?.prepId === prep.id && plan.data.meals.lunch.prepData.variantId === prep.variantData.variantId) { 
+            // decrement the number of remaining preps and store the date
+            remaining = plan.id > today.dateString ? remaining - 1 : remaining;
+            dates.push(formatDateExtended(plan.id) + "  LUNCH");
+          }
+
+          // if the current meal prep id and variant id is stored in the plan's dinner
+          if (plan.data.meals.dinner.prepData?.prepId === prep.id && plan.data.meals.dinner.prepData.variantId === prep.variantData.variantId) { 
+            // decrement the number of remaining preps and store the date
+            remaining = plan.id > today.dateString ? remaining - 1 : remaining;
+            dates.push(formatDateExtended(plan.id) + "  DINNER");
+          }
+        })
+        
+        prep.dates = dates;
+        prep.remaining = remaining;
+        prep.available = prep.variantData.prepMult || 0;
+      })
+
+      setPrepData(flattenedPreps);
     }
+
+    setSortType("");
   }
 
   
@@ -177,12 +176,6 @@ export default function Details ({ isSelectedTab }) {
   const [prepData, setPrepData] = useState([]);
   const [prepsCompleted, setPrepsCompleted] = useState(null);
 
-  ///////////////////////////////// MULTIPLICITY /////////////////////////////////
-
-  const [currAvailable, setCurrAvailable] = useState([]);   // the amounts available from the multiplicity
-  const [currRemaining, setCurrRemaining] = useState([]);   // the amounts remaining from the number of times each prep is listed
-  const [currDates, setCurrDates] = useState([]);           // the future dates the preps are listed under
-  
   
   ///////////////////////////////// MEAL MODAL /////////////////////////////////
 
@@ -190,14 +183,10 @@ export default function Details ({ isSelectedTab }) {
   const [mealModalData, setMealModalData] = useState(null);
 
   // when a touchable opacity for a meal is clicked, store the data
-  const displayMeal = (index, idx) => {
+  const displayMeal = (prep) => {
     // only opens the modal and stores data if there is data
-    if (prepData !== null) {
-      setMealModalData(
-        prepData?.map(prep => ({
-          ...prep, variants: showUnfinished ? prep.variants : prep.variants.map(v => (prepsCompleted?.[v.variantId] ? v : null))
-        })).filter(prep => prep.variants.length > 0)[index].variants[idx]
-      );
+    if (prep !== null) {
+      setMealModalData(prep);
       setMealModalVisible(true);
     }
   }
@@ -207,20 +196,18 @@ export default function Details ({ isSelectedTab }) {
   
   const [showUnfinished, setShowUnfinished] = useState(false);
 
-  const [filteredRemaining, setFilteredRemaining] = useState([]);
-  const [filteredAvailable, setFilteredAvailable] = useState([]);
-  const [filteredDates, setFilteredDates] = useState([]);
-
   // to change the unfinished status (overall) in global
   const changeUnfinished = async () => {
     await updateDoc(doc(db, 'GLOBALS', 'prep'), { 'unfinished': !showUnfinished });
     setShowUnfinished(!showUnfinished);
-
-    // changes the filtered remaining and available amounts
-    setFilteredAvailable(currAvailable.map((variants, idx) => !showUnfinished ? variants : variants.map((v, i) => (prepsCompleted[variantIds[idx][i]] ? v : null))));
-    setFilteredRemaining(currRemaining.map((variants, idx) => !showUnfinished ? variants : variants.map((v, i) => (prepsCompleted[variantIds[idx][i]] ? v : null))));
-    setFilteredDates(currDates.map((variants, idx) => !showUnfinished ? variants : variants.filter((v, i) => (prepsCompleted[variantIds[idx][i]] ? v : null))));
   }
+  
+
+  ///////////////////////////////// DETAILS /////////////////////////////////
+
+  const [showDetails, setShowDetails] = useState(false);
+  const [sortType, setSortType] = useState("");
+  const [sortOrder, setSortOrder] = useState(1);
   
 
   ///////////////////////////////// HTML /////////////////////////////////
@@ -228,8 +215,38 @@ export default function Details ({ isSelectedTab }) {
   return (
 
     // CONTAINER
-    <View className="flex-1 items-center justify-center bg-zinc100 border-0.5 space-y-7">      
+    <View className="flex-1 items-center justify-center bg-zinc100 border-0.5 space-y-7">  
 
+      {/* Sort */}
+      <View className="flex flex-row w-[70%] justify-center rounded-md mt-3 -mb-3 items-center bg-zinc200 border-2 border-zinc300">
+        <Text className="font-bold px-3 py-1 border-r-2 border-zinc300 text-theme700">
+          SORT BY
+        </Text>
+        <View className="px-3 py-1.5 flex flex-1 flex-row justify-around items-center">
+          {["calories", "price"].map(type => (
+            <TouchableOpacity 
+              key={type} 
+              className={`${(sortType === type) ? "bg-theme200 border-theme200" : "border-theme300"} border-2 py-0.5 px-3 rounded-xl`}
+              onPress={() => setSortType(type === sortType ? "" : type)}
+            >
+              <Text className={`${(sortType === type) ? "text-theme800 font-semibold" : "text-zinc500 font-medium"}`}>
+                {type}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity 
+          className="font-semibold px-2 py-1 border-l-2 border-zinc300 text-theme800"
+          onPress={() => setSortOrder(sortOrder * -1)}
+        >
+          <Icon
+            name={(sortOrder === -1) ? "caret-up" : "caret-down"}
+            size={16}
+            color={colors.zinc600}
+          />
+        </TouchableOpacity>
+      </View>
+      
       {/* Grid */}
       <View className="flex flex-col h-5/6 w-11/12 bg-zinc700 border-2 border-black">
 
@@ -237,10 +254,19 @@ export default function Details ({ isSelectedTab }) {
         <View className="flex flex-row justify-center items-center bg-theme900 w-full h-[50px] border-b-2">
           
           {/* Meal Prep */}
-          <View className="flex justify-center items-center w-1/3 h-full border-r-[1px]">
-            <Text className="text-white font-bold text-center">
+          <View className="flex flex-row justify-evenly items-center w-1/3 h-full border-r-[1px]">
+            <Text className="ml-2 text-white font-bold text-center">
               MEAL PREP
             </Text>
+
+            <View className="">
+              <Icon
+                name={showDetails ? "information-circle" : "information"}
+                size={16}
+                color={colors.zinc300}
+                onPress={() => setShowDetails(!showDetails)}
+              />
+            </View>
           </View>
 
           {/* Amount - available and remaining */}
@@ -250,118 +276,122 @@ export default function Details ({ isSelectedTab }) {
             </Text>
             {/* calculates the total number of recipes */}
             <Text className="text-white text-[12px] text-center italic">
-              {filteredRemaining.flat().reduce((sum, num) => (num > 0 ? sum + num : sum), 0)}
+              {prepData.filter(prep => showUnfinished ? true : prepsCompleted[prep.variantData.variantId]).map(prep => prep.remaining).flat().reduce((sum, num) => (num > 0 ? sum + num : sum), 0)}
               {" / "}
-              {filteredAvailable.flat().reduce((sum, num) => (num > 0 ? sum + num : sum), 0)}
+              {prepData.filter(prep => showUnfinished ? true : prepsCompleted[prep.variantData.variantId]).map(prep => prep.available).flat().reduce((sum, num) => (num > 0 ? sum + num : sum), 0)}
               {" left"}
             </Text>
           </View>
 
           {/* Dates used - list */}
           <View className="flex justify-center items-center w-5/12 h-full">
-            <Text className="text-white font-bold text-center">
-              DATES USED
-            </Text>
-            <Text className="text-white text-[12px] text-center italic">
-              future dates only
-            </Text>
+            <View className="flex flex-col">
+              <Text className="text-white font-bold text-center">
+                DATES USED
+              </Text>
+              <Text className="text-white text-[12px] text-center italic">
+                future dates only
+              </Text>
+            </View>
           </View>
         </View>
 
 
         {/* SCROLLABLE CONTENT */}
-        <View className="flex-1 mt-[0.5px]">
+        <View className="flex-1 mt-[0.5px] overflow-visible">
           {prepData.length > 0
           ?
             <ScrollView>
               {/* maps over the list of all meal preps */}
-              {prepData?.map(prep => ({...prep, variants: showUnfinished ? prep?.variants : prep?.variants?.map(v => (prepsCompleted?.[v?.variantId] ? v : null))})).map((prep, index) => (
-                <View key={index}>
-                  {prep?.variants?.map((v, idx) => (
-                    <View key={idx}>
-                      {v !== null && (
-                        <View className="flex flex-row justify-center w-full border-b-[1px] min-h-[70px] border-black">
-                      
-                          {/* Meal Prep Name & Modal */}
-                          <TouchableOpacity
-                            onPress={() => displayMeal(index, idx)}
-                            activeOpacity={0.6}
-                            className={`flex flex-col justify-center items-center space-y-2 w-1/3 py-3 px-2 ${(prepsCompleted === null || prepsCompleted?.[v.variantId]) ? "bg-theme700" : "bg-mauve800"}`}
-                          >
-                            <Text className="text-white text-[12px] font-bold text-center">
-                              {prep.prepName}
-                            </Text>
+              {(() => {
+                const sorted = prepData
+                  .filter(prep => showUnfinished || prepsCompleted[prep.variantData.variantId])
+                  .sort((a,b) => ((sortType === "") ? a : (sortType === "calories") ? a.variantData.prepCal.localeCompare(b.variantData.prepCal) : a.variantData.prepPrice.localeCompare(b.variantData.prepPrice)));
+                if (sortOrder === -1) sorted.reverse();
+                return sorted.map((prep, index) => (
+                  <View key={index} className="overflow-visible flex flex-row justify-center w-full border-b-[1px] min-h-[70px] border-black">
+                    
+                    {/* Meal Prep Name & Modal */}
+                    <TouchableOpacity
+                      onPress={() => displayMeal(prep)}
+                      activeOpacity={0.6}
+                      className={`flex flex-col justify-center items-center space-y-2 w-1/3 py-3 px-2 ${(prepsCompleted === null || prepsCompleted?.[prep.variantData.variantId]) ? "bg-theme700" : "bg-mauve800"}`}
+                    >
+                      <Text className="text-white text-[12px] font-bold text-center">
+                        {prep.variantData.prepName}
+                      </Text>
 
-                            {/* variant indicator */}
-                            {(prepData[index].variants.length > 1) && (
-                              <Text className="text-theme200 text-[10px] font-bold text-center italic">
-                                {`VARIANT ${numberToRoman(idx + 1)}`}
-                              </Text>
-                            )}
-                          </TouchableOpacity>
+                      {/* variant indicator */}
+                      {(!showDetails && prep.variantIndex !== -1) ? (
+                        <Text className="text-theme200 text-[10px] font-bold text-center italic">
+                          {`VARIANT ${numberToRoman(prep.variantIndex + 1)}`}
+                        </Text>
+                      ) : showDetails && (
+                        <Text className="text-theme200 text-[11px] font-bold text-center italic">
+                          {`${prep.variantData.prepCal} cal   |   $${prep.variantData.prepPrice}`}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
 
-                          {/* Amounts */}
-                          <View className="bg-zinc350 justify-center items-center w-1/4 space-y-1.5">
-                            {/* available */}
-                            <View>
-                              <Text className="text-[12px] font-semibold">
-                                {(filteredAvailable?.[index]?.[idx] && filteredAvailable[index][idx].length !== 0) ? filteredAvailable[index][idx] : "0"} {"available"}
-                              </Text>
-                            </View>
+                    {/* Amounts */}
+                    <View className="bg-zinc350 justify-center items-center w-1/4 space-y-1.5">
+                      {/* available */}
+                      <View>
+                        <Text className="text-[12px] font-semibold">
+                          {prep.available} {"available"}
+                        </Text>
+                      </View>
 
-                            {/* remaining */}
-                            <View>
-                              <Text className={`text-[12px] font-semibold ${(filteredRemaining?.[index]?.[idx] < 0) ? "text-mauve700" : (filteredRemaining?.[index]?.[idx] === 0) ? "text-yellow-700" : (filteredRemaining?.[index]?.[idx] > 0) ? "text-green-700" : "text-black"}`}>
-                                {(filteredRemaining?.[index]?.[idx] && filteredRemaining[index][idx].length !== 0) ? filteredRemaining[index][idx] : "0"} {"remaining"}
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* List of Dates Used */}
-                          {(filteredDates?.[index]?.[idx] && filteredDates[index][idx].length !== 0) ? (
-                            <View className="bg-zinc400 justify-center py-1.5 items-left w-5/12">
-                              <View className="flex-1 justify-start items-start">
-                                <Text className="pl-1.5">
-                                  {filteredDates[index][idx].map((date, i) => {
-                                    const parts = date.split("  ");             // split by double space
-                                    const expanded = parts[0]?.trim() || date;  // text before the double space
-                                    const meal = parts[1]?.trim() || '';        // text after the double space
-                                    
-                                    // maps out "www m/d/yy TYPE"
-                                    return (
-                                      <Text key={i} className="flex justify-center items-center">
-                                        <Text className={`flex text-[14px] font-semibold ${(expanded.split(" ")[1] === `${today.month}/${today.day}/${today.year.toString().slice(-2)}`) ? "text-zinc800" : "text-theme900"}`}>
-                                          {"• "}
-                                        </Text>
-                                        <Text className={`text-[12px] ${(expanded.split(" ")[1] === `${today.month}/${today.day}/${today.year.toString().slice(-2)}`) && "line-through decoration-zinc800 italic text-mauve900"}`}>
-                                          {expanded}
-                                        </Text>
-                                        <Text className={`flex text-[11px] font-semibold ${(expanded.split(" ")[1] === `${today.month}/${today.day}/${today.year.toString().slice(-2)}`) ? "line-through decoration-zinc800 italic text-mauve900" : "text-theme900"}`}>
-                                          {'  '}{meal}
-                                        </Text>
-                                        <Text>
-                                          {filteredDates[index][idx][i + 1] ? '\n' : ''}
-                                        </Text>
-                                      </Text>
-                                    );
-                                  })}
-                                </Text>
-                              </View>
-                            </View>
-                          ) : (
-                            // if there are no dates, simply a line
-                            <View className="bg-zinc400 justify-center py-1.5 items-center w-5/12">
-                              <Text className="text-[13px]">
-                                ───
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      )} 
+                      {/* remaining */}
+                      <View>
+                        <Text className={`text-[12px] font-semibold ${(prep.remaining < 0) ? "text-mauve700" : (prep.remaining === 0) ? "text-yellow-700" : (prep.remaining > 0) ? "text-green-700" : "text-black"}`}>
+                          {prep.remaining} {"remaining"}
+                        </Text>
+                      </View>
                     </View>
-                  ))}
-                </View>
-              ))}
+
+                    {/* List of Dates Used */}
+                    {(prep.dates?.length !== 0) ? (
+                      <View className="bg-zinc400 justify-center py-1.5 items-left w-5/12">
+                        <View className="flex-1 justify-start items-start">
+                          <Text className="pl-1.5">
+                            {prep.dates.map((date, i) => {
+                              const parts = date.split("  ");             // split by double space
+                              const expanded = parts[0]?.trim() || date;  // text before the double space
+                              const meal = parts[1]?.trim() || '';        // text after the double space
+                              
+                              // maps out "www m/d/yy TYPE"
+                              return (
+                                <Text key={i} className="flex justify-center items-center">
+                                  <Text className={`flex text-[14px] font-semibold ${(expanded.split(" ")[1] === `${today.month}/${today.day}/${today.year.toString().slice(-2)}`) ? "text-zinc800" : "text-theme900"}`}>
+                                    {"• "}
+                                  </Text>
+                                  <Text className={`text-[12px] ${(expanded.split(" ")[1] === `${today.month}/${today.day}/${today.year.toString().slice(-2)}`) && "line-through decoration-zinc800 italic text-mauve900"}`}>
+                                    {expanded}
+                                  </Text>
+                                  <Text className={`flex text-[11px] font-semibold ${(expanded.split(" ")[1] === `${today.month}/${today.day}/${today.year.toString().slice(-2)}`) ? "line-through decoration-zinc800 italic text-mauve900" : "text-theme900"}`}>
+                                    {'  '}{meal}
+                                  </Text>
+                                  <Text>
+                                    {prep.dates[i + 1] ? '\n' : ''}
+                                  </Text>
+                                </Text>
+                              );
+                            })}
+                          </Text>
+                        </View>
+                      </View>
+                    ) : (
+                      // if there are no dates, simply a line
+                      <View className="bg-zinc400 justify-center py-1.5 items-center w-5/12">
+                        <Text className="text-[13px]">
+                          ───
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ));
+              })()}
             </ScrollView>
           :
             // if there are no current meal preps
@@ -399,7 +429,7 @@ export default function Details ({ isSelectedTab }) {
         {/* Modal to Display a Meal */}
         {mealModalVisible && (
           <MealOverviewModal
-            data={mealModalData}
+            data={mealModalData.variantData}
             modalVisible={mealModalVisible}
             setModalVisible={setMealModalVisible}
           />

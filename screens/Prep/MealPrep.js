@@ -1588,6 +1588,9 @@ export default function MealPrep ({ isSelectedTab }) {
   // to add an ingredient
   const addPrepIngredient = async (index) => {
 
+    // resets
+    setIsAdding(false);
+
     // formats currentData
     const currentData = {
       ingredientId: "", 
@@ -1635,9 +1638,6 @@ export default function MealPrep ({ isSelectedTab }) {
 
     // reload settings
     refreshPreps();
-
-    // resets
-    setIsAdding(false);
   }
 
   // to delete or clear the pressed ingredient
@@ -1859,50 +1859,7 @@ export default function MealPrep ({ isSelectedTab }) {
       )}
 
       {/* PREP CARD SECTION */}
-      <View className={`flex flex-row max-h-[80%] space-x-0.5 ${(prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "complex" && isAdding) && "ml-0.5 mr-[5.5px]"} ${(selectedPrepData && selectedPrepData.variants[selectedPrepVariant]?.currentData.indexOf(null) !== -1) ? "mx-1" : "justify-center items-center"}`}>
-            
-        {/* Select Add Index Column */}
-        {(prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "complex" && isAdding) && (
-          <View className="flex mt-[40px] mr-[-4px] z-40">
-            {/* first row */}
-            <View className="flex flex-row h-[30px]">
-              <Icon
-                name="send"
-                color={colors.zinc600}
-                size={12}
-                onPress={() => addPrepIngredient(0)}
-              />
-            </View>
-            {/* other rows */}
-            <ScrollView 
-              className="max-h-[360px]"
-              contentOffset={{ y: scrollY }}
-              scrollEnabled={false}
-            >
-              {(selectedPrepData?.variants?.[selectedPrepVariant]?.currentData?.map((current, index) => (
-                <View key={`store-${index}`}>
-                  {current ?
-                    <View className="flex flex-row h-[30px]">
-                      <Icon
-                        name="send"
-                        color={colors.zinc600}
-                        size={12}
-                        onPress={() => addPrepIngredient(index + 1)}
-                      />
-                    </View>
-                  : 
-                    <View className="flex flex-row h-[30px]"/>
-                  }
-                </View>
-              )))}
-
-              {/* empty space at the bottom if the keyboard is open */}
-              {isKeyboardOpen && (
-                <View className="flex flex-row h-[120px]"/>
-              )}
-            </ScrollView>  
-          </View>  
-        )}
+      <View className={`flex flex-row max-h-[80%] space-x-0.5 ${(prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "complex") && (isAdding ? "mr-[5px]" : "mr-[4px]")} ${(selectedPrepData && selectedPrepData.variants[selectedPrepVariant]?.currentData.indexOf(null) !== -1) ? "mx-1" : "justify-center items-center"}`}>
        
         {/* Main Section */}
         <View className="w-11/12 border-[1px] border-black bg-black">
@@ -2032,7 +1989,7 @@ export default function MealPrep ({ isSelectedTab }) {
                               {/* (#) label */}
                               {prepDropdownOpen &&
                                 <Text className={`text-[12px] font-bold ${
-                                  prepsCompleted !== null && (
+                                  (prepsCompleted !== null && prepsIds.indexOf(prep.id) !== -1) && (
                                     Object.values(prepsCompleted[prepsIds.indexOf(prep.id)]).length === Object.values(prepsCompleted[prepsIds.indexOf(prep.id)]).filter(bool => bool).length
                                     ? (prep?.id === selectedPrepId ? "text-mauve800" : "text-black")
                                     : Object.values(prepsCompleted[prepsIds.indexOf(prep.id)]).length !== Object.values(prepsCompleted[prepsIds.indexOf(prep.id)]).filter(bool => !bool).length
@@ -2044,7 +2001,7 @@ export default function MealPrep ({ isSelectedTab }) {
                                 </Text>
                               }
                               <Text className={`text-[12px] font-bold ${
-                                prepsCompleted !== null && (
+                                (prepsCompleted !== null && prepsIds.indexOf(prep.id) !== -1) && (
                                   Object.values(prepsCompleted[prepsIds.indexOf(prep.id)]).length === Object.values(prepsCompleted[prepsIds.indexOf(prep.id)]).filter(bool => bool).length
                                   ? (prep?.id === selectedPrepId ? "text-mauve800" : "text-black")
                                   : Object.values(prepsCompleted[prepsIds.indexOf(prep.id)]).length !== Object.values(prepsCompleted[prepsIds.indexOf(prep.id)]).filter(bool => !bool).length
@@ -2217,11 +2174,11 @@ export default function MealPrep ({ isSelectedTab }) {
               </View>
 
               {/* Details Input */}
-              <View className="flex flex-row w-full justify-center items-center rounded-b-lg">
+              <View className="flex flex-row w-full justify-center items-center rounded-b-lg bg-theme200">
                 {/* calories */}
-                <View className="flex w-1/2 flex-row justify-center items-center space-x-1 bg-theme200 py-2 border-0.5 border-zinc500">
+                <View className="flex w-1/2 flex-row justify-center items-center bg-theme200 space-x-1 py-2 border-0.5 border-zinc500">
                   <TextInput
-                    className="italic text-center mb-1 text-[12px] leading-[15px]"
+                    className="italic text-center text-[12px] pb-[5.5px]"
                     placeholder={"_"}
                     placeholderTextColor={colors.zinc400}
                     multiline={true}
@@ -2246,10 +2203,10 @@ export default function MealPrep ({ isSelectedTab }) {
                 </View>
 
                 {/* price */}
-                <View className="flex w-1/2 flex-row justify-center items-center bg-theme200 py-2 border-0.5 border-zinc500">
+                <View className="flex w-1/2 h-full flex-row justify-center items-center bg-theme200 py-2 border-0.5 border-zinc500">
                   <Text className="text-center text-[12px] italic">$</Text>
                   <TextInput
-                    className="text-center mb-1 text-[12px] leading-[15px] italic"
+                    className="text-center text-[12px] italic pb-[4.5px]"
                     placeholder={"0.00"}
                     placeholderTextColor={colors.zinc400}
                     multiline={true}
@@ -2278,7 +2235,7 @@ export default function MealPrep ({ isSelectedTab }) {
           ) : (prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "complex") ? (
             // INGREDIENTS GRID
             <ScrollView 
-              className="flex flex-col z-10 bg-zinc700 h-[360px] w-full"
+              className="flex flex-col z-10 bg-zinc700 h-[360px] w-full overflow-visible"
               onScroll={syncScroll}
             >
               {(selectedPrepData?.variants?.[selectedPrepVariant]?.currentData?.map((current, index) => (
@@ -2414,6 +2371,29 @@ export default function MealPrep ({ isSelectedTab }) {
                       <Text className="text-[10px]">cal</Text>
                     </View>
                   </View>
+            
+                  {/* add / delete */}
+                  <View className={`absolute flex flex-row w-[30px] h-full -right-6 justify-center ${isAdding ? "items-end -bottom-2 pr-1" : "items-center"}`}>
+                    {isAdding ? (
+                      <View className="rotate-180">
+                        <Icon
+                          name="send"
+                          color={colors.zinc600}
+                          size={12}
+                          onPress={() => addPrepIngredient(index + 1)}
+                        />
+                      </View>
+                    ) : (
+                      <View className="ml-[2px]">
+                        <Icon
+                          name="close"
+                          color={colors.zinc600}
+                          size={16}
+                          onPress={() => deletePrepIngredient(index)}
+                        />
+                      </View>
+                    )}
+                  </View>
                 </View>
               )))}
                                   
@@ -2537,7 +2517,6 @@ export default function MealPrep ({ isSelectedTab }) {
 
           {/* CALCULATION MODAL */}
           {calcModalVisible && (
-            <>
             <CalcIngredientModal
               type="prep"
               modalVisible={calcModalVisible}
@@ -2555,16 +2534,15 @@ export default function MealPrep ({ isSelectedTab }) {
               othersUsed={otherPrepsUsed}
               selectedUsed={null}
               altPrepVariants={altPrepVariants}
-              amountContainer={new Fraction (selectedPrepData?.variants[selectedPrepVariant].currentData[calcIndex].amountTotal) * 1}
+              amountContainer={new Fraction(selectedPrepData.variants[selectedPrepVariant].currentData[calcIndex].amountTotal === "" ? 0 : selectedPrepData.variants[selectedPrepVariant].currentData[calcIndex].amountTotal) * 1}
               servingSize={
-                new Fraction (selectedPrepData?.variants[selectedPrepVariant].currentData[calcIndex].ingredientData[selectedPrepData?.variants[selectedPrepVariant].currentData[calcIndex].ingredientStore].servingSize) * 1 === 0 
+                new Fraction(selectedPrepData?.variants[selectedPrepVariant].currentData[calcIndex].ingredientData[selectedPrepData?.variants[selectedPrepVariant].currentData[calcIndex].ingredientStore].servingSize) * 1 === 0 
                 ? // if completely custom
                   1
                 : // if pre-existing
                   new Fraction (selectedPrepData?.variants[selectedPrepVariant].currentData[calcIndex].ingredientData[selectedPrepData?.variants[selectedPrepVariant].currentData[calcIndex].ingredientStore].servingSize) * 1
               }
             />
-          </>
           )}
 
           {/* TOTAL ROW */}
@@ -2693,8 +2671,8 @@ export default function MealPrep ({ isSelectedTab }) {
           )}
         </View> 
             
-        {/* Checkbox / Delete Column */}
-        {(prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] !== "simple") && (
+        {/* Checkbox Column */}
+        {(prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "currents") && (
           <View className={`flex ${(prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "currents" ? "mt-[82px]" : "mt-[25px] mr-[-4px]")} z-40`}>
             <ScrollView 
               className="max-h-[360px]"
@@ -2705,24 +2683,12 @@ export default function MealPrep ({ isSelectedTab }) {
                 <View key={`store-${index}`}>
                   {current ?
                     <View className="flex flex-row h-[30px] justify-center items-center">
-                      
-                      {/* for normal preps */}
-                      {(prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "currents") ? (
-                        <Icon
-                          name={selectedPrepData.variants[selectedPrepVariant].currentIncluded[index] ? "checkbox" : "square-outline"}
-                          color={colors.zinc600}
-                          size={16}
-                          onPress={() => updateCheck(index)}
-                        />
-                      // for complex custom preps
-                      ) : (prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "complex") && (
-                        <Icon
-                          name="close"
-                          color={colors.zinc600}
-                          size={16}
-                          onPress={() => deletePrepIngredient(index)}
-                        />
-                      )}
+                      <Icon
+                        name={selectedPrepData.variants[selectedPrepVariant].currentIncluded[index] ? "checkbox" : "square-outline"}
+                        color={colors.zinc600}
+                        size={16}
+                        onPress={() => updateCheck(index)}
+                      />
                     </View>
                   : 
                     <View className="flex flex-row h-[30px]"/>
@@ -2746,6 +2712,21 @@ export default function MealPrep ({ isSelectedTab }) {
           setModalVisible={setCopyModalVisible}
           closeModal={closeCopyModal}
         />
+            
+        {/* Select Add Index Column */}
+        {(prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "complex" && isAdding) && (
+          <View className={`absolute top-0 right-0 flex ${(selectedPrepData?.variants?.[selectedPrepVariant]?.currentData.length > 0) ? "mt-[75px]" : "mt-[45px]"} mr-[-12px]`}>
+            {/* first row */}
+            <View className="flex rotate-180 justify-start">
+              <Icon
+                name="send"
+                color={colors.zinc600}
+                size={12}
+                onPress={() => addPrepIngredient(0)}
+              />
+            </View>
+          </View>  
+        )}
       </View>
               
       {/* ADD */}
@@ -2835,8 +2816,18 @@ export default function MealPrep ({ isSelectedTab }) {
                   label: current.ingredientName + displayStoreBrand,
                   value: current.id,
                   key: current.id,
-                  labelStyle: { color: 'black' },
+                  labelStyle: { 
+                    color: 'black',
+                    flex: 1, 
+                    flexWrap: 'wrap' 
+                  },
                   containerStyle: {
+                    height: 'auto', 
+                    minHeight: 42,
+                    paddingVertical: 6,
+                    paddingHorizontal: 10,
+                    justifyContent: 'center', 
+                    alignItems: 'center', 
                     borderBottomWidth: 0.5,
                     borderBottomColor: colors.zinc450,
                     backgroundColor: current.amountTotal === "" || current.amountLeft > "0" ? colors.theme200 : colors.zinc350,
