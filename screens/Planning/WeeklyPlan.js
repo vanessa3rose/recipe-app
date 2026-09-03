@@ -1389,6 +1389,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
               closeModal={closeCalendarModal} 
               globalDate={globalDate}
               allowNull={false}
+              allowMonth={false}
             />
           )}
         </View>

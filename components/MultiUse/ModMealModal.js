@@ -316,25 +316,28 @@ const ModMealModal = ({
                 <View className="flex flex-col mt-2 bg-theme100 border border-zinc300 w-full">
                   <View className="flex flex-col">
                     {/* SPECIFICS */}
-                    {(variants[selectedVariant]?.currentData?.filter(curr => curr !== null).map((curr, idx) => (
-                      <View key={idx} className="flex flex-row flex-wrap items-stretch border border-zinc400">
+                    {(variants[selectedVariant]?.currentData?.map((curr, idx) => (
+                      <View key={idx}>
+                        {(curr !== null) && (
+                          <View className="flex flex-row flex-wrap items-stretch border border-zinc400">
+                            {/* Name */}
+                            <View className="flex-1 bg-theme200 p-2 self-stretch justify-center">
+                              <Text className="text-[11px] font-medium text-center">
+                                {curr.ingredientName}
+                              </Text>
+                            </View>
 
-                        {/* Name */}
-                        <View className="flex-1 bg-theme200 p-2 self-stretch justify-center">
-                          <Text className="text-[11px] font-medium text-center">
-                            {curr.ingredientName}
-                          </Text>
-                        </View>
-
-                        {/* Details */}
-                        <View className="flex flex-col p-2 self-stretch justify-center">
-                          <Text className="text-[11px] text-left">
-                            {`${variants?.[selectedVariant]?.currentAmounts?.[idx]} ${extractUnit(curr.ingredientData[curr.ingredientStore].unit, variants?.[selectedVariant]?.currentAmounts[idx] || 0)}`}
-                          </Text>
-                          <Text className="text-[11px] text-left">
-                            {`${(variants?.[selectedVariant]?.currentCals?.[idx] || 0)?.toFixed(0)} cal, $${(variants?.[selectedVariant]?.currentPrices?.[idx] || 0)?.toFixed(2)}`}
-                          </Text>
-                        </View>
+                            {/* Details */}
+                            <View className="flex flex-col p-2 self-stretch justify-center">
+                              <Text className="text-[11px] text-left">
+                                {`${variants?.[selectedVariant]?.currentAmounts?.[idx]} ${extractUnit(curr.ingredientData[curr.ingredientStore].unit, variants?.[selectedVariant]?.currentAmounts[idx] || 0)}`}
+                              </Text>
+                              <Text className="text-[11px] text-left">
+                                {`${(variants?.[selectedVariant]?.currentCals?.[idx] || 0)?.toFixed(0)} cal, $${(variants?.[selectedVariant]?.currentPrices?.[idx] || 0)?.toFixed(2)}`}
+                              </Text>
+                            </View>
+                          </View>
+                        )}
                       </View>
                     )))}
 

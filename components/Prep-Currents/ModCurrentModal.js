@@ -15,6 +15,7 @@ import storeKeys from '../../assets/storeKeys';
 
 // validation
 import validateFractionInput from '../Validation/validateFractionInput';
+import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
 
 // firebase
 import currentEdit from '../../firebase/Currents/currentEdit';
@@ -261,7 +262,7 @@ const ModCurrentModal = ({
               placeholder="0"
               placeholderTextColor={colors.zinc400}
               value={calServing}
-              onChangeText={setCalServing}
+              onChangeText={(value) => setCalServing(validateWholeNumberInput(value))}
             />
           </View>
 

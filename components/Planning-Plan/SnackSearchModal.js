@@ -338,8 +338,8 @@ const SnackSearchModal = ({
 
   // converts the timestamp object to a date readable by the calendar
   const formatCalendarDate = (timestamp) => {
-    const date = timestamp?.toDate ? timestamp.toDate() : new Date();
-
+    const date = timestamp?.toDate() ? timestamp.toDate() : new Date();
+    
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
     const day = date.getDate();
@@ -362,6 +362,11 @@ const SnackSearchModal = ({
     // gets the new date
     if (Object.keys(date).length === 0) {
       newSnacks[calendarSnack].expDate = null;
+    // month only
+    } else if ((new Date(date.timestamp)).toString().split(" ")[4] === "12:00:00") { 
+      const localNoon = new Date(date.year, date.month - 1, 1, 12, 0, 0, 0);
+      newSnacks[calendarSnack].expDate = Timestamp.fromMillis(localNoon);
+    // full date
     } else {
       const localMidnight = new Date(date.year, date.month - 1, date.day);
       newSnacks[calendarSnack].expDate = Timestamp.fromMillis(localMidnight);
@@ -1889,10 +1894,16 @@ const SnackSearchModal = ({
                               setCalendarDate(formatCalendarDate(snack.expDate))
                             }}
                           >
-                            {/* m / d */}
-                            <Text className="text-[12px] italic text-zinc700">
-                              {snack?.expDate?.toDate().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) || ""}
-                            </Text>
+                            {/* mm OR m / d */}
+                            {(snack?.expDate.toDate().toString().split(" ")[4] === "12:00:00") ? (
+                              <Text className="text-[12px] italic text-zinc700">
+                                {snack?.expDate?.toDate().toLocaleDateString('en-US', { month: 'short' }) || ""}
+                              </Text>
+                            ) : (
+                              <Text className="text-[12px] italic text-zinc700">
+                                {snack?.expDate?.toDate().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) || ""}
+                              </Text>
+                            )}
                             {/* yyyy */}
                             {(snack?.expDate?.toDate().getFullYear() !== new Date().getFullYear()) && (
                               <Text className="text-[12px] text-zinc700 italic">
@@ -1938,6 +1949,7 @@ const SnackSearchModal = ({
                       closeModal={closeCalendarModal}
                       globalDate={calendarDate}
                       allowNull={true}
+                      allowMonth={true}
                     />
                   )}
                 </View>

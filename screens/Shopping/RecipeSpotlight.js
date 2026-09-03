@@ -119,6 +119,32 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     setSpotlightList(spotlightsArray);
 
 
+    // to store the collected recipe tags
+    let allRecipeTags = new Set();
+
+    // processes recipes and their tags
+    const recipeSnapshot = await getDocs(collection(db, 'RECIPES'));
+    const recipesArray = recipeSnapshot.docs
+      .map(doc => {
+        const data = doc.data();
+        if (selectedRecipeId === doc.id) selectedRecipeData = data;
+        if (Array.isArray(data.recipeTags)) data.recipeTags.forEach(tag => allRecipeTags.add(tag));
+        return { id: doc.id, ...data };
+      })
+      .sort((a, b) => a.recipeName.localeCompare(b.recipeName));
+
+    setRecipeList(recipesArray);
+    setFilteredRecipeList(recipesArray);
+
+    // adds "NEW TAG" and sorts alphabetically
+    const tagsWithLabelsAndValues = [
+      "NEW TAG", ...[...allRecipeTags].sort((a, b) => a.localeCompare(b))
+    ].map(tag => ({ label: tag, value: tag }));
+    
+    // sets the list of recipe tags
+    setRecipeTagList(tagsWithLabelsAndValues);
+
+
     // gets the global spotlight id
     const spotlightGlobal = await getDoc(doc(db, 'GLOBALS', 'spotlight'));
     const spotlightId = spotlightGlobal?.data()?.id;
@@ -130,33 +156,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       
       setSelectedSpotlightId(spotlightId);
       setSelectedSpotlightData(spotlightData);
-
-
-      // to store the collected recipe tags
-      let allRecipeTags = new Set();
-
-      // processes recipes and their tags
-      const recipeSnapshot = await getDocs(collection(db, 'RECIPES'));
-      const recipesArray = recipeSnapshot.docs
-        .map(doc => {
-          const data = doc.data();
-          if (selectedRecipeId === doc.id) selectedRecipeData = data;
-          if (Array.isArray(data.recipeTags)) data.recipeTags.forEach(tag => allRecipeTags.add(tag));
-          return { id: doc.id, ...data };
-        })
-        .sort((a, b) => a.recipeName.localeCompare(b.recipeName));
-
-      setRecipeList(recipesArray);
-      setFilteredRecipeList(recipesArray);
       setSelectedRecipeData(selectedRecipeData);
-
-      // adds "NEW TAG" and sorts alphabetically
-      const tagsWithLabelsAndValues = [
-        "NEW TAG", ...[...allRecipeTags].sort((a, b) => a.localeCompare(b))
-      ].map(tag => ({ label: tag, value: tag }));
-      
-      // sets the list of recipe tags
-      setRecipeTagList(tagsWithLabelsAndValues);
 
 
       if (spotlightData) {    

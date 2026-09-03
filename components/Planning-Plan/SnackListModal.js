@@ -1321,10 +1321,17 @@ const SnackListModal = ({
 
                     {/* Expiration Date */}
                     <View className={`w-[17.5%] z-50 flex flex-col justify-center items-center bg-zinc100 px-2  ${(snack?.expDate?.toDate() < new Date()) ? "bg-rose-200" : (snack?.expDate?.toDate() < new Date(new Date().setMonth(new Date().getMonth() + 3))) ? "bg-amber-200" : snack?.expDate !== null && "bg-emerald-200"}`}>
-                      {/* m / d */}
-                      <Text className="text-[12px] italic text-zinc700">
-                        {snack?.expDate?.toDate().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) || ""}
-                      </Text>
+                      {/* mm OR m / d */}
+                      {(snack?.expDate.toDate().toString().split(" ")[4] === "12:00:00") ? (
+                        <Text className="text-[12px] italic text-zinc700">
+                          {snack?.expDate?.toDate().toLocaleDateString('en-US', { month: 'short' }) || ""}
+                        </Text>
+                      ) : (
+                        <Text className="text-[12px] italic text-zinc700">
+                          {snack?.expDate?.toDate().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) || ""}
+                        </Text>
+                      )}
+                      
                       {/* yyyy */}
                       {(snack?.expDate?.toDate().getFullYear() !== new Date().getFullYear()) && (
                         <Text className="text-[12px] text-zinc700 italic">
