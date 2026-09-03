@@ -867,7 +867,7 @@ const ModIngredientModal = ({
                           placeholder="0"
                           placeholderTextColor={colors.zinc400}
                           value={calServing[store]}
-                          onChangeText={ (value) => {
+                          onChangeText={(value) => {
                             setCalServing((prev) => {
                               const updated = { ...prev }; 
                               updated[store] = validateWholeNumberInput(value);

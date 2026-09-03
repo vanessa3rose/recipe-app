@@ -92,6 +92,7 @@ const MealDetailsModal = ({
         // complex editing
         setPrepCurrentAmounts(data.currentAmounts);
         setPrepCurrentCals(data.currentCals);
+        setPrepCurrentPrices(data.currentPrices);
         setPrepCurrentData(data.currentData);
         setNumIngredients(data.currentData?.length || 0);
       }
@@ -191,6 +192,7 @@ const MealDetailsModal = ({
   const [prepCurrentData, setPrepCurrentData] = useState([]);
   const [prepCurrentAmounts, setPrepCurrentAmounts] = useState([]);
   const [prepCurrentCals, setPrepCurrentCals] = useState([]);
+  const [prepCurrentPrices, setPrepCurrentPrices] = useState([]);
   
   // for shifting
   const [showNewIndex, setShowNewIndex] = useState(false);
@@ -203,6 +205,7 @@ const MealDetailsModal = ({
     let newData = Array(numIngredients + 1).fill(null);
     let newAmounts = Array(numIngredients + 1).fill("");
     let newCals = Array(numIngredients + 1).fill("");
+    let newPrices = Array(numIngredients + 1).fill("");
 
     // loops over and shifts the ingredients accordingly
     for (let i = 0; i < numIngredients; i++) {
@@ -210,11 +213,13 @@ const MealDetailsModal = ({
         newData[i] = prepCurrentData[i];
         newAmounts[i] = prepCurrentAmounts[i];
         newCals[i] = prepCurrentCals[i];
+        newPrices[i] = prepCurrentPrices[i];
       
       } else if (i >= index) {
         newData[i + 1] = prepCurrentData[i];
         newAmounts[i + 1] = prepCurrentAmounts[i];
         newCals[i + 1] = prepCurrentCals[i];
+        newPrices[i + 1] = prepCurrentPrices[i];
       }
     }
 
@@ -222,6 +227,7 @@ const MealDetailsModal = ({
     setPrepCurrentData(newData);        // the current's data
     setPrepCurrentAmounts(newAmounts);  // the current's amounts
     setPrepCurrentCals(newCals);        // the current's calories
+    setPrepCurrentPrices(newPrices);        // the current's prices
 
     // increments the number of ingredients
     setNumIngredients(numIngredients + 1);
@@ -237,6 +243,8 @@ const MealDetailsModal = ({
     setPrepCurrentAmounts((prev) => prev.filter((_, i) => i !== index));
     // the current's calories
     setPrepCurrentCals((prev) => prev.filter((_, i) => i !== index));
+    // the current's prices
+    setPrepCurrentPrices((prev) => prev.filter((_, i) => i !== index));
 
     // decrements the number of ingredients
     setNumIngredients(numIngredients - 1);
@@ -305,7 +313,7 @@ const MealDetailsModal = ({
         currentIds: Array(newCurrentData.length).fill(""), 
         currentAmounts: newCurrentAmounts, 
         currentCals: prepCurrentCals.map(cal => !isNaN(new Fractional(cal).numerator / new Fractional(cal).denominator) ? new Fractional(cal).numerator / new Fractional(cal).denominator : 0), 
-        currentPrices: Array(newCurrentData.length).fill(""),
+        currentPrices: prepCurrentPrices.map(price => !isNaN(new Fractional(price).numerator / new Fractional(price).denominator) ? new Fractional(price).numerator / new Fractional(price).denominator : 0),
         currentIncluded: Array(newCurrentData.length).fill(""),
       };
 
@@ -518,6 +526,7 @@ const MealDetailsModal = ({
       setPrepCurrentAmounts(data.prepData.currentAmounts);
       setPrepCurrentData(data.prepData.currentData);
       setPrepCurrentCals(data.prepData.currentCals.map(cal => cal === "" ? "" : Math.round(cal)));
+      setPrepCurrentPrices(data.prepData.currentPrices);
       setNumIngredients(data.prepData.currentData?.length || 0);
     
     // otherwise, not valid
@@ -727,6 +736,7 @@ const MealDetailsModal = ({
     setPrepCurrentAmounts(newData.prepData.currentAmounts);
     setPrepCurrentData(newData.prepData.currentData);
     setPrepCurrentCals(newData.prepData.currentCals.map(cal => Math.round(cal)));
+    setPrepCurrentPrices(newData.prepData.currentPrices);
     setNumIngredients(newData?.prepData?.currentData?.length || 0);
     
     // goes back to calendar section
@@ -1291,7 +1301,7 @@ const MealDetailsModal = ({
     
                   {/* GRID */}
                   {(numIngredients !== 0) && (
-                    <ScrollView className={`overflow-visible flex flex-col w-full mr-[-10px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) ? "max-h-[100px]" : "max-h-[430px]"}`}>
+                    <ScrollView className={`overflow-hidden flex flex-col w-full mr-[-10px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) ? "max-h-[100px]" : "max-h-[430px]"}`}>
                       
                       {/* Frozen Columns */}
                       {Array.from({ length: numIngredients }, (_, index) => index < numIngredients && (
@@ -1363,30 +1373,64 @@ const MealDetailsModal = ({
                               />
                             </View>
       
-                            {/* calories */}
-                            <View className="flex flex-row px-1 space-x-0.5 items-center justify-center bg-white w-1/6 border-b-0.5 border-b-zinc400">
-                              
-                              {/* Amount Input */}
-                              <TextInput
-                                className="text-[9px] flex-auto text-right"
-                                placeholder="_"
-                                placeholderTextColor={colors.zinc400}
-                                value={prepCurrentCals?.[index]?.toString()}
-                                onChangeText={(value) => {
-                                  setPrepCurrentCals((prev) => {
-                                    const updated = [...prev];
-                                    updated[index] = validateWholeNumberInput(value);
-                                    return updated;
-                                  });
-                                }}
-                                onFocus={() => setKeyboardType("grid")}
-                                onBlur={() => setKeyboardType("")}
-                              />
+                            {/* Details */}
+                              <View className="flex flex-col bg-white w-1/6 items-center justify-center border-b-0.5 border-b-zinc400 px-1">
 
-                              {/* Label */}
-                              <Text className="text-[9px] flex-auto text-left">
-                                {"cal"}
-                              </Text>
+                              {/* calories */}
+                              <View className="flex flex-row space-x-0.5">
+                                {/* Amount Input */}
+                                <TextInput
+                                  className="text-[9px] flex-auto text-right"
+                                  placeholder="_"
+                                  placeholderTextColor={colors.zinc400}
+                                  value={prepCurrentCals?.[index]?.toString()}
+                                  onChangeText={(value) => {
+                                    setPrepCurrentCals((prev) => {
+                                      const updated = [...prev];
+                                      updated[index] = validateWholeNumberInput(value);
+                                      return updated;
+                                    });
+                                  }}
+                                  onFocus={() => setKeyboardType("grid")}
+                                  onBlur={() => setKeyboardType("")}
+                                />
+                                {/* Label */}
+                                <Text className="text-[9px] flex-auto text-left">
+                                  {"cal"}
+                                </Text>
+                              </View>
+
+
+                              {/* price */}
+                              <View className="flex flex-row">
+                                {/* Label */}
+                                <Text className="text-[9px] flex-auto text-right">
+                                  {"$"}
+                                </Text>
+                                {/* Amount Input */}
+                                <TextInput
+                                  className="text-[9px] flex-auto text-left"
+                                  placeholder="_"
+                                  placeholderTextColor={colors.zinc400}
+                                  value={prepCurrentPrices?.[index].toString()}
+                                  onChangeText={(value) => {
+                                    setPrepCurrentPrices((prev) => {
+                                      const updated = [...prev];
+                                      updated[index] = validateDecimalInput(value);
+                                      return updated;
+                                    });
+                                    setPrepPrice(
+                                      ((Number(value) || 0) +
+                                        prepCurrentPrices
+                                          .filter((_, i) => i !== index)
+                                          .reduce((sum, item) => sum + (Number(item) || 0), 0)
+                                      ).toFixed(2)
+                                    );
+                                  }}
+                                  onFocus={() => setKeyboardType("grid")}
+                                  onBlur={() => setKeyboardType("")}
+                                />
+                              </View>
                             </View>
                           </View>
 

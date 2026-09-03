@@ -1,12 +1,12 @@
 import { initializeApp } from "firebase/app";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyAqRi9-T-fhE69dVfjkuKYVpHCFac1AUxk",
-    authDomain: "recipeapp-db.firebaseapp.com",
-    projectId: "recipeapp-db",
-    storageBucket: "recipeapp-db.firebasestorage.app",
-    messagingSenderId: "368896809211",
-    appId: "1:368896809211:ios:615d8b9cce733ccd25385e",
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);

@@ -15,7 +15,7 @@ import colors from '../../assets/colors';
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const CalendarModal = ({
-  modalVisible, setModalVisible, closeModal, globalDate, allowNull
+  modalVisible, setModalVisible, closeModal, globalDate, allowNull, allowMonth
 }) => {
 
 
@@ -36,11 +36,13 @@ const CalendarModal = ({
 
   // the date that has been selected, set on open
   const [date, setDate] = useState(null);
+  const [visibleDate, setVisibleDate] = useState(null);
 
   // when opening the modal, stores the date
   useEffect(() => {
     if (modalVisible) {
-      setDate(globalDate)
+      setDate(globalDate);
+      setVisibleDate(globalDate);
     }
   }, [modalVisible]);
 
@@ -62,23 +64,55 @@ const CalendarModal = ({
         <View className="absolute bg-black opacity-50 w-full h-full"/>
         
         {/* Modal Content */}
-        <View className="bg-zinc200 w-2/3 border-0.5 border-black p-2 rounded-t-xl">
+        <View className="flex items-center bg-zinc200 w-2/3 border-0.5 border-black p-2 rounded-t-xl">
           {date && (
-            <Calendar
-              key={date.dateString}
-              current={date.dateString}           
-              onDayPress={(day) => setDate(day)}
-              markedDates={{
-                [date.dateString]: { selected: true, marked: true, selectedColor: date.dateString === today.dateString ? colors.zinc400 : colors.theme500 },
-              }}
-              theme={{
-                todayTextColor: colors.theme500,
-                todayBackgroundColor: colors.zinc200,
-                arrowColor: colors.theme400,
-                monthTextColor: 'black',
-              }}
-              className="rounded-t-xl"
-            />
+            <>
+              <Calendar
+                key={date.dateString}
+                current={date.dateString}           
+                onDayPress={(day) => setDate(day)}
+                onMonthChange={(day) => {
+                  setVisibleDate(day);
+                  if ((new Date(date.timestamp)).toString().split(" ")[4] === "12:00:00") {
+                    const newDate = (new Date(day.year, day.month - 1, day.day, 12, 0, 0, 0));
+                    setDate({
+                      dateString: newDate.toLocaleDateString('en-CA'),
+                      day: newDate.getDate(),
+                      month: newDate.getMonth() + 1,
+                      timestamp: newDate.getTime(),
+                      year: newDate.getFullYear(),
+                    })
+                  }
+                }}
+                markedDates={{
+                  [date.dateString]: { selected: true, marked: true, selectedTextColor: ((new Date(date.timestamp)).toString().split(" ")[4] === "12:00:00") ? colors.zinc700 : "white", selectedColor: ((new Date(date.timestamp)).toString().split(" ")[4] === "12:00:00") ? "white" : date.dateString === today.dateString ? colors.zinc400 : colors.theme500 },
+                }}
+                theme={{
+                  todayTextColor: colors.theme500,
+                  todayBackgroundColor: colors.zinc200,
+                  arrowColor: colors.theme400,
+                  monthTextColor: 'black',
+                }}
+                className="rounded-t-xl px-5"
+              />
+              
+              {/* MONTH button */}
+              {allowMonth && (
+                <TouchableOpacity 
+                  className={`absolute z-50 mt-5 py-1 px-2 w-1/2 h-[28px] rounded-md flex justify-center items-center border-2 ${((new Date(date.timestamp)).toString().split(" ")[4] === "12:00:00") ? "border-theme500" : "border-white"}`}
+                  onPress={() => {
+                    const newDate = (new Date(visibleDate.year, visibleDate.month - 1, visibleDate.day, 12, 0, 0, 0));
+                    setDate({
+                      dateString: newDate.toLocaleDateString('en-CA'),
+                      day: newDate.getDate(),
+                      month: newDate.getMonth() + 1,
+                      timestamp: newDate.getTime(),
+                      year: newDate.getFullYear(),
+                    })
+                  }}
+                />
+              )}
+            </>
           )}
         </View>
 

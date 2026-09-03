@@ -352,7 +352,6 @@ const SpotlightSelectorModal = ({
                                       <View className="flex flex-row bg-zinc700">
                                         {/* Included Button */}
                                         <View className="justify-center items-center bg-theme500 w-[10%] py-0.5 border-b-[1px] border-theme600">
-                                          {console.log(ingredientList)}
                                           <Icon
                                             name={ingredientList?.filter(ingredient => ingredient.id === spotlight.data.ingredientIds[i])?.[0]?.included ? "close-outline" : "add-sharp"}
                                             size={16}

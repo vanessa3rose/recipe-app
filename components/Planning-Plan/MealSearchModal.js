@@ -258,20 +258,20 @@ useEffect(() => {
       if (keyword === "meal prep") {
         return (
           // restaurant
-          (restaurantFilter === "bag-add" ? uniquePrepNames[index].includes(":") 
-            : restaurantFilter === "bag-remove" ? !uniquePrepNames[index].includes(":") : true
+          (restaurantFilter === "bag-add" ? uniqueNames[index].includes(":") 
+            : restaurantFilter === "bag-remove" ? !uniqueNames[index].includes(":") : true
           // keyword
-          ) && searchQuery.split(" ").every(word => uniquePrepNames[index].toLowerCase().includes(word.toLowerCase()))
+          ) && searchQuery.split(" ").every(word => uniqueNames[index].toLowerCase().includes(word.toLowerCase()))
         );
       }
       // ingredient keyword - checks each ingredient's name
       if (keyword === "ingredient") {
         return (
           // restaurant
-          (restaurantFilter === "bag-add" ? uniquePrepNames[index].includes(":") 
-            : restaurantFilter === "bag-remove" ? !uniquePrepNames[index].includes(":") : true
+          (restaurantFilter === "bag-add" ? uniqueNames[index].includes(":") 
+            : restaurantFilter === "bag-remove" ? !uniqueNames[index].includes(":") : true
           // keyword
-          ) && uniquePrepData[index][i]?.currentData?.some(current =>
+          ) && uniqueData[index][i]?.currentData?.some(current =>
                 searchQuery.split(" ").every(word => current?.ingredientName?.toLowerCase().includes(word.toLowerCase())))
         );
       }
@@ -702,7 +702,7 @@ useEffect(() => {
                     </View>
                   )}
 
-                  {/* text input */}
+                  {/* text input */} 
                   <TextInput
                     value={prepKeywordQuery}
                     onChangeText={(value) => filterPreps(keywordType, value, prepTypeFilter, prepRestaurantFilter, uniquePrepNames, uniquePrepIds, uniquePrepData, uniquePrepDates, uniquePrepMeals)}
