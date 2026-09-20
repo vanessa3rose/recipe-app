@@ -409,7 +409,7 @@ export default function MealPrep ({ isSelectedTab }) {
   // when confirming the deletion of a meal prep
   const confirmDelete = async () => {
 
-    // if a valid ingredient is being deleted
+    // if a valid prep is being deleted
     if (deletingId) {
 
       // when deleting a variant
@@ -715,13 +715,13 @@ export default function MealPrep ({ isSelectedTab }) {
 
     // gets all meal prep data
     const prepsSnapshot = await getDocs(collection(db, 'PREPS'));
-    const prepsArray = prepsSnapshot.docs
+    const prepsArray = prepsSnapshot?.docs
       .map(doc => ({ id: doc.id, ...doc.data() }))
       .sort((a, b) => a.prepName.localeCompare(b.prepName));
     setPrepList(prepsArray);
 
     // loop over all current ingredients
-    for (const currentDoc of currentsSnapshot.docs) {
+    for (const currentDoc of currentsSnapshot?.docs) {
       const currentData = currentDoc.data();
       const currentId = currentDoc.id;
       
@@ -729,12 +729,12 @@ export default function MealPrep ({ isSelectedTab }) {
       if (calcAmount !== "") {
 
         // loop over all preps
-        for (const prepDoc of prepsSnapshot.docs) {
+        for (const prepDoc of prepsSnapshot?.docs) {
           const prepData = prepDoc.data();
-          if (!prepData.variants) continue;
+          if (!prepData?.variants) continue;
 
           // loop over all variants
-          for (const varData of prepData.variants) {
+          for (const varData of prepData?.variants) {
             if (!Array.isArray(varData.currentIds)) continue;
 
             // loops over all 12 ingredients and finds the ones that match the current
@@ -757,7 +757,7 @@ export default function MealPrep ({ isSelectedTab }) {
     await batch.commit();
 
     // updates whether there is enough of each current ingredient left of the selected meal prep
-    updateEnoughLeft(selectedPrepData.variants[selectedPrepVariant]);
+    updateEnoughLeft(selectedPrepData?.variants[selectedPrepVariant]);
     updateCurrents();
   };
     
@@ -779,7 +779,7 @@ export default function MealPrep ({ isSelectedTab }) {
     for (let index = 0; index < 12; index++) {
       
       // if the current index has data and the multiplicity is not 0
-      if (calcData.currentData[index] && calcData.prepMult !== 0) {
+      if (calcData?.currentData[index] && calcData?.prepMult !== 0) {
         
         // gets the current ingredient data
         const currentDocSnap = await getDoc(doc(db, 'CURRENTS', calcData.currentIds[index]));
@@ -925,14 +925,14 @@ export default function MealPrep ({ isSelectedTab }) {
 
       // to restructure the current prep's completed
       let newCompleted = [...prepsCompleted];
-      newCompleted[prepIdx] = vIds.reduce((acc, id) => {
+      newCompleted[prepIdx] = (vIds ?? []).reduce((acc, id) => {
         acc[id] = prepsCompleted[prepIdx][id] ?? false;
         return acc;
       }, {});
 
       // to restructure the current prep's custom
       let newCustom = [...prepsCustom];
-      newCustom[prepIdx] = vIds.reduce((acc, id) => {
+      newCustom[prepIdx] = (vIds ?? []).reduce((acc, id) => {
         acc[id] = prepsCustom[prepIdx][id] ?? "currents";
         return acc;
       }, {});
@@ -1578,6 +1578,9 @@ export default function MealPrep ({ isSelectedTab }) {
 
     // reload settings
     refreshPreps();
+
+    // recalc amounts left globally
+    await calcAllAmountsLeft();
   }
     
   
@@ -1696,8 +1699,8 @@ export default function MealPrep ({ isSelectedTab }) {
   const updateTotals = (data) => {
     let prepData = {...data};
     
-    prepData.variants[selectedPrepVariant].prepCal = prepData.variants[selectedPrepVariant].currentCals.reduce((sum, cal) => sum + Number(cal), 0).toFixed(0);
-    prepData.variants[selectedPrepVariant].prepPrice = prepData.variants[selectedPrepVariant].currentPrices.reduce((sum, price) => sum + Number(price), 0).toFixed(2);
+    prepData.variants[selectedPrepVariant].prepCal = (prepData.variants[selectedPrepVariant].currentCals ?? []).reduce((sum, cal) => sum + Number(cal), 0).toFixed(0);
+    prepData.variants[selectedPrepVariant].prepPrice = (prepData.variants[selectedPrepVariant].currentPrices ?? []).reduce((sum, price) => sum + Number(price), 0).toFixed(2);
 
     setSelectedPrepData(prepData);
     return prepData;
@@ -1735,11 +1738,11 @@ export default function MealPrep ({ isSelectedTab }) {
       currentIds: (type === "complex") ? data.currentIds.filter((_, i) => nulls[i]) : [],
       currentIncluded: (type === "complex") ? data.currentIncluded.filter((_, i) => nulls[i]) : [],
       currentPrices: (type === "complex") ? prices.map(_ => "") : [],
-      prepCal: (type === "complex") ? cals.reduce((sum, cal) => sum + cal, 0).toFixed(0) : data.prepCal,
+      prepCal: (type === "complex") ? (cals ?? []).reduce((sum, cal) => sum + cal, 0).toFixed(0) : data.prepCal,
       prepMult: prepData.variants[selectedPrepVariant].prepMult,
       prepName: prepData.variants[selectedPrepVariant].prepName,
       prepNote: (type === "complex") ? prepData.variants[selectedPrepVariant].prepNote : data.prepNote,
-      prepPrice: (type === "complex") ? prices.reduce((sum, cal) => sum + cal, 0).toFixed(2) : data.prepPrice,
+      prepPrice: (type === "complex") ? (prices ?? []).reduce((sum, cal) => sum + cal, 0).toFixed(2) : data.prepPrice,
       prepId: selectedPrepId,
       variantId: prepData.variants[selectedPrepVariant].variantId,
     };
@@ -2803,7 +2806,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
               items={filteredCurrentData.map((current, _, arr) => {
                 // counts occurrences of each ingredientId inline
-                const ingredientIdCounts = arr.reduce((counts, item) => {
+                const ingredientIdCounts = (arr ?? []).reduce((counts, item) => {
                   counts[item.ingredientId] = (counts[item.ingredientId] || 0) + 1;
                   return counts;
                 }, {});

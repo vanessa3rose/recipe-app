@@ -350,7 +350,7 @@ useEffect(() => {
         };
       }
       
-      //updates the name of the dinner prep if it matches the old one
+      // updates the name of the dinner prep if it matches the old one
       if (newData?.meals?.dinner?.prepData?.prepName === filteredPrepNames[editNameIndex]) {
         newData.meals = {
           ...newData.meals,
@@ -389,7 +389,7 @@ useEffect(() => {
   
   // to change the data of a variant
   const changeVariant = async () => {
-
+    
     // filters out empty
     const indexes = editedVariant.currentData.map((curr, i) => curr?.ingredientName !== "" ? i : null).filter(i => i !== null);
     
@@ -402,13 +402,13 @@ useEffect(() => {
       currentIncluded: indexes.map(i => editedVariant.currentIncluded[i]),
       currentPrices: indexes.map(i => editedVariant.currentPrices[i]),
     }
-
+    
     // fixes the cals
     let newCals = fixedEditedVariant.currentCals.map(cal => (cal === "" ? 0 : cal));
     fixedEditedVariant = {
       ...fixedEditedVariant,
       currentCals: newCals,
-      prepCal: newCals.reduce((sum, cal) => sum + Number(cal), 0).toString()
+      prepCal: editedVariantType === "simple" ? fixedEditedVariant.prepCal : newCals.reduce((sum, cal) => sum + Number(cal), 0).toString()
     }
 
     // fixes the amounts
@@ -484,6 +484,9 @@ useEffect(() => {
   const [showNewIndex, setShowNewIndex] = useState(false);
   const [numIngredients, setNumIngredients] = useState(0);
 
+  // for editing a unit
+  const [currUnit, setCurrUnit] = useState(-1);
+
   // to add an ingredient
   const addPrepIngredient = (index) => {
 
@@ -557,7 +560,7 @@ useEffect(() => {
       currentData: editedVariant.currentData.filter((_, i) => i !== index),
       currentAmounts: editedVariant.currentAmounts.filter((_, i) => i !== index),
       currentCals: editedVariant.currentCals.filter((_, i) => i !== index),
-      prepCal: editedVariant.currentCals.filter((_, i) => i !== index).reduce((sum, curr) => sum + Number(curr || 0), 0).toFixed(0),
+      prepCal: (editedVariant.currentCals.filter((_, i) => i !== index) ?? []).reduce((sum, curr) => sum + Number(curr || 0), 0).toFixed(0),
     });
 
     // decrements the number of ingredients
@@ -1360,7 +1363,7 @@ useEffect(() => {
                   <View className="flex flex-col justify-center items-center w-full mb-2 ml-[-5px]">
 
                     {/* TOP ROW */}
-                    <View className="flex flex-row items-center justify-center border-0.5 mb-1 ml-[15px] mr-[10px] bg-zinc600">
+                    <View className="flex flex-row items-center justify-center border-0.5 ml-[15px] mr-[10px] bg-zinc600">
                       
                       {/* Meal Name Input */}
                       <View className="flex justify-center items-center px-1.5 w-7/12 border-r-0.5 bg-zinc700">
@@ -1418,30 +1421,19 @@ useEffect(() => {
                           />
                         </View>
                       </View>
-
-                      {/* First Index Add Indicator */}
-                      <View className="absolute w-[20px] left-[-15px] top-[32.5px] pr-1 z-50 justify-end items-center">
-                        {(showNewIndex && numIngredients !== 0) && (
-                          <Icon
-                            name="send"
-                            size={10}
-                            color={colors.zinc600}
-                            onPress={() => addPrepIngredient(0)}
-                          />
-                        )}
-                      </View>   
                     </View> 
       
                     {/* GRID */}
                     {(numIngredients !== 0) && (
-                      <ScrollView className={`flex flex-col w-full mr-[-10px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) ? "max-h-[100px]" : "max-h-[430px]"}`}>
+                      <ScrollView className={`pt-1 flex flex-col w-full mr-[-10px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) ? "max-h-[100px]" : "max-h-[430px]"}`}>
+                        
                         {/* Frozen Columns */}
                         {Array.from({ length: numIngredients }, (_, index) => index < numIngredients && (
                           <View key={`frozen-${index}`} className="flex flex-row min-h-[30px]">
 
                             {/* Add Indicator */}
                             <View className="w-[20px] h-[10px] mt-[-5px] mx-[-5px] pr-1 z-50 justify-end items-center">
-                              {(index !== 0 && showNewIndex) && (
+                              {(showNewIndex) && (
                                 <Icon
                                   name="send"
                                   size={10}
@@ -1529,13 +1521,25 @@ useEffect(() => {
                                       return updated;
                                     });
                                   }}
-                                  multiline={true}
                                   blurOnSubmit={true}
-                                  onFocus={() => setKeyboardType("grid")}
-                                  onBlur={() => setKeyboardType("")}
+                                  onFocus={() => {
+                                    setKeyboardType("grid")
+                                    setCurrUnit(index)
+                                  }}
+                                  onBlur={() => {
+                                    setKeyboardType("")
+                                    setCurrUnit(-1)
+                                  }}
                                 />
+
+                                {/* ellipses for cutoff */}
+                                {(currUnit !== index && editedVariant?.currentAmounts?.[index]?.length + 1 + editedVariant?.currentData?.[index]?.ingredientData?.[editedVariant?.currentData?.[index]?.ingredientStore]?.unit?.length > 10) && (
+                                  <Text className="flex items-end absolute bg-black right-0 pr-1 text-black bg-zinc100">
+                                    ...
+                                  </Text>
+                                )}
                               </View>
-        
+
                               {/* calories */}
                               <View className="flex flex-row px-1 space-x-0.5 items-center justify-center bg-white w-1/6 border-b-0.5 border-b-zinc400">
                                 
@@ -1552,7 +1556,7 @@ useEffect(() => {
                                       return {
                                         ...prev,
                                         currentCals: updatedCals,
-                                        prepCal: updatedCals.reduce((sum, curr) => sum + Number(curr || 0), 0).toFixed(0),
+                                        prepCal: (updatedCals ?? []).reduce((sum, curr) => sum + Number(curr || 0), 0).toFixed(0),
                                       };
                                     });
                                   }}

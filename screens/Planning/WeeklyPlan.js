@@ -70,7 +70,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
   // on navigation
   const onNav = async () => {
-    
+
     // initial data for the week
     const data = [null, null, null, null, null, null, null];
 
@@ -78,145 +78,179 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     const prepSnapshot = await getDocs(collection(db, 'PREPS'));
     const prepsArray = prepSnapshot.docs
       .map(doc => ({ id: doc.id, ...doc.data() }))
-      .sort((a, b) => a.prepName.localeCompare(b.prepName));
+      .sort((a, b) => (a.prepName || '').localeCompare(b.prepName || ''));
     setPrepData(prepsArray);
-
 
     // gets all weekly plan data
     const planSnapshot = await getDocs(collection(db, 'PLANS'));
     setPlansSnapshot(planSnapshot);
+    
+    // gets the global preps and plans
+    const prepGlobal = await getDoc(doc(db, 'GLOBALS', 'prep')); 
+    const planGlobal = await getDoc(doc(db, 'GLOBALS', 'plan'));
 
     // helper functions / code
-    const filterAndPad = (arr, included, padValue = "") => arr.filter((_, i) => included.includes(i)).concat(Array(12 - included.length).fill(padValue));
+    const filterAndPad = (arr = [], included = [], padValue = "") => 
+      arr.filter((_, i) => included.includes(i)).concat(Array(12 - included.length).fill(padValue));
+
+    // for the radio buttons
     const prepMap = new Map(prepsArray.map(prep => [prep.id, prep]));
-    
+    let ogSelected = [...planGlobal.data().selectedList];
+
+    // safe extraction of prep and variant IDs
+    const pIds = prepSnapshot.docs.map(prep => prep.id);
+    const vIds = prepSnapshot.docs.flatMap(prep => prep.data()?.variants?.map(variant => variant.variantId) || []);
+
     // initializes Firestore batch to loop over plans with
     const batch = writeBatch(db);
-    planSnapshot.forEach(async (planDoc) => {
+    
+    planSnapshot.forEach((planDoc) => {
+      if (planDoc.id >= (today?.dateString || '')) {
+        const planData = planDoc.data() || {};
       
-      // if the date is on or past today
-      if (planDoc.id >= today.dateString) {
-        const planData = planDoc.data();
+        // gets meal ids
+        const lunchPrepId = planData?.meals?.lunch?.prepData?.prepId ?? planData?.meals?.lunch?.prepId;
+        const dinnerPrepId = planData?.meals?.dinner?.prepData?.prepId ?? planData?.meals?.dinner?.prepId;
+        const lunchVariantId = planData?.meals?.lunch?.prepData?.variantId;
+        const dinnerVariantId = planData?.meals?.dinner?.prepData?.variantId;
         
-        // finds the lunch and dinner in the planData
-        const lunchPrep = prepMap.get(planData.meals.lunch.prepData?.prepId)?.variants.find(v => v.variantId === planData.meals.lunch.prepData.variantId);
-        const dinnerPrep = prepMap.get(planData.meals.dinner.prepData?.prepId)?.variants.find(v => v.variantId === planData.meals.dinner.prepData.variantId);
-        
-        // prep and variant ids
-        const pIds = prepSnapshot.docs.map(prep => prep.id);
-        const vIds = prepSnapshot.docs.map(prep => prep.data().variants.map(variant => variant.variantId)).flat();
-        
+        // gets the meal types
+        const lunchType = (prepGlobal.data()?.preps || [])?.map((prep) => prep.custom)?.map(p => p[lunchVariantId]).find(p => p);
+        const dinnerType = (prepGlobal.data()?.preps || [])?.map((prep) => prep.custom)?.map(p => p[dinnerVariantId]).find(p => p);
+        // new id based on type
+        const lunchTypeId = (lunchType === "complex") ? ("." + doc(collection(db, 'PREPS')).id) : (lunchType === "simple") ? ("LUNCH " + formatDateShort(toLocalMidnight(planDoc.id))) : lunchPrepId;
+        const dinnerTypeId = (dinnerType === "complex") ? ("." + doc(collection(db, 'PREPS')).id) : (dinnerType === "simple") ? ("DINNER " + formatDateShort(toLocalMidnight(planDoc.id))) : dinnerPrepId;
+
+        // determines whether the meal data has been removed for today
+        const lunchTodayRemoved = (planDoc.id === today?.dateString) && (prepsArray.find(prep => (prep.id === lunchPrepId))?.variants.find(variant => (variant.variantId === lunchVariantId)) ?? null) === null;
+        const dinnerTodayRemoved = (planDoc.id === today?.dateString) && (prepsArray.find(prep => (prep.id === dinnerPrepId))?.variants.find(variant => (variant.variantId === dinnerVariantId)) ?? null) === null;
+
+        // gets the meal data
+        let lunchPrep = (lunchPrepId && lunchVariantId && (planDoc.id > today?.dateString || !lunchTodayRemoved)) ? prepsArray.find(prep => (prep.id === lunchPrepId))?.variants.find(variant => (variant.variantId === lunchVariantId)) : planData?.meals?.lunch?.prepData ?? null;
+        let dinnerPrep = (dinnerPrepId && dinnerVariantId && (planDoc.id > today?.dateString || !dinnerTodayRemoved)) ? prepsArray.find(prep => (prep.id === dinnerPrepId))?.variants.find(variant => (variant.variantId === dinnerVariantId)) : planData?.meals?.dinner?.prepData ?? null;
+
         // checks whether the lunch prep is a deleted variant
         let lunchRemoved = false;
-        if (planDoc.id > today.dateString && planData.meals.lunch.prepId !== null && !planData.meals.lunch.prepId.includes(".") && !planData.meals.lunch.prepId.includes("LUNCH")) {
-          if (!(pIds.includes(planData?.meals?.lunch?.prepId) && vIds.includes(planData?.meals?.lunch?.prepData?.variantId))) {
+        if (planDoc.id > today?.dateString && lunchPrepId && !lunchPrepId.includes(".") && !lunchPrepId.includes("LUNCH")) {
+          if (!(pIds.includes(lunchPrepId) && vIds.includes(lunchVariantId))) {
             lunchRemoved = true;
           }
         }
+
         // checks whether the dinner prep is a deleted variant
         let dinnerRemoved = false;
-        if (planDoc.id > today.dateString && planData.meals.dinner.prepId !== null && !planData.meals.dinner.prepId.includes(".") && !planData.meals.dinner.prepId.includes("DINNER")) {
-          if (!(pIds.includes(planData?.meals?.dinner?.prepId) && vIds.includes(planData?.meals?.dinner?.prepData?.variantId))) {
+        if (planDoc.id > today?.dateString && dinnerPrepId && !dinnerPrepId.includes(".") && !dinnerPrepId.includes("DINNER")) {
+          if (!(pIds.includes(dinnerPrepId) && vIds.includes(dinnerVariantId))) {
             dinnerRemoved = true;
           }
         }
-        
-        let lunchData = lunchPrep ? (({ id, ...rest }) => rest)(lunchPrep) : planData.meals.lunch.prepData;
-        let dinnerData = dinnerPrep ? (({ id, ...rest }) => rest)(dinnerPrep) : planData.meals.dinner.prepData;
 
         // filters out any non-included currents in the lunch data
-        if (lunchPrep) {
-          // the list of included (or blank) indices
-          const includedLunch = lunchData.currentIncluded.map((included, index) => included !== false ? index : null).filter(index => index !== null)
-          // the newly formatted prep data
-          lunchData = {
-            ...lunchData,
-            currentAmounts: filterAndPad(lunchData.currentAmounts, includedLunch, ""),
-            currentCals: filterAndPad(lunchData.currentCals, includedLunch, ""),
-            currentData: filterAndPad(lunchData.currentData, includedLunch, null),
-            currentIds: filterAndPad(lunchData.currentIds, includedLunch, ""),
-            currentIncluded: filterAndPad(lunchData.currentIncluded, includedLunch, ""),
-            currentPrices: filterAndPad(lunchData.currentPrices, includedLunch, ""),
-          }
+        if (lunchPrep && lunchType === "currents" && Array.isArray(lunchPrep?.currentIncluded)) {
+          const includedLunch = lunchPrep.currentIncluded.map((included, index) => (included !== false ? index : null)).filter(index => index !== null);
+
+          lunchPrep = {
+            ...lunchPrep,
+            currentAmounts: filterAndPad(lunchPrep.currentAmounts, includedLunch, ""),
+            currentCals: filterAndPad(lunchPrep.currentCals, includedLunch, ""),
+            currentData: filterAndPad(lunchPrep.currentData, includedLunch, null),
+            currentIds: filterAndPad(lunchPrep.currentIds, includedLunch, ""),
+            currentIncluded: filterAndPad(lunchPrep.currentIncluded, includedLunch, ""),
+            currentPrices: filterAndPad(lunchPrep.currentPrices, includedLunch, ""),
+          };
         }
 
         // filters out any non-included currents in the dinner data
-        if (dinnerPrep) {
-          // the list of included (or blank) indices
-          const includedDinner = dinnerData.currentIncluded.map((included, index) => included !== false ? index : null).filter(index => index !== null)
-          // the newly formatted prep data
-          dinnerData = {
-            ...dinnerData,
-            currentAmounts: filterAndPad(dinnerData.currentAmounts, includedDinner, ""),
-            currentCals: filterAndPad(dinnerData.currentCals, includedDinner, ""),
-            currentData: filterAndPad(dinnerData.currentData, includedDinner, null),
-            currentIds: filterAndPad(dinnerData.currentIds, includedDinner, ""),
-            currentIncluded: filterAndPad(dinnerData.currentIncluded, includedDinner, ""),
-            currentPrices: filterAndPad(dinnerData.currentPrices, includedDinner, ""),
-          }
+        if (dinnerPrep && dinnerType === "currents" && Array.isArray(dinnerPrep?.currentIncluded)) {
+          const includedDinner = dinnerPrep.currentIncluded.map((included, index) => (included !== false ? index : null)).filter(index => index !== null);
+
+          dinnerPrep = {
+            ...dinnerPrep,
+            currentAmounts: filterAndPad(dinnerPrep.currentAmounts, includedDinner, ""),
+            currentCals: filterAndPad(dinnerPrep.currentCals, includedDinner, ""),
+            currentData: filterAndPad(dinnerPrep.currentData, includedDinner, null),
+            currentIds: filterAndPad(dinnerPrep.currentIds, includedDinner, ""),
+            currentIncluded: filterAndPad(dinnerPrep.currentIncluded, includedDinner, ""),
+            currentPrices: filterAndPad(dinnerPrep.currentPrices, includedDinner, ""),
+          };
         }
-        
+
         // the data for the current date
         const docData = {
           date: planDoc.id,
           meals: {
             lunch: {
-              prepId: lunchRemoved ? null : planData.meals.lunch.prepId,          
-              prepData: lunchRemoved ? null : lunchData,
+              prepId: lunchTodayRemoved ? planData?.meals?.lunch?.prepId ?? null : lunchRemoved ? null : lunchTypeId ?? null,          
+              prepData: lunchRemoved ? null : lunchPrep ?? null,
             },
             dinner: {
-              prepId: dinnerRemoved ? null : planData.meals.dinner.prepId,         
-              prepData: dinnerRemoved ? null : dinnerData,
+              prepId: dinnerTodayRemoved ? planData?.meals?.dinner?.prepId ?? null : dinnerRemoved ? null : dinnerTypeId ?? null,         
+              prepData: dinnerRemoved ? null : dinnerPrep ?? null,
             },
           },
-          ...(planData?.snacks && { snacks: planData?.snacks }),
+          ...(planData?.snacks && { snacks: planData.snacks }),
         };
         
+        // LUNCH - toggles the radio button if needed
+        const lunchFilled = ogSelected.find(item => item.meal === "LUNCH " + toLocalMidnight(planDoc.id).toString())?.filled ?? "";
+        if ((lunchType === "currents" && !lunchFilled) || ((lunchType === "complex" || lunchType === "simple") && lunchFilled)) {
+          ogSelected = ogSelected.filter(item => item.meal !== ("LUNCH " + toLocalMidnight(planDoc.id).toString()));                 // removes original
+          if (!lunchFilled) { ogSelected.push({ filled: true, meal: "LUNCH " + toLocalMidnight(planDoc.id).toString() }); }  // readds it
+        }
+        
+        // DINNER - toggles the radio button if needed
+        const dinnerFilled = ogSelected.find(item => item.meal === "DINNER " + toLocalMidnight(planDoc.id).toString())?.filled ?? "";
+        if ((dinnerType === "currents" && !dinnerFilled) || ((dinnerType === "complex" || dinnerType === "simple") && dinnerFilled)) {
+          ogSelected = ogSelected.filter(item => item.meal !== ("DINNER " + toLocalMidnight(planDoc.id).toString()));                   // removes original
+          if (!dinnerFilled) { ogSelected.push({ filled: true, meal: "DINNER " + toLocalMidnight(planDoc.id).toString() }); }  // readds it
+        }
+
         // stores the data in the week's state if the date matches
-        for (let i = 0; i < 7; i++) {
-          if (weekRange[i].toLocaleDateString('en-CA') === planDoc.id) {
-            data[i] = docData;
+        if (Array.isArray(weekRange)) {
+          for (let i = 0; i < 7; i++) {
+            if (weekRange[i]?.toLocaleDateString?.('en-CA') === planDoc.id) {
+              data[i] = docData;
+            }
           }
         }
 
         // adds update to batch
         batch.update(doc(db, 'PLANS', planDoc.id), docData);
       }
-    })
-    
+    });
+        
+    // stores the new selected list
+    setSelectedList(ogSelected);
+    updateDoc(doc(db, 'GLOBALS', 'plan'), { selectedList: ogSelected }); 
+
     // commits the batch and sets the week data
     await batch.commit();
     setWeekData(data);
-    
+
     // resets the available and remaining amounts
     if (selectedPrepId) {
-      calcRemaining(selectedPrepId, selectedPrepVariant, selectedPrepVariant, prepMap.get(selectedPrepId).variants[selectedPrepVariant]);
+      calcRemaining(selectedPrepId, selectedPrepVariant, selectedPrepVariant, prepMap.get(selectedPrepId)?.variants?.[selectedPrepVariant]);
     } else {
       setCurrAvailable(0);
       setCurrRemaining(0);
     }
 
-
-    // gets the global preps and stores dropdown items & completed/custom
-    const prepGlobal = await getDoc(doc(db, 'GLOBALS', 'prep')); 
+    // stores dropdown items & completed/custom
     if (prepGlobal.exists()) {
-      setGlobalPrepInfo(prepGlobal.data().preps); 
-      fetchDropdownItems(prepGlobal.data().preps, prepsArray);
+      const preps = prepGlobal.data()?.preps || [];
+      setGlobalPrepInfo(preps); 
+      fetchDropdownItems(preps, prepsArray);
     }
-    
 
-    // gets the global weekly plan document
-    const planGlobal = await getDoc(doc(db, 'GLOBALS', 'plan'));
     // if the data is not null, calculate the week range of the global date
-    if (planGlobal?.data()?.selectedDate) {
+    if (planGlobal?.exists() && planGlobal.data()?.selectedDate) {
       calculateWeekRange(planGlobal.data().selectedDate);
       setGlobalDate(planGlobal.data().selectedDate);
-      setSelectedList(planGlobal.data().selectedList); 
     // otherwise, calculate the week range of today
     } else {
       calculateWeekRange({ dateString: new Date().toISOString().split('T')[0] });
     }
-  }
+  };
   
 
   ///////////////////////////////// VARIANTS /////////////////////////////////
@@ -260,6 +294,12 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     };
   })();
 
+  // to convert a time
+  const toLocalMidnight = (dateStr) => {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  };
+
   // to format the given date as "mm/dd/yy"
   const formatDateShort = (currDate) => {
     if (currDate) {
@@ -273,6 +313,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     return "";
   };
 
+  // to format the given date as "w m/d/yy"
   const formatDateMed = (currDate) => {
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const dayName = days[currDate.getDay()];
@@ -284,6 +325,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     return `${dayName} ${mm}/${dd}/${yy}`;
   };
 
+  // to format the given date as "ww m/d/yy"
   const formatDateMed2 = (currDate) => {
     const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const dayName = days[currDate.getDay()];
@@ -415,7 +457,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     setWeekData(data);
     
     // recalculates the number of remaining meal preps based on the selected meal prep in the dropdown
-    calcRemaining(selectedPrepId, selectedPrepVariant, selectedPrepVariant, prepData[(prepData.map((prep) => prep.id)).indexOf(selectedPrepId)].variants[selectedPrepVariant]);
+    calcRemaining(selectedPrepId, selectedPrepVariant, selectedPrepVariant, prepData[(prepData.map((prep) => prep.id)).indexOf(selectedPrepId)]?.variants[selectedPrepVariant]);
   }
 
   // calls the previous function when changing the week range
@@ -911,8 +953,8 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   const calcRemaining = async (currPrepId, currVariant, selectedVariant, currVariantData) => {
 
     // initially the multiplicity of the meal prep
-    const initial = currVariantData.prepMult;
-    let remaining = currVariantData.prepMult;
+    const initial = currVariantData?.prepMult;
+    let remaining = currVariantData?.prepMult;
     
     // gets all weekly plan data
     const snapshot = await getDocs(collection(db, 'PLANS'));
@@ -950,7 +992,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
     if (selectedPrepId && filteredPrepData) {
       const index = filteredPrepData[(prepData.map((prep) => prep.id)).indexOf(selectedPrepId)]?.variants.findIndex(v => v !== null) || 0;
       setSelectedPrepVariant(index);
-      calcRemaining(selectedPrepId, index, index, prepData[(prepData.map((prep) => prep.id)).indexOf(selectedPrepId)].variants[index]);
+      calcRemaining(selectedPrepId, index, index, prepData[(prepData.map((prep) => prep.id)).indexOf(selectedPrepId)]?.variants[index]);
     }
   }, [selectedPrepId]);
 
@@ -958,11 +1000,11 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   const fetchDropdownItems = async (completed, data) => {
 
     // flattens the completed preps
-    const completedFlattened = completed.reduce((acc, prep) => { return { ...acc, ...prep.completed }; }, {});
+    const completedFlattened = (completed ?? []).reduce((acc, prep) => { return { ...acc, ...prep.completed }; }, {});
     // filters the data to replace noncompleted with null
     const filteredData = data.map(prep => ({
       ...prep,
-      variants: prep.variants.map(v => completedFlattened[v.variantId] ? v : null)
+      variants: prep?.variants.map(v => completedFlattened[v.variantId] ? v : null)
     }));
 
     setFilteredPrepData(filteredData);
@@ -972,7 +1014,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
       filteredData.map(async (prep) => {
         
         // gets all variant's remaining amounts
-        const variantRemainings = await Promise.all(prep.variants.map((variant, index) => ((variant !== null) ? calcRemaining(prep.id, index, selectedPrepVariant, variant) : null)));
+        const variantRemainings = await Promise.all(prep?.variants.map((variant, index) => ((variant !== null) ? calcRemaining(prep.id, index, selectedPrepVariant, variant) : null)));
         const remaining = variantRemainings.filter(rem => rem !== null).join(':');
         
         // gets totals
@@ -1100,7 +1142,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
     // only opens the modal and stores data if there is data
     if (selectedPrepId && id !== null) {
-      setPrepModalData(prepData.find((data) => data.id === id).variants[selectedPrepVariant]);
+      setPrepModalData(prepData.find((data) => data.id === id)?.variants[selectedPrepVariant]);
       setPrepModalVisible(true);
 
     // otherwise, just closes it
@@ -1777,7 +1819,8 @@ export default function WeeklyPlan ({ isSelectedTab }) {
               style={{ height: 50, backgroundColor: colors.zinc600, borderWidth: 1, borderColor: colors.zinc800, justifyContent: 'center', borderBottomLeftRadius: ((prepData?.find(prep => prep.id === selectedPrepId)?.variants?.length) > 1) ? 0 : 5, borderBottomRightRadius: ((prepData?.find(prep => prep.id === selectedPrepId)?.variants?.length) > 1) ? 0 : 5 }}
               dropDownContainerStyle={{ borderLeftWidth: 1, borderRightWidth: 1, borderTopWidth: 1, borderColor: colors.zinc500, borderRadius: 0, backgroundColor: colors.theme200 }}
               textStyle={{ color: prepData.length === 0 ? colors.theme200 : "white", fontWeight: 500, textAlign: 'center', fontSize: 13, }}
-              listItemContainerStyle={{ borderBottomWidth: 0.5, borderBottomColor: colors.zinc450, }}
+              listItemContainerStyle={{ height: 'auto', minHeight: 40, paddingVertical: 5, borderBottomWidth: 0.5, borderBottomColor: colors.zinc450, }}
+              listItemLabelStyle={{ flex: 1, flexWrap: 'wrap' }}
               ArrowDownIconComponent={() => {
                 return ( <Icon size={18} color={ colors.theme100 } name="chevron-down" /> );
               }}

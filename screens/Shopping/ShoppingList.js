@@ -409,7 +409,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
         // groups the combined list to match Shopping format in globals if there is data to add
         if (combinedList.length > 0) {
-          groupedData = combinedList.reduce((acc, item) => {
+          groupedData = (combinedList ?? []).reduce((acc, item) => {
             Object.keys(item).forEach((key) => {
               if (!acc[key]) {
                 acc[key] = [];
@@ -446,7 +446,7 @@ export default function ShoppingList ({ isSelectedTab }) {
         setAllStoreNotes((prev) => ({ ...prev, [storeKey]: combinedNotesList }));
         setAllStoreLists((prev) => ({ ...prev, [storeKey]: combinedList }));
         setAllStoreCosts((prev) => ({ ...prev, [storeKey]: 
-          combinedList.reduce(
+          (combinedList ?? []).reduce(
           (acc, item, index) =>
             combinedIncludedList[index] ? acc + item.costTotal : acc,
           0 // initial value
@@ -479,7 +479,7 @@ export default function ShoppingList ({ isSelectedTab }) {
   const getStoreListCost = async (docSnap) => {
 
     if (docSnap.exists()) {
-      const total = (docSnap.data().costTotal.reduce(
+      const total = ((docSnap.data().costTotal ?? []).reduce(
         (acc, item, index) =>
           docSnap.data().included[index] ? acc + item : acc,
         0 // initial value
@@ -514,7 +514,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
     if (docSnap.exists()) {
       const data = docSnap.data()
-      const num = data.included.reduce((acc, included, index) => {
+      const num = (data.included ?? []).reduce((acc, included, index) => {
         if (included && !data.check[index]) {
           acc += 1; // increment count if both are true
         }
@@ -619,7 +619,7 @@ export default function ShoppingList ({ isSelectedTab }) {
   const calcNumLeft = () => {
     
     if (allStoreIncluded[selectedStore]) {
-      const num = allStoreIncluded[selectedStore].reduce((acc, included, index) => {
+      const num = (allStoreIncluded[selectedStore] ?? []).reduce((acc, included, index) => {
         if (included && !allStoreChecks[selectedStore][index]) {
           acc += 1; // increment count if both are true
         }
@@ -1265,7 +1265,7 @@ export default function ShoppingList ({ isSelectedTab }) {
           <TouchableOpacity className="flex w-full py-2 bg-zinc500 justify-center items-center border-b-0.5 rounded-t-lg" onPress={() => setSpotlightModalVisible(true)}>
             <Text className="font-bold text-[14px] text-white text-center">
               {"$"}
-              {miscStoreKeys.reduce((sum, key) => sum + (storeListCosts[key] || 0), 0).toFixed(2)}
+              {(miscStoreKeys ?? []).reduce((sum, key) => sum + (storeListCosts[key] || 0), 0).toFixed(2)}
               {"   |   "}
               {numSpotlights}
               {numSpotlights === "1" ? " Recipe" : " Recipes"}

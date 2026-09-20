@@ -152,7 +152,7 @@ const DeleteIngredientModal = ({
               </Text>
               <ScrollView className="flex flex-col pl-2 max-h-[180px]">
                 {/* maps the recipe list */}
-                {recipeList?.map((recipe, index) => 
+                {recipeList?.sort((a,b) => a.localeCompare(b)).map((recipe, index) => 
                   <View className="flex flex-row space-x-2" key={index}>
                     <Text className="italic text-mauve700 text-left">
                       {"-"}
@@ -180,7 +180,7 @@ const DeleteIngredientModal = ({
               </Text>
               <ScrollView className="flex flex-col pl-2 max-h-[180px]">
                 {/* maps the spotlight list */}
-                {spotlightList?.map((spotlight, index) => 
+                {spotlightList?.sort((a,b) => a.localeCompare(b)).map((spotlight, index) => 
                   <View className="flex flex-row space-x-2" key={index}>
                     <Text className="italic text-mauve700 text-left">
                       {"-"}

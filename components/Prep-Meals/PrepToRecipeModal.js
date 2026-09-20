@@ -254,17 +254,21 @@ const PrepToRecipeModal = ({
 
   // for filtering
   const [filteredIngredientData, setFilteredIngredientData] = useState([]);
+  const [sortType, setSortType] = useState("alpha");
+  const [sortAsc, setSortAsc] = useState(true);
+
+  // for ingredient dropdown
   const [ingredientDropdownOpen, setIngredientDropdownOpen] = useState(false);
   
   // updates the current list of ingredients and ingredient types
   useEffect(() => {
     if (ingredientsSnapshot) { 
-      filterIngredientData("");
+      filterIngredientData("", sortType, sortAsc);
     }
   }, [ingredientsSnapshot])
   
   // filters the ingredients based on the selected type
-  const filterIngredientData = (ingredientQuery) => {
+  const filterIngredientData = (ingredientQuery, type, asc) => {
 
     let filtered = [];
     
@@ -280,8 +284,30 @@ const PrepToRecipeModal = ({
       
         // checks if every word in the query matches part of the ingredientName
         return queryWords.every(word => ingredient.ingredientName.toLowerCase().includes(word));
-      }).sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
+      });
     }
+    
+      // sorts data by price / cal
+      if (type === "cost") {
+        filtered.sort((a,b) => {
+          // min price
+          const minA = 
+            (Math.min(...storeKeys
+              .map(store => a?.ingredientData[store]?.priceContainer / (a?.ingredientData[store]?.calContainer === "0" ? a?.ingredientData[store]?.totalYield : a?.ingredientData[store]?.calContainer))
+              .filter(calc => !isNaN(calc))
+            ) * 100).toFixed(4);
+          const minB = 
+            (Math.min(...storeKeys
+              .map(store => b?.ingredientData[store]?.priceContainer / (b?.ingredientData[store]?.calContainer === "0" ? b?.ingredientData[store]?.totalYield : b?.ingredientData[store]?.calContainer))
+              .filter(calc => !isNaN(calc))
+            ) * 100).toFixed(4)
+          // factors in order
+          return asc ? minA - minB : minB - minA
+        })
+      // sorts data alphabetically
+      } else {
+        filtered.sort((a, b) => asc ? a.ingredientName.localeCompare(b.ingredientName) : b.ingredientName.localeCompare(a.ingredientName));
+      }
     
     // sets the data and shows the dropdown list of ingredients if there are ingredients to show
     if (filtered.length !== 0) {
@@ -289,14 +315,21 @@ const PrepToRecipeModal = ({
       setFilteredIngredientData(filtered);
       setIngredientDropdownOpen(true);
     } 
+
+    // closes dropdown if sorting hasn't changed
+    if (type === sortType && asc === sortAsc) {
+      setIngredientDropdownOpen(false);
+    }
+
+    // sets the sort
+    setSortType(type);
+    setSortAsc(asc);
   
     // clears selected ingredient if it doesn't match filtering
     if (filtered.filter((ingredient) => ingredient.ingredientName.toLowerCase() === ingredientQuery.toLowerCase()).length === 0) {
       setSearchIngredientName("");
       setSearchIngredientId("");
     }
-
-    setIngredientDropdownOpen(false);
   };
 
 
@@ -718,7 +751,7 @@ const PrepToRecipeModal = ({
                     <TouchableOpacity 
                       className="flex w-full h-full"
                       onPress={() => { 
-                        filterIngredientData(searchIngredientQuery);
+                        filterIngredientData(searchIngredientQuery, sortType, sortAsc);
                         setIsKeyboardOpen(true);
                         setKeyboardType("ingredient search")
                         setIngredientDropdownOpen(false);
@@ -738,7 +771,7 @@ const PrepToRecipeModal = ({
                         size={20}
                         color="black"              
                         onPress={() => {
-                          filterIngredientData(searchIngredientQuery);
+                          filterIngredientData(searchIngredientQuery, sortType, sortAsc);
                           setIngredientDropdownOpen(true);
                         }}
                       />
@@ -751,6 +784,26 @@ const PrepToRecipeModal = ({
                         onPress={() => clearIngredientSearch()}
                       />
                     </View>
+                                
+                    {/* SORT BUTTONS */}
+                    {(ingredientDropdownOpen && !isKeyboardOpen) && (
+                      <View className={`flex flex-col items-center justify-center absolute right-[-15px] bottom-[-2.5px] ${(sortType === "alpha") ? "space-x-[0px]" : "space-x-[2px]"}`}>
+                        {/* type */}
+                        <Icon
+                          name={sortType === "alpha" ? "language" : "card"}
+                          size={16}
+                          color={colors.theme800}
+                          onPress={() => filterIngredientData(searchIngredientQuery, sortType === "alpha" ? "cost" : "alpha", sortAsc)}
+                        />
+                        {/* order */}
+                        <Icon
+                          name={sortAsc ? "caret-down" : "caret-up"}
+                          size={14}
+                          color={colors.theme800}
+                          onPress={() => filterIngredientData(searchIngredientQuery, sortType, !sortAsc)}
+                        />
+                      </View>
+                    )}
                     
                     {/* Ingredient Dropdown */}
                     {(ingredientDropdownOpen && !isKeyboardOpen) && (
@@ -843,6 +896,7 @@ const PrepToRecipeModal = ({
                         ) : (
                           <Image
                             source={storeImages[ingredientStores[editIngredientIndex]]?.src}
+                            fadeDuration={0}
                             alt="store"
                             style={{
                               width: storeImages[ingredientStores[editIngredientIndex]]?.width,
@@ -1272,7 +1326,7 @@ const PrepToRecipeModal = ({
                 <TextInput
                   value={searchIngredientQuery}
                   onChangeText={(value) => {
-                    filterIngredientData(value);
+                    filterIngredientData(value, sortType, sortAsc);
                     setIngredientDropdownOpen(true);
                   }}
                   placeholder="search for ingredient"
@@ -1281,7 +1335,7 @@ const PrepToRecipeModal = ({
                   multiline={true}
                   blurOnSubmit={true}
                   onFocus={() => {
-                    filterIngredientData(searchIngredientQuery);
+                    filterIngredientData(searchIngredientQuery, sortType, sortAsc);
                     setIngredientDropdownOpen(true);
                   }}
                 />
@@ -1349,8 +1403,28 @@ const PrepToRecipeModal = ({
                     />
                   </View>
                 )}
-      
-                {/* BUTTONS */}
+                            
+                {/* LEFT BUTTONS */}
+                {ingredientDropdownOpen && (
+                  <View className={`z-50 flex flex-row items-center justify-center absolute left-0.5 bottom-0.5 ${(sortType === "alpha") ? "space-x-[0px]" : "space-x-[2px]"}`}>
+                    {/* type */}
+                    <Icon
+                      name={sortType === "alpha" ? "language" : "card"}
+                      size={16}
+                      color="black"
+                      onPress={() => filterIngredientData(searchIngredientQuery, sortType === "alpha" ? "cost" : "alpha", sortAsc)}
+                    />
+                    {/* order */}
+                    <Icon
+                      name={sortAsc ? "caret-down" : "caret-up"}
+                      size={14}
+                      color="black"
+                      onPress={() => filterIngredientData(searchIngredientQuery, sortType, !sortAsc)}
+                    />
+                  </View>
+                )}
+                
+                {/* RIGHT BUTTONS */}
                 <View className="flex flex-row space-x-[-2px] absolute right-0 bottom-0 z-20">
       
                   {/* Drop Up */}
@@ -1359,7 +1433,7 @@ const PrepToRecipeModal = ({
                     size={20}
                     color="black"              
                     onPress={() => {
-                      filterIngredientData(searchIngredientQuery);
+                      filterIngredientData(searchIngredientQuery, sortType, sortAsc);
                       setIngredientDropdownOpen(true);
                     }}
                   />

@@ -123,11 +123,12 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     let allRecipeTags = new Set();
 
     // processes recipes and their tags
+    let selectedData = selectedRecipeData;
     const recipeSnapshot = await getDocs(collection(db, 'RECIPES'));
     const recipesArray = recipeSnapshot.docs
       .map(doc => {
         const data = doc.data();
-        if (selectedRecipeId === doc.id) selectedRecipeData = data;
+        if (selectedRecipeId === doc.id) selectedData = data;
         if (Array.isArray(data.recipeTags)) data.recipeTags.forEach(tag => allRecipeTags.add(tag));
         return { id: doc.id, ...data };
       })
@@ -156,7 +157,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       
       setSelectedSpotlightId(spotlightId);
       setSelectedSpotlightData(spotlightData);
-      setSelectedRecipeData(selectedRecipeData);
+      setSelectedRecipeData(selectedData);
 
 
       if (spotlightData) {    
@@ -230,6 +231,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   
   // for filtering
   const [filteredIngredientData, setFilteredIngredientData] = useState([]);
+  const [sortType, setSortType] = useState("alpha");
+  const [sortAsc, setSortAsc] = useState(true);
 
   // for ingredient dropdown
   const [ingredientDropdownOpen, setIngredientDropdownOpen] = useState(false);
@@ -246,7 +249,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   
 
   // filters the ingredients based on the "search for ingredient" text input
-  const filterIngredientData = (ingredientQuery, dropdownOpen) => {
+  const filterIngredientData = (ingredientQuery, type, asc, dropdownOpen) => {
 
     let filtered = [];
     
@@ -261,7 +264,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             .filter(word => word.trim() !== ''); // splits into words and remove empty strings
       
         return queryWords.every(word => ingredient.ingredientName.toLowerCase().includes(word));
-      }).sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
+      })
     }
     
     // filters for type
@@ -277,6 +280,31 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
         ingredient.ingredientData[selectedIngredientStore].brand !== ""
       );
     }
+    
+    // sorts data by price / cal
+    if (type === "cost") {
+      filtered.sort((a,b) => {
+        // min price
+        const minA = 
+          (Math.min(...storeKeys
+            .map(store => a?.ingredientData[store]?.priceContainer / (a?.ingredientData[store]?.calContainer === "0" ? a?.ingredientData[store]?.totalYield : a?.ingredientData[store]?.calContainer))
+            .filter(calc => !isNaN(calc))
+          ) * 100).toFixed(4);
+        const minB = 
+          (Math.min(...storeKeys
+            .map(store => b?.ingredientData[store]?.priceContainer / (b?.ingredientData[store]?.calContainer === "0" ? b?.ingredientData[store]?.totalYield : b?.ingredientData[store]?.calContainer))
+            .filter(calc => !isNaN(calc))
+          ) * 100).toFixed(4)
+        // current store price
+        const storeA = ((a?.ingredientData[selectedIngredientStore]?.priceContainer / a?.ingredientData[selectedIngredientStore]?.calContainer) * 100).toFixed(4);
+        const storeB = ((b?.ingredientData[selectedIngredientStore]?.priceContainer / b?.ingredientData[selectedIngredientStore]?.calContainer) * 100).toFixed(4);
+        // factors in order
+        return selectedIngredientStore === "-" ? asc ? minA - minB : minB - minA : asc ? storeA - storeB : storeB - storeA
+      })
+    // sorts data alphabetically
+    } else {
+      filtered.sort((a, b) => asc ? a.ingredientName.localeCompare(b.ingredientName) : b.ingredientName.localeCompare(a.ingredientName));
+    }
 
     // sets the data and shows the dropdown list of ingredients if there are ingredients to show
     if (filtered.length !== 0) {
@@ -286,6 +314,10 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     } else {
       setFilteredIngredientData(filteredIngredientData);
     }
+
+    // sets the sort
+    setSortType(type);
+    setSortAsc(asc);
   
     // clears selected ingredient if it doesn't match filtering
     if (filtered.filter((ingredient) => ingredient.ingredientName.toLowerCase() === ingredientQuery.toLowerCase()).length === 0) {
@@ -297,7 +329,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   // refilters when the type or store changes
   useEffect(() => {
     setSearchIngredientQuery("");
-    filterIngredientData(searchIngredientQuery, false);
+    filterIngredientData(searchIngredientQuery, sortType, sortAsc, false);
   }, [selectedIngredientType, selectedIngredientStore, ingredientsSnapshot]); 
 
   // decides the next store
@@ -339,7 +371,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     setSearchIngredientQuery("");
     setSelectedIngredientName("");
     setSelectedIngredientId("");
-    filterIngredientData("", false);
+    filterIngredientData("", sortType, sortAsc, false);
   }
 
   // for when the check button is selected next to the ingredient textinput
@@ -1161,7 +1193,6 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     
     // if a spotlight is not selected, set default data
     } else {
-      reloadSpotlight(null);
       setSelectedSpotlightData(null);
       setSelectedIngredientIndex(1);
       setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
@@ -1411,7 +1442,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
       // if the recipe is no longer valid, reset
       } else {
-        data.recipeId === null;
+        data.recipeId = null;
         data.spotlightNameEdited = false;
 
         for (let i = 0; i < 12; i++) {
@@ -1560,21 +1591,23 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
           <View className="bg-white w-full h-[30px] border-[1px] border-zinc300 rounded-[5px]">
 
             {/* Recipe Search */}
-            <View className={`flex flex-row w-full h-full ${selectedRecipeData !== null ? "px-1" : "pl-1"}`}>
+            <View className="flex flex-row w-full h-full">
 
               {/* More Buttons - in white bg */}
-              <View className="flex flex-row items-center w-[5%] justify-center">
-                {/* refetches the name of the recipe that was taken from */}
-                <Icon
-                  name="refresh-circle"
-                  size={20}
-                  color={colors.zinc500}
-                  onPress={() => pickRecipe(recipeList.find((recipe) => recipe.id === selectedSpotlightData.recipeId)) }
-                />
-              </View>
+              {(recipeList?.find((recipe) => recipe?.id === selectedSpotlightData?.recipeId)) && (
+                <View className="flex flex-row items-center w-[5%] justify-center mx-1">
+                  {/* refetches the name of the recipe that was taken from */}
+                  <Icon
+                    name="refresh-circle"
+                    size={20}
+                    color={colors.zinc500}
+                    onPress={() => pickRecipe(recipeList.find((recipe) => recipe.id === selectedSpotlightData.recipeId)) }
+                  />
+                </View>
+              )}
 
               {/* Filter TextInput */}
-              <View className={`flex flex-row ${selectedRecipeData !== null ? "w-[85%] px-1" : "w-[95%] pl-1"}`}>
+              <View className="flex flex-row flex-1">
                 <TextInput
                   value={recipeKeywordQuery}
                   onChangeText={(value) => filterRecipeList(value, ingredientKeywordQuery, selectedRecipeTag)}
@@ -1589,7 +1622,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
                 {/* Recipe Dropdown */}
                 {recipeDropdownOpen && (
-                  <View className="flex ml-1 w-full absolute top-[100%] bg-theme100 max-h-[200px] rounded-b-[5px] border-x-[1px] border-b-[1px] border-zinc400 z-50">
+                  <View className="flex w-full absolute top-[100%] bg-theme100 max-h-[200px] rounded-b-[5px] border-x-[1px] border-b-[1px] border-zinc400 z-50">
                     <ScrollView>
                       {filteredRecipeList.map((item, index) => (
                         <TouchableOpacity
@@ -1630,7 +1663,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
               {/* More Buttons - in white bg */}
               {(selectedRecipeData !== null) && (
-                <View className="flex flex-row items-center w-[10%] justify-center">
+                <View className="flex flex-row items-center w-[10%] justify-center mx-1">
 
                   {/* stores the selected recipe's data in the selected spotlight without unselecting the recipe */}
                   <Icon
@@ -2062,6 +2095,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                           <View className={`w-full h-full justify-center items-center rounded-r-md z-0 ${(selectedSpotlightData?.ingredientStoreEdited[index] && selectedSpotlightData?.recipeId !== null) ? "bg-zinc350" : (selectedSpotlightData?.recipeId !== null) ?  "bg-theme200" : ""}`}>
                             <Image
                               source={storeImages[currIngredientStores[index]]?.src}
+                              fadeDuration={0}
                               alt="store"
                               style={{
                                 width: storeImages[currIngredientStores[index]]?.width,
@@ -2167,6 +2201,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 : // when store is selected
                 <Image
                   source={storeImages[selectedIngredientStore]?.src}
+                  fadeDuration={0}
                   alt="store"
                   style={{
                     width: storeImages[selectedIngredientStore]?.width,
@@ -2232,7 +2267,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               className="flex w-full h-full"
               onPress={() => { 
                 if (selectedSpotlightId !== null) {
-                  filterIngredientData(searchIngredientQuery, false);
+                  filterIngredientData(searchIngredientQuery, sortType, sortAsc, false);
                   setKeyboardType("ingredient search");
                   setIsKeyboardOpen(true);
                   setRecipeDropdownOpen(false);
@@ -2281,7 +2316,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                           {(selectedIngredientStore === "-") && (
                             <Text className="text-[10px] text-mauve900 font-bold">
                               {`${storeLabels[
-                                storeKeys.indexOf(storeKeys.reduce(
+                                storeKeys.indexOf((storeKeys ?? []).reduce(
                                   (minStore, store) => {
                                     const val = item.ingredientData[store].priceContainer / item.ingredientData[store].calContainer;
                                     return (!isNaN(val) &&
@@ -2316,7 +2351,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
             {/* INDICATOR */} 
             {(selectedIngredientId !== null && selectedIngredientId !== "") && (
-              <View className="absolute left-1 bottom-0">
+              <View className={`absolute bottom-0 ${(ingredientDropdownOpen && selectedSpotlightId && !isKeyboardOpen) ? "flex w-full justify-center items-center" : "left-1"}`}>
                 <Icon
                   name="link"
                   size={20}
@@ -2335,8 +2370,28 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 ingredientStore={null}
               />
             )}
-            
-            {/* BUTTONS */}
+                        
+            {/* LEFT BUTTONS */}
+            {(ingredientDropdownOpen && selectedSpotlightId && !isKeyboardOpen) && (
+              <View className={`flex flex-row items-center justify-center absolute left-0.5 bottom-0.5 ${(sortType === "alpha") ? "space-x-[0px]" : "space-x-[2px]"}`}>
+                {/* type */}
+                <Icon
+                  name={sortType === "alpha" ? "language" : "card"}
+                  size={16}
+                  color="black"
+                  onPress={() => filterIngredientData(searchIngredientQuery, sortType === "alpha" ? "cost" : "alpha", sortAsc, true)}
+                />
+                {/* order */}
+                <Icon
+                  name={sortAsc ? "caret-down" : "caret-up"}
+                  size={14}
+                  color="black"
+                  onPress={() => filterIngredientData(searchIngredientQuery, sortType, !sortAsc, true)}
+                />
+              </View>
+            )}
+
+            {/* RIGHT BUTTONS */}
             <View className="flex flex-row space-x-[-2px] absolute right-0 bottom-0">
 
               {/* Drop Up */}
@@ -2344,7 +2399,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 name="chevron-up-outline"
                 size={20}
                 color="black"
-                onPress={() => filterIngredientData(searchIngredientQuery, true)}
+                onPress={() => filterIngredientData(searchIngredientQuery, sortType, sortAsc, true)}
               />
 
               {/* Clear */}
@@ -2419,14 +2474,14 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               {/* Filter TextInput */}
               <TextInput
                 value={searchIngredientQuery}
-                onChangeText={(value) => filterIngredientData(value, true)}
+                onChangeText={(value) => filterIngredientData(value, sortType, sortAsc, true)}
                 placeholder="search for ingredient"
                 placeholderTextColor={colors.zinc400}
                 className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[17px] z-10`}
                 multiline={true}
                 blurOnSubmit={true}
                 onFocus={() => {
-                  filterIngredientData(searchIngredientQuery, true);
+                  filterIngredientData(searchIngredientQuery, sortType, sortAsc, true);
                   setRecipeDropdownOpen(false);
                 }}
               />
@@ -2466,7 +2521,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                             {(selectedIngredientStore === "-") && (
                               <Text className="text-[10px] text-mauve900 font-bold">
                                 {`${storeLabels[
-                                  storeKeys.indexOf(storeKeys.reduce(
+                                  storeKeys.indexOf((storeKeys ?? []).reduce(
                                     (minStore, store) => {
                                       const val = item.ingredientData[store].priceContainer / item.ingredientData[store].calContainer;
                                       return (!isNaN(val) &&
@@ -2498,8 +2553,28 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   />
                 </View>
               )}
-        
-              {/* BUTTONS */}
+                          
+              {/* LEFT BUTTONS */}
+              {ingredientDropdownOpen && (
+                <View className={`z-50 flex flex-row items-center justify-center absolute left-0.5 bottom-0.5 ${(sortType === "alpha") ? "space-x-[0px]" : "space-x-[2px]"}`}>
+                  {/* type */}
+                  <Icon
+                    name={sortType === "alpha" ? "language" : "card"}
+                    size={16}
+                    color="black"
+                    onPress={() => filterIngredientData(searchIngredientQuery, sortType === "alpha" ? "cost" : "alpha", sortAsc, true)}
+                  />
+                  {/* order */}
+                  <Icon
+                    name={sortAsc ? "caret-down" : "caret-up"}
+                    size={14}
+                    color="black"
+                    onPress={() => filterIngredientData(searchIngredientQuery, sortType, !sortAsc, true)}
+                  />
+                </View>
+              )}
+              
+              {/* RIGHT BUTTONS */}
               <View className="flex flex-row space-x-[-2px] absolute right-0 bottom-0 z-20">
 
                 {/* Drop Up */}
@@ -2507,7 +2582,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   name="chevron-up-outline"
                   size={20}
                   color="black"
-                  onPress={() => filterIngredientData(searchIngredientQuery, true)}
+                  onPress={() => filterIngredientData(searchIngredientQuery, sortType, sortAsc, true)}
                 />
 
                 {/* Clear */}

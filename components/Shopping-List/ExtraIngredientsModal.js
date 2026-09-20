@@ -230,7 +230,7 @@ const ExtraIngredientsModal = ({
     setSelectedIngredientName("");
     setSelectedIngredientId("");
     setSelectedIngredientData(null);
-    filterIngredientData("");
+    filterIngredientData("", sortType, sortAsc);
   }
 
 
@@ -282,7 +282,7 @@ const ExtraIngredientsModal = ({
     setSelectedIngredientName("");
     setSelectedIngredientId("");
     setSelectedIngredientData(null);
-    filterIngredientData("");
+    filterIngredientData("", sortType, sortAsc);
 
     // closes the type dropdown
     setIngredientDropdownOpen(false);
@@ -292,6 +292,8 @@ const ExtraIngredientsModal = ({
   ///////////////////////////////// FILTERING INGREDIENTS /////////////////////////////////
 
   const [filteredIngredientData, setFilteredIngredientData] = useState(null);
+  const [sortType, setSortType] = useState("alpha");
+  const [sortAsc, setSortAsc] = useState(true);
   
   // for type picker
   const [selectedIngredientType, setSelectedIngredientType] = useState("ALL TYPES"); 
@@ -299,7 +301,7 @@ const ExtraIngredientsModal = ({
   const [brandLists, setBrandLists] = useState({});
 
   // filters the ingredients based on the "search for ingredient" text input
-  const filterIngredientData = (ingredientQuery) => {
+  const filterIngredientData = (ingredientQuery, type, asc) => {
     setSearchIngredientQuery(ingredientQuery);
     setSelectedIngredientName(ingredientQuery);
 
@@ -316,7 +318,7 @@ const ExtraIngredientsModal = ({
             .filter(word => word.trim() !== ''); // splits into words and remove empty strings
       
         return queryWords.every(word => ingredient.ingredientName.toLowerCase().includes(word));
-      }).sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
+      });
     }
     
     // filters for type
@@ -325,10 +327,36 @@ const ExtraIngredientsModal = ({
         Array.isArray(ingredient.ingredientTypes) && ingredient.ingredientTypes.includes(selectedIngredientType)
       );
     }
+    
+    // sorts data by price / cal
+    if (type === "cost") {
+      filtered.sort((a,b) => {
+        // min price
+        const minA = 
+          (Math.min(...storeKeys
+            .map(store => a?.ingredientData[store]?.priceContainer / (a?.ingredientData[store]?.calContainer === "0" ? a?.ingredientData[store]?.totalYield : a?.ingredientData[store]?.calContainer))
+            .filter(calc => !isNaN(calc))
+          ) * 100).toFixed(4);
+        const minB = 
+          (Math.min(...storeKeys
+            .map(store => b?.ingredientData[store]?.priceContainer / (b?.ingredientData[store]?.calContainer === "0" ? b?.ingredientData[store]?.totalYield : b?.ingredientData[store]?.calContainer))
+            .filter(calc => !isNaN(calc))
+          ) * 100).toFixed(4)
+        // factors in order
+        return asc ? minA - minB : minB - minA
+      })
+    // sorts data alphabetically
+    } else {
+      filtered.sort((a, b) => asc ? a.ingredientName.localeCompare(b.ingredientName) : b.ingredientName.localeCompare(a.ingredientName));
+    }
 
     // sets the data and shows the dropdown list of ingredients
     setFilteredIngredientData(filtered);
     setIngredientDropdownOpen(filtered.length !== 0);
+
+    // sets the sort
+    setSortType(type);
+    setSortAsc(asc);
   
     // clears selected ingredient if it doesn't match filtering
     if (filtered.filter((ingredient) => ingredient.ingredientName.toLowerCase() === ingredientQuery.toLowerCase()).length === 0) {
@@ -355,7 +383,7 @@ const ExtraIngredientsModal = ({
   useEffect(() => {
     setSearchIngredientQuery("");
     setIngredientDropdownOpen(false);
-    filterIngredientData(searchIngredientQuery);
+    filterIngredientData(searchIngredientQuery, sortType, sortAsc);
   }, [selectedIngredientType, ingredientsSnapshot]); 
   
   
@@ -504,7 +532,7 @@ const ExtraIngredientsModal = ({
   const editExtraIngredients = (index) => {
     
     // for the ingredient search textinput
-    filterIngredientData(extraIngredients[index].ingredientName);
+    filterIngredientData(extraIngredients[index].ingredientName, sortType, sortAsc);
     setCurrIngredientStore(extraIngredients[index].ingredientStore);
     setSelectedIngredientId(extraIngredients[index].ingredientId);
     setSearchIngredientQuery(extraIngredients[index].ingredientName);
@@ -663,6 +691,7 @@ const ExtraIngredientsModal = ({
                         ) : (
                           <Image
                             source={storeImages[ingredient.ingredientStore]?.src}
+                            fadeDuration={0}
                             alt="store"
                             style={{
                               width: storeImages[ingredient.ingredientStore]?.width,
@@ -771,14 +800,14 @@ const ExtraIngredientsModal = ({
                 {/* Filter TextInput */}
                 <TextInput
                   value={searchIngredientQuery}
-                  onChangeText={filterIngredientData}
+                  onChangeText={(value) => filterIngredientData(value, sortType, sortAsc)}
                   placeholder="search for ingredient"
                   placeholderTextColor={colors.zinc400}
                   className="flex h-[40px] px-[10px] text-[14px] leading-[17px] z-10"
                   multiline={true}
                   blurOnSubmit={true}
                   onFocus={() => {
-                    filterIngredientData(searchIngredientQuery);
+                    filterIngredientData(searchIngredientQuery, sortType, sortAsc);
                     setIngredientDropdownOpen(true);
                   }}
                 />
@@ -846,9 +875,10 @@ const ExtraIngredientsModal = ({
                 )}
           
                 {/* BUTTONS */}
-                <View className={`flex flex-row absolute bottom-0.5 z-20 ${ingredientDropdownOpen ? "right-0.5" : "justify-between w-full pl-2"}`}>
+                <View className={`flex flex-row absolute bottom-0.5 z-20 ${((!ingredientDropdownOpen && selectedIngredientName !== "") || (ingredientDropdownOpen && !isKeyboardOpen)) ? "justify-between w-full pl-2" : "right-0.5"}`}>
 
-                  {(!ingredientDropdownOpen && selectedIngredientName !== "") && (
+                  {/* LEFT BUTTONS */}
+                  {(!ingredientDropdownOpen && selectedIngredientName !== "") ? (
                     <Icon
                       name={(selectedIngredientId === "" || currIngredientStore === "-") ? "unlink-outline" : "link-outline"}
                       size={18}
@@ -874,8 +904,26 @@ const ExtraIngredientsModal = ({
                         }
                       }}
                     />
+                  ) : (ingredientDropdownOpen && !isKeyboardOpen) && (
+                    <View className={`flex flex-row ${(sortType === "alpha") ? "space-x-[0px]" : "space-x-[2px]"}`}>
+                      {/* type */}
+                      <Icon
+                        name={sortType === "alpha" ? "language" : "card"}
+                        size={16}
+                        color="black"
+                        onPress={() => filterIngredientData(searchIngredientQuery, sortType === "alpha" ? "cost" : "alpha", sortAsc)}
+                      />
+                      {/* order */}
+                      <Icon
+                        name={sortAsc ? "caret-down" : "caret-up"}
+                        size={14}
+                        color="black"
+                        onPress={() => filterIngredientData(searchIngredientQuery, sortType, !sortAsc)}
+                      />
+                    </View>
                   )}
-
+      
+                  {/* RIGHT BUTTONS */}
                   <View className="flex flex-row space-x-[-2px]">
   
                     {/* Drop Up / Down */}
@@ -884,7 +932,7 @@ const ExtraIngredientsModal = ({
                       size={18}
                       color="black"
                       onPress={() =>  {
-                        if (ingredientDropdownOpen) { filterIngredientData(searchIngredientQuery) }
+                        if (ingredientDropdownOpen) { filterIngredientData(searchIngredientQuery, sortType, sortAsc) }
                         setIngredientDropdownOpen(!ingredientDropdownOpen);
                       }}
                     />
@@ -924,6 +972,7 @@ const ExtraIngredientsModal = ({
                             <View className="w-full h-full justify-center items-center rounded-r-md z-0">
                               <Image
                                 source={storeImages[currIngredientStore]?.src}
+                                fadeDuration={0}
                                 alt="store"
                                 style={{
                                   width: storeImages[currIngredientStore]?.width,

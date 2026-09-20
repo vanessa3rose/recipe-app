@@ -34,7 +34,7 @@ const db = getFirestore(app);
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const ModMealModal = ({
-    modalVisible, closeModal, editingId, setEditingId, editingData, setEditingData, defaultName, type
+  modalVisible, closeModal, editingId, setEditingId, editingData, setEditingData, defaultName, type
 }) => {
   
 

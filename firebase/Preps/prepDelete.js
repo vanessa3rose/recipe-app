@@ -9,7 +9,6 @@ const db = getFirestore(app);
 
 export async function prepDelete (prepId) {
 
-
   ///////////////////////////////// DATA /////////////////////////////////
 
   // today's current date
@@ -55,9 +54,11 @@ export async function prepDelete (prepId) {
 
       // if the current plan's date is past today's
       if (planDoc.id > today.dateString) {
+        const lunchId = planData?.meals?.lunch?.prepData?.prepId ?? planData?.meals?.lunch?.prepId;
+        const dinnerId = planData?.meals?.dinner?.prepData?.prepId ?? planData?.meals?.dinner?.prepId;
         
         // if the current meal prep is the lunch of the current plan date, update the data
-        if (planData.meals.lunch.prepId && prepId && planData.meals.lunch.prepId === prepId) {
+        if (lunchId && prepId && lunchId === prepId) {
           batch.update(doc(db, 'PLANS', planDoc.id), {
             'meals.lunch.prepId': null,
             'meals.lunch.prepData': null,
@@ -65,7 +66,7 @@ export async function prepDelete (prepId) {
         }
 
         // if the current meal prep is the dinner of the current plan date, update the data
-        if (planData.meals.dinner.prepId && prepId && planData.meals.dinner.prepId === prepId) {
+        if (dinnerId && prepId && dinnerId === prepId) {
           batch.update(doc(db, 'PLANS', planDoc.id), {
             'meals.dinner.prepId': null,
             'meals.dinner.prepData': null,

@@ -18,6 +18,7 @@ import storeImages from '../../assets/storeImages';
 
 // fractions
 var Fractional = require('fractional').Fraction;
+import Fraction from 'fraction.js';
 
 // validation
 import extractUnit from '../Validation/extractUnit';
@@ -514,20 +515,20 @@ const MealDetailsModal = ({
     if (prepDoc) {
       if (meal === "LUNCH") { data = prepDoc.data()?.meals?.lunch || null; } 
       else if (meal === "DINNER") { data = prepDoc.data()?.meals?.dinner || null; }
-
+      
       // stores it for copying
       setCopyData(data); 
       // stores it for creating (simple)
-      setPrepName(data.prepData.prepName);
-      setPrepCal(data.prepData.prepCal);
-      setPrepPrice(data.prepData.prepPrice);
-      setPrepNote(data.prepData.prepNote);
+      setPrepName(data.prepData?.prepName ?? "");
+      setPrepCal(data.prepData?.prepCal ?? "");
+      setPrepPrice(data.prepData?.prepPrice ?? "");
+      setPrepNote(data.prepData?.prepNote ?? "");
       // stores it for creating (complex)
-      setPrepCurrentAmounts(data.prepData.currentAmounts);
-      setPrepCurrentData(data.prepData.currentData);
-      setPrepCurrentCals(data.prepData.currentCals.map(cal => cal === "" ? "" : Math.round(cal)));
-      setPrepCurrentPrices(data.prepData.currentPrices);
-      setNumIngredients(data.prepData.currentData?.length || 0);
+      setPrepCurrentAmounts(data.prepData?.currentAmounts ?? []);
+      setPrepCurrentData(data.prepData?.currentData ?? []);
+      setPrepCurrentCals(data.prepData?.currentCals.map(cal => cal === "" ? "" : Math.round(cal)) ?? []);
+      setPrepCurrentPrices(data.prepData?.currentPrices ?? []);
+      setNumIngredients(data.prepData?.currentData?.length || 0);
     
     // otherwise, not valid
     } else { setCopyData(null); }
@@ -616,6 +617,9 @@ const MealDetailsModal = ({
   const [filteredPrepData, setFilteredPrepData] = useState(null);
   const [filteredPrepDates, setFilteredPrepDates] = useState(null);
   const [filteredPrepMeals, setFilteredPrepMeals] = useState(null);
+  
+  // for editing a unit
+  const [currUnit, setCurrUnit] = useState(-1);
 
   // to format the given date as "mm/dd/yy"
   const formatDateShort = (currDate) => {
@@ -749,6 +753,61 @@ const MealDetailsModal = ({
   }
 
 
+  ///////////////////////////////// COPYING OVER INGREDIENT /////////////////////////////////
+
+  const [selectedIngredient, setSelectedIngredient] = useState(null);
+  const [selectedIngredientAmount, setSelectedIngredientAmount] = useState("");
+
+  // to store the snack from the inventory
+  const useIngredient = async () => {
+
+    // calculations
+    const ingredientCal = (isFinite(new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator) && isFinite(new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)) ?
+                          ((new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)
+                          / (new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator)
+                          * selectedIngredient?.ingredientData?.[selectedStore]?.calServing).toFixed(0)
+                          : "0";
+    const ingredientPrice = (isFinite(new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator) && isFinite(new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)) ?
+                            ((new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)
+                            / (new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator)
+                            * selectedIngredient?.ingredientData?.[selectedStore]?.priceServing).toFixed(2)
+                            : "0.00";
+
+    // updates prep price
+    setPrepPrice(
+      ((Number(ingredientPrice) || 0) +
+        prepCurrentPrices.reduce((sum, item) => sum + (Number(item) || 0), 0)
+      ).toFixed(2)
+    );
+                            
+    // adds this ingredient to the list
+    setPrepCurrentData([...prepCurrentData, {
+      amountLeft: "?", 
+      amountTotal: "", 
+      archive: false, 
+      check: false, 
+      containerPrice: "", 
+      ingredientData: {...selectedIngredient.ingredientData, [selectedStore]: {...selectedIngredient.ingredientData[selectedStore], unit: extractUnit(selectedIngredient.ingredientData[selectedStore].unit, selectedIngredientAmount)} }, 
+      ingredientId: selectedIngredient.id, 
+      ingredientName: selectedIngredient.ingredientName, 
+      ingredientStore: selectedStore, 
+      ingredientTypes: selectedIngredient.ingredientTypes, 
+      unitPrice: "",
+    }]);
+    setPrepCurrentAmounts([...prepCurrentAmounts, selectedIngredientAmount]);
+    setPrepCurrentCals([...prepCurrentCals, Number(ingredientCal)]);
+    setPrepCurrentPrices([...prepCurrentPrices, ingredientPrice]);
+
+    // increments the number of ingredients
+    setNumIngredients(numIngredients + 1);
+
+    // resets states
+    setSelectedIngredient(null);
+    setSelectedIngredientAmount("");
+    setShowIngredientSearch(false);
+  }
+
+
   ///////////////////////////////// CHANGING CURRENT DATA /////////////////////////////////
 
   // to change the current name at the given index
@@ -875,7 +934,7 @@ const MealDetailsModal = ({
   const filterIngredientData = async (queryToUse) => {
 
     // original data
-    let dataToUse = ingredientsSnapshot.docs.map((ingredient) => {
+    let dataToUse = (ingredientsSnapshot?.docs ?? []).map((ingredient) => {
       return {
         id: ingredient.id,    
         ...ingredient.data(),  
@@ -912,6 +971,11 @@ const MealDetailsModal = ({
   const changeSelectedStore = () => {
     setSelectedStore(storeKeys[(storeKeys.indexOf(selectedStore) + 1) % storeKeys.length]); 
   }
+
+
+  ///////////////////////////////// NOTES /////////////////////////////////
+
+  const [showNotes, setShowNotes] = useState(false);
 
 
   ///////////////////////////////// HTML /////////////////////////////////
@@ -987,11 +1051,10 @@ const MealDetailsModal = ({
               </View>
 
               {/* GRID */}
-              <ScrollView className="flex flex-col max-h-1/2 z-10 border-[1px] bg-zinc700 border-zinc700">
-                  
+              <ScrollView className={`flex flex-col max-h-1/2 z-10 border-[1px] bg-zinc700 border-zinc700 ${(numIngredients > data?.currentData?.filter((ingredient => ingredient !== null)).length) && "pb-2"}`}>
                 {/* Frozen Columns */}
                 {Array.from({ length: numIngredients }, (_, index) => (
-                  <View key={`frozen-${index}`} className="flex flex-row min-h-[30px] bg-white">
+                  <View key={`frozen-${index}`} className={`flex flex-row ${(data?.currentData?.[index] ? "min-h-[30px] bg-white" : "h-0")}`}>
                     <View className="bg-black w-full flex-row">
 
                       {/* ingredient names */}
@@ -1011,17 +1074,17 @@ const MealDetailsModal = ({
                       </View>
 
                       {/* details */}
-                      <View className="flex flex-col items-center justify-evenly bg-white w-1/6 border-b-0.5 border-b-zinc400">
+                      <View className="flex py-1 flex-col items-center justify-evenly bg-white w-1/6 border-b-0.5 border-b-zinc400">
                         
                         {/* calories */}
-                        {data?.currentCals?.[index] !== "" ? 
+                        {(data?.currentData?.[index] && data?.currentCals?.[index] !== "") ? 
                           <Text className="text-[10px] text-center">
                             {!isNaN(Number(data?.currentCals?.[index])) ? Number(data?.currentCals?.[index]).toFixed(0) : "0"} {"cal"}
                           </Text>
                         : null}
-
+                        
                         {/* price */}
-                        {data?.currentPrices?.[index] !== "" ? 
+                        {(data?.currentData?.[index] && data?.currentPrices?.[index] !== "" && data?.currentPrices?.filter(price => Number(price) !== 0).length > 0) ? 
                           <Text className="text-[10px] text-center">
                             {"$"}{!isNaN(Number(data?.currentCals?.[index])) ? Number(data?.currentPrices?.[index]).toFixed(2) : "0.00"}
                           </Text>
@@ -1031,6 +1094,29 @@ const MealDetailsModal = ({
                   </View>
                 ))}
               </ScrollView>
+
+              {/* Meal Notes */}
+              {(!id?.includes(".") && data?.prepNote !== "") && (
+                <TouchableOpacity 
+                  activeOpacity={0.9}
+                  onPress={() => setShowNotes(!showNotes)}
+                  className="flex flex-row justify-center items-center px-1.5 py-2 w-full bg-zinc400 border-b border-x border-zinc500 rounded-b-md"
+                >
+                  {/* toggle */}
+                  <View className={`${showNotes ? "absolute left-2" : "mr-[-16px]"}`}>
+                    <Icon
+                      name={showNotes ? "eye" : "eye-off"}
+                      color={colors.zinc800}
+                      size={16}
+                    />
+                  </View>
+                  
+                  {/* text */}
+                  <Text className="italic text-[10px] mx-7 leading-[13px] font-semibold text-zinc900 text-center">
+                      {showNotes ? data?.prepNote.toUpperCase() : "SHOW NOTES"}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </>
 
             : // if not filled in
@@ -1252,7 +1338,7 @@ const MealDetailsModal = ({
                 <View className="flex flex-col justify-center items-center w-full mb-2 ml-[-5px]">
 
                   {/* TOP ROW */}
-                  <View className="flex flex-row items-center justify-center border-0.5 mb-1 ml-[15px] mr-[10px] bg-zinc600">
+                  <View className="flex flex-row items-center justify-center border-0.5 ml-[15px] mr-[10px] bg-zinc600">
                     
                     {/* Meal Name Input */}
                     <View className="flex justify-center items-center px-1.5 w-7/12 border-r-0.5 bg-zinc700">
@@ -1301,7 +1387,7 @@ const MealDetailsModal = ({
     
                   {/* GRID */}
                   {(numIngredients !== 0) && (
-                    <ScrollView className={`overflow-hidden flex flex-col w-full mr-[-10px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) ? "max-h-[100px]" : "max-h-[430px]"}`}>
+                    <ScrollView className={`pt-1 overflow-hidden flex flex-col w-full mr-[-10px] z-10 ${(keyboardType === "grid" && isKeyboardOpen) ? "max-h-[100px]" : "max-h-[430px]"}`}>
                       
                       {/* Frozen Columns */}
                       {Array.from({ length: numIngredients }, (_, index) => index < numIngredients && (
@@ -1366,11 +1452,23 @@ const MealDetailsModal = ({
                                 placeholderTextColor={colors.zinc450}
                                 value={prepCurrentData?.[index]?.ingredientData[prepCurrentData?.[index]?.ingredientStore]?.unit || ""}
                                 onChangeText={(value) => changeUnit(index, value)}
-                                multiline={true}
                                 blurOnSubmit={true}
-                                onFocus={() => setKeyboardType("grid")}
-                                onBlur={() => setKeyboardType("")}
+                                onFocus={() => {
+                                  setKeyboardType("grid")
+                                  setCurrUnit(index)
+                                }}
+                                onBlur={() => {
+                                  setKeyboardType("")
+                                  setCurrUnit(-1)
+                                }}
                               />
+
+                              {/* ellipses for cutoff */}
+                              {(currUnit !== index && prepCurrentAmounts?.[index]?.length + 1 + prepCurrentData?.[index]?.ingredientData[prepCurrentData?.[index]?.ingredientStore]?.unit?.length > 10) && (
+                                <Text className="flex items-end absolute bg-black right-0 pr-1 text-black bg-zinc100">
+                                  ...
+                                </Text>
+                              )}
                             </View>
       
                             {/* Details */}
@@ -1517,96 +1615,202 @@ const MealDetailsModal = ({
             <View className="flex w-full mb-2">
                       
               {/* Ingredient Filtering */}
-              <View className="flex flex-row w-full h-[30px] pl-8 pr-10 mb-2 items-center justify-center">
+              {(selectedIngredient === null) && (
+                <View className="flex flex-row w-full h-[30px] pl-8 pr-10 mb-2 items-center justify-center">
 
-                {/* back button */}
-                <View className="pr-1">
-                  <Icon 
-                    size={24}
-                    color={colors.zinc700}
-                    name="caret-back"
-                    onPress={() => setShowIngredientSearch(false)}
-                  />
-                </View>
-      
-                {/* filter input */}
-                <View className="flex bg-white w-full border-0.5 h-full border-zinc500 rounded-md justify-center items-start pl-2 pr-6">
-                  <TextInput
-                    className="w-full mb-1 text-left text-[14px] leading-[17px]"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    placeholder="search for ingredient"
-                    placeholderTextColor={colors.zinc400}
-                    multiline={true}
-                    blurOnSubmit={true}
-                  />
-      
-                  {/* clear button */}
-                  <View className="absolute right-1 h-full items-center flex flex-row">
+                  {/* back button */}
+                  <View className="pr-1">
                     <Icon 
-                      size={20}
-                      color="black"
-                      name="close-outline"
-                      onPress={() => setSearchQuery("")}
+                      size={24}
+                      color={colors.zinc700}
+                      name="caret-back"
+                      onPress={() => setShowIngredientSearch(false)}
                     />
                   </View>
-                </View>
+        
+                  {/* filter input */}
+                  <View className="flex bg-white w-full border-0.5 h-full border-zinc500 rounded-md justify-center items-start pl-2 pr-6">
+                    <TextInput
+                      className="w-full mb-1 text-left text-[14px] leading-[17px]"
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      placeholder="search for ingredient"
+                      placeholderTextColor={colors.zinc400}
+                      multiline={true}
+                      blurOnSubmit={true}
+                    />
+        
+                    {/* clear button */}
+                    <View className="absolute right-1 h-full items-center flex flex-row">
+                      <Icon 
+                        size={20}
+                        color="black"
+                        name="close-outline"
+                        onPress={() => setSearchQuery("")}
+                      />
+                    </View>
+                  </View>
 
-                {/* Store Selection */}
-                <TouchableOpacity 
-                  className="pl-2 justify-center items-center"
-                  onPress={() => changeSelectedStore()}
-                >
-                  <Image
-                    source={storeImages[selectedStore]?.src || null}
-                    alt="store"
-                    style={{
-                      width: storeImages[selectedStore]?.width,
-                      height: storeImages[selectedStore]?.height,
-                    }}
-                  />
-                </TouchableOpacity>
-              </View>
+                  {/* Store Selection */}
+                  <TouchableOpacity 
+                    className="pl-2 justify-center items-center"
+                    onPress={() => changeSelectedStore()}
+                  >
+                    <Image
+                      source={storeImages[selectedStore]?.src || null}
+                      fadeDuration={0}
+                      alt="store"
+                      style={{
+                        width: storeImages[selectedStore]?.width,
+                        height: storeImages[selectedStore]?.height,
+                      }}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {/* MAP OF INGREDIENTS */}
-              <View className="px-3">
-                {filteredIngredients.length > 0 
-                ?
-                <FlatList
-                  className="flex w-full h-[300px] border-4 border-zinc300 bg-zinc300"
-                  data={filteredIngredients}
-                  keyExtractor={(_, index) => index.toString()}
-                  renderItem={({ item: ingredient, index }) => (
-                    <View className={`flex flex-row w-full justify-between mb-1 ${(index % 2 === 0) ? "bg-theme300 border-b-zinc600" : "bg-theme400 border-b-zinc700"}`}>
+              {(selectedIngredient === null) ? (
+                <View className="px-3">
+                  {filteredIngredients.filter(ingredient => ingredient.ingredientData[selectedStore].brand !== "").length > 0 
+                  ?
+                  <FlatList
+                    className="flex w-full h-[300px] border-4 border-zinc300 bg-zinc300"
+                    data={filteredIngredients.filter(ingredient => ingredient.ingredientData[selectedStore].brand !== "")}
+                    keyExtractor={(_, index) => index.toString()}
+                    renderItem={({ item: ingredient, index }) => (
+                      <View className={`flex flex-row w-full justify-between mb-1 ${(index % 2 === 0) ? "bg-theme300 border-b-zinc600" : "bg-theme400 border-b-zinc700"}`}>
+                        {/* use buttons */}
+                        <TouchableOpacity onPress={() => setSelectedIngredient(ingredient)}>
+                          <View className="absolute bottom-[-1px] left-[-2px] flex h-[10px] w-[10px] justify-center items-center">
+                            <Icon
+                              name="caret-up"
+                              color={colors.zinc600}
+                            />
+                          </View>
+                          <View className="absolute bottom-[1px] left-[-4px] flex h-[10px] w-[10px] justify-center items-center">
+                            <Icon
+                              name="caret-forward"
+                              color={colors.zinc600}
+                            />
+                          </View>
+                        </TouchableOpacity>
 
-                      {/* ingredient name */}
-                      <View className="flex-1 flex-wrap justify-center items-center py-1 px-2">
-                        <Text className="text-[12px] text-black font-medium">
-                          {ingredient?.ingredientName}
-                        </Text>
+                        {/* ingredient name */}
+                        <View className="flex-1 flex-wrap justify-center items-center py-1 px-2">
+                          <Text className="text-[12px] text-black font-medium">
+                            {ingredient?.ingredientName}
+                          </Text>
+                        </View>
+                        
+                        {/* servings */}
+                        <View className={`justify-center items-end flex py-1 px-2 ${(index % 2 === 0) ? "bg-zinc350 border-b-zinc600" : "bg-zinc400 border-b-zinc700"}`}>
+                          <Text className="text-[10px] text-right text-black font-medium">
+                            {`${ingredient?.ingredientData[selectedStore].servingSize} ${ingredient?.ingredientData[selectedStore].unit}`}
+                          </Text>
+                          <Text className="text-[10px] text-right text-black font-medium">
+                            {(ingredient?.ingredientData[selectedStore].calServing !== "") && `${ingredient?.ingredientData[selectedStore].calServing} cal`}
+                          </Text>
+                        </View>
                       </View>
-                      
-                      {/* servings */}
-                      <View className={`justify-center items-end flex py-1 px-2 ${(index % 2 === 0) ? "bg-zinc350 border-b-zinc600" : "bg-zinc400 border-b-zinc700"}`}>
-                        <Text className="text-[10px] text-right text-black font-medium">
-                          {`${ingredient?.ingredientData[selectedStore].servingSize} ${ingredient?.ingredientData[selectedStore].unit}`}
-                        </Text>
-                        <Text className="text-[10px] text-right text-black font-medium">
-                          {(ingredient?.ingredientData[selectedStore].calServing !== "") && `${ingredient?.ingredientData[selectedStore].calServing} cal`}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                />
-                :
-                // empty snack list after filtering
-                <View className="flex w-full justify-center items-center h-[300px] border-4 border-zinc300 bg-zinc350">
-                  <Text className="italic text-center text-theme900 font-semibold">
-                    no ingredients match the current filter
-                  </Text>
+                    )}
+                  />
+                  :
+                  // empty snack list after filtering
+                  <View className="flex w-full justify-center items-center h-[300px] border-4 border-zinc300 bg-zinc350">
+                    <Text className="italic text-center text-theme900 font-semibold">
+                      no ingredients match the current filter
+                    </Text>
+                  </View>
+                  }
                 </View>
-                }
-              </View>
+
+              // specific ingredient selected
+              ) : (
+                <View className="flex flex-row justify-center items-center ml-[-2px] w-full">
+                  <Icon
+                    name="caret-back"
+                    size={25}
+                    color={colors.zinc700}
+                    onPress={() => {
+                      setSelectedIngredient(null);
+                      setSelectedIngredientAmount("");
+                    }}
+                  />
+
+                  <View className="relative ml-[2px] w-5/6 flex flex-row bg-white border-2 border-zinc350">
+
+                    {/* Name */}
+                    <View className="w-2/5 justify-center items-center bg-theme200 py-3 px-2">
+                      <Text className="text-[12px] text-center pb-0.5 font-medium">
+                        {selectedIngredient?.ingredientName}
+                      </Text>
+                    </View>
+
+                    {/* Details */}
+                    <View className="flex flex-row w-3/5">
+                      <View className="flex flex-1 flex-col z-40 justify-center items-center space-y-1 py-2 px-2">
+
+                        {/* amount */}
+                        <View className="flex flex-row items-center space-x-2">
+                          {/* total */}
+                          <TextInput
+                            className="text-[12px] text-center text-zinc900"
+                            placeholder="_"
+                            placeholderTextColor={colors.zinc450}
+                            value={selectedIngredientAmount || ""}
+                            onChangeText={(value) => setSelectedIngredientAmount(validateFractionInput(value))}
+                          />
+                          {/* unit */}
+                          <Text className="text-[12px] text-center text-zinc900">
+                            {selectedIngredient?.ingredientData[selectedStore]?.unit}
+                          </Text>
+                        </View>
+
+                        {/* per serving */}
+                        <View className="flex flex-row space-x-2">
+                          {/* cal */}
+                          <View className="flex flex-row">
+                            <Text className="text-[11px] text-theme700 pl-1">
+                              {`${(isFinite(new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator) && isFinite(new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)) ?
+                                ((new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)
+                                / (new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator)
+                                * selectedIngredient?.ingredientData?.[selectedStore]?.calServing).toFixed(0)
+                                : "0"
+                              } cal`}
+                            </Text>
+                          </View>
+                          {/* price */}
+                          <View className="flex flex-row">
+                            <Text className="text-[11px] text-theme700">
+                              {`$${(isFinite(new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator) && isFinite(new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)) ?
+                                ((new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)
+                                / (new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator)
+                                * selectedIngredient?.ingredientData?.[selectedStore]?.priceServing).toFixed(2)
+                                : "0.00"
+                              }`}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* SUBMIT */}
+                      {(isFinite(new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator) && isFinite(new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)) && (
+                        <TouchableOpacity 
+                          className="w-[30px] bg-zinc200 justify-center items-center z-50"
+                          onPress={() => useIngredient()}
+                        >
+                          <Icon
+                            name="checkmark-done"
+                            color={colors.theme800}
+                            size={20}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              )}
             </View>
 
             : // option === "COPY"

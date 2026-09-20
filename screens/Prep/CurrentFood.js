@@ -1209,6 +1209,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                                         ) : (
                                           <Image
                                             source={storeImages[currStores[index]]?.src}
+                                            fadeDuration={0}
                                             alt="store"
                                             style={{
                                               width: storeImages[currStores[index]]?.width,
@@ -1265,12 +1266,27 @@ export default function CurrentFood ({ isSelectedTab }) {
       
                       {/* Archive Button */}
                       <View className={`flex justify-center items-center h-${ITEM_HEIGHT} w-[20px]`}>
-                        <Icon
-                          name={showArchive ? "lock-closed" : "lock-open"}
-                          color={colors.zinc700}
-                          size={16}
-                          onPress={() => changeArchive(index)}
-                        />
+                        {((prepsSnapshot?.docs ?? []).filter((doc) => {
+                            return Array.isArray(doc.data()?.variants) && (doc.data()?.variants).some((variant) => 
+                              Array.isArray(variant?.currentData) && variant.currentData.some((item) => {
+                                return Boolean(item?.ingredientId || item?.ingredientName) && (item?.ingredientId || item?.ingredientName) === (curr?.ingredientId || curr?.ingredientName);
+                              })
+                            );
+                          }).map((doc) => (typeof doc?.data === 'function' ? doc.data() : doc)).length === 0) 
+                        ? (
+                          <Icon
+                            name={showArchive ? "lock-closed" : "lock-open"}
+                            color={colors.zinc700}
+                            size={16}
+                            onPress={() => changeArchive(index)}
+                          />
+                        ) : (
+                          <Icon
+                            name={showArchive ? "lock-closed-outline" : "lock-open-outline"}
+                            color={colors.zinc450}
+                            size={16}
+                          />
+                        )}
                       </View>
                     </View>
                   : null }
@@ -1389,6 +1405,7 @@ export default function CurrentFood ({ isSelectedTab }) {
               : // when store is selected
               <Image
                 source={storeImages[selectedIngredientStore]?.src}
+                fadeDuration={0}
                 alt="store"
                 style={{
                   width: storeImages[selectedIngredientStore]?.width,

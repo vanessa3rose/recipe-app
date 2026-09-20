@@ -248,6 +248,7 @@ const StoreSwapModal = ({
                       >
                         <Image
                           source={storeImages[ingredient.store]?.src}
+                          fadeDuration={0}
                           alt="store"
                           style={{
                             width: storeImages[ingredient.store]?.width,

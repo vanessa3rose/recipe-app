@@ -405,6 +405,7 @@ const ModBrandModal = ({
                       <Image
                         key={idx}
                         source={storeImages[store]?.src}
+                        fadeDuration={0}
                         style={{
                           width: storeImages[store]?.width,
                           height: storeImages[store]?.height,
@@ -463,6 +464,7 @@ const ModBrandModal = ({
                               <Image
                                 key={idx}
                                 source={storeImages[store]?.src}
+                                fadeDuration={0}
                                 style={{
                                   width: storeImages[store]?.width,
                                   height: storeImages[store]?.height,
@@ -538,6 +540,7 @@ const ModBrandModal = ({
                 {/* Icon */}
                 <Image
                   source={storeImages[store]?.src}
+                  fadeDuration={0}
                   alt="store"
                   style={{
                     width: storeImages[store]?.width,

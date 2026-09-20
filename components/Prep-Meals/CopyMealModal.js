@@ -47,11 +47,11 @@ const CopyMealModal = ({
 
 
     // loops through all the plans
-    currSnapshot.map((plan) => {
+    currSnapshot?.map((plan) => {
       
 
       // LUNCH PREPS
-      if (plan.data.meals.lunch.prepData) {
+      if (plan?.data?.meals?.lunch?.prepData) {
         const lunchNameIndex = prepNames.indexOf(plan.data.meals.lunch.prepData.prepName);
 
         // completely new
@@ -73,7 +73,7 @@ const CopyMealModal = ({
       }
 
       // DINNER PREPS
-      if (plan.data.meals.dinner.prepData) {
+      if (plan?.data?.meals?.dinner?.prepData) {
         const dinnerNameIndex = prepNames.indexOf(plan.data.meals.dinner.prepData.prepName);
 
         // completely new

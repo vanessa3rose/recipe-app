@@ -73,7 +73,7 @@ export default function Details ({ isSelectedTab }) {
     const prep = await getDoc(doc(db, 'GLOBALS', 'prep'));
     const unfinished = prep.data().unfinished;
     setShowUnfinished(unfinished);
-    const completed = prep.data().preps.map(p => p.completed).reduce((acc, obj) => ({ ...acc, ...obj }), {} );
+    const completed = (prep.data().preps.map(p => p.completed) ?? []).reduce((acc, obj) => ({ ...acc, ...obj }), {} );
     setPrepsCompleted(completed);
 
     
@@ -81,12 +81,13 @@ export default function Details ({ isSelectedTab }) {
     if (prepsArray) {
       let flattenedPreps = [];
       prepsArray.forEach(prep => {
-        prep.variants.map((variant, idx) => {
+        const variants = prep?.variants ?? [];
+        variants.forEach((variant, idx) => {
           flattenedPreps.push({
             id: prep.id,
             prepName: prep.prepName,
             variantData: variant,
-            variantIndex: prep.variants.length === 1 ? -1 : idx,
+            variantIndex: variants.length === 1 ? -1 : idx,
             dates: [],
             remaining: 0,
             available: 0,
@@ -102,7 +103,7 @@ export default function Details ({ isSelectedTab }) {
       // loops over the meal prep variants
       flattenedPreps.forEach((prep) => {
         let dates = [];
-        let remaining = prep.variantData.prepMult || 0;
+        let remaining = prep.variantData?.prepMult || 0;
 
         // loops over the filtered plans
         filteredPlans.forEach((plan) => {
@@ -124,7 +125,7 @@ export default function Details ({ isSelectedTab }) {
         
         prep.dates = dates;
         prep.remaining = remaining;
-        prep.available = prep.variantData.prepMult || 0;
+        prep.available = prep.variantData?.prepMult || 0;
       })
 
       setPrepData(flattenedPreps);
@@ -276,9 +277,9 @@ export default function Details ({ isSelectedTab }) {
             </Text>
             {/* calculates the total number of recipes */}
             <Text className="text-white text-[12px] text-center italic">
-              {prepData.filter(prep => showUnfinished ? true : prepsCompleted[prep.variantData.variantId]).map(prep => prep.remaining).flat().reduce((sum, num) => (num > 0 ? sum + num : sum), 0)}
+              {(prepData.filter(prep => showUnfinished ? true : prepsCompleted[prep.variantData.variantId])?.map(prep => prep.remaining)?.flat() ?? []).reduce((sum, num) => (num > 0 ? sum + num : sum), 0)}
               {" / "}
-              {prepData.filter(prep => showUnfinished ? true : prepsCompleted[prep.variantData.variantId]).map(prep => prep.available).flat().reduce((sum, num) => (num > 0 ? sum + num : sum), 0)}
+              {(prepData.filter(prep => showUnfinished ? true : prepsCompleted[prep.variantData.variantId])?.map(prep => prep.available)?.flat() ?? []).reduce((sum, num) => (num > 0 ? sum + num : sum), 0)}
               {" left"}
             </Text>
           </View>

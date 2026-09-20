@@ -180,11 +180,11 @@ const ModIngredientModal = ({
     let uniqueList = [];
     
     // gets all of the current store's brands
-    brandLists[currStore].map(brand => {
+    brandLists[currStore].map(b => {
       uniqueList.push({
-        "value": brand.value, 
+        "value": b.value, 
         "bgColor": 'white', 
-        "textColor": 'black',
+        "textColor": Array.from(new Set(Object.values(brand).filter(Boolean))).includes(b.value) ? colors.mauve800 : 'black',
         "textStyle": "font-semibold",
       })
     })
@@ -192,15 +192,27 @@ const ModIngredientModal = ({
     // adds the unique values from the other stores
     storeKeys.map(store => {
       if (store !== currStore) {
-        brandLists[store].map(brand => {
-          if (!uniqueList.map(uniqueBrand => uniqueBrand.value).includes(brand.value)) {
+        brandLists[store].map(b => {
+          if (!uniqueList.map(uniqueBrand => uniqueBrand.value).includes(b.value)) {
             uniqueList.push({
-              "value": brand.value, 
+              "value": b.value, 
               "bgColor": colors.zinc100,
-              "textColor": colors.zinc500,
+              "textColor": Array.from(new Set(Object.values(brand).filter(Boolean))).includes(b.value) ? colors.mauve800 : colors.zinc500,
               "textStyle": "",
             })
           }
+        })
+      }
+    })
+
+    // adds the new values from the stores
+    Array.from(new Set(Object.entries(brand).map(([s, b]) => s === currStore ? value : b).filter(Boolean))).map(b => {
+      if (!uniqueList.map(uniqueBrand => uniqueBrand.value).includes(b)) {
+        uniqueList.push({
+          "value": b, 
+          "bgColor": colors.zinc100,
+          "textColor": colors.mauve900,
+          "textStyle": "semibold",
         })
       }
     })
@@ -212,7 +224,7 @@ const ModIngredientModal = ({
     uniqueList = uniqueList
       .sort((a,b) => a.value.localeCompare(b.value))
       .filter((brand) => queryWords.every((value) => brand.value.toLowerCase().includes(value)));
-      
+
     // stores the values
     setFilteredBrandLists(prev => ({ ...prev, [currStore]: uniqueList }))
     setBrand(prev => ({ ...prev, [currStore]: value }));
@@ -714,7 +726,7 @@ const ModIngredientModal = ({
                           />
                         </View>
                       )}
-                    
+                      
                       {/* Brand Dropdown */}
                       {(brandDropdownOpen[store] && filteredBrandLists[store].length > 0) && (
                         <View className="flex w-full absolute top-[100%] border border-zinc400 bg-white z-50">

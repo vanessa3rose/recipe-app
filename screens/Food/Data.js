@@ -22,6 +22,7 @@ var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
 // modals
+import ViewDataModal from '../../components/Food-Data/ViewDataModal';
 import ModDetailsModal from '../../components/Food-Data/ModDetailsModal';
 import ModIngredientModal from '../../components/Food-Data/ModIngredientModal';
 import DeleteIngredientModal from '../../components/Food-Data/DeleteIngredientModal';
@@ -605,6 +606,15 @@ export default function Data ({ isSelectedTab }) {
   };
 
 
+  ///////////////////////////////// VIEWING AN INGREDIENT /////////////////////////////////
+
+  const [visibleIngredient, setVisibleIngredient] = useState(null);
+
+  const closeIngredientInfo = () => {
+    setVisibleIngredient(null);
+  }
+
+
   ///////////////////////////////// TYPES SEARCH /////////////////////////////////
 
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
@@ -1108,8 +1118,9 @@ export default function Data ({ isSelectedTab }) {
                   {/* Fixed First Column */}
                   <View className="w-[125px]">
                     {filteredData?.map((ingredient, index) => (
-                      <View 
+                      <TouchableOpacity 
                         key={index} 
+                        onPress={() => setVisibleIngredient(ingredient)}
                         className={`border-b-0.5 border-b-theme600 border-r-2 h-[${ITEM_HEIGHT}px] ${currIngredientName === ingredient.ingredientName ? "border-r-zinc500" : "border-r-theme600"} ${index % 2 !== 0 ? (currIngredientName === ingredient.ingredientName ? 'bg-zinc450' : 'bg-theme400') : (currIngredientName === ingredient.ingredientName ? 'bg-zinc350' : 'bg-theme300')} w-[125px] flex justify-center items-center`}
                       >
                         {/* name */}
@@ -1119,9 +1130,19 @@ export default function Data ({ isSelectedTab }) {
                         >
                           {ingredient.ingredientName}
                         </Text>
-                      </View>
+                      </TouchableOpacity>
                     ))}
                   </View>
+
+                  {/* Ingredient Info Modal */}
+                  {(visibleIngredient !== null) && (
+                    <ViewDataModal
+                      visibleIngredient={visibleIngredient}
+                      setVisibleIngredient={setVisibleIngredient}
+                      recipeSnapshot={recipeSnapshot}
+                      spotlightSnapshot={spotlightSnapshot}
+                    />
+                  )}
 
                   {/* Scrollable Columns */}
                   <ScrollView
@@ -1209,10 +1230,20 @@ export default function Data ({ isSelectedTab }) {
                   </View>
 
                   {/* Page Selection */}
-                  <View className="flex flex-row space-x-1">
+                  <View className="flex flex-row justify-center items-center space-x-1">
                     {/* Page Back */}
                     {(Number(dataPage) > 1 && Number(dataPage) <= (Math.ceil(dataLength / NUM_PER_PAGE))) && (
-                      <View className="flex h-full justify-center">
+                      <View className="flex flex-row h-full justify-center">
+                        <Icon
+                          name="caret-back"
+                          size={16}
+                          color={colors.zinc200}
+                          onPress={ !isNaN(Number(dataPage)) ? () => 
+                            filterIngredientData(ingredientsSnapshot, "", recipeIds, spotlightIds,
+                              1 // dataPage
+                            ) : undefined
+                          }
+                        />
                         <Icon
                           name="chevron-back"
                           size={16}
@@ -1229,7 +1260,7 @@ export default function Data ({ isSelectedTab }) {
                     {/* Page Number */}
                     <View className="flex flex-row justify-center items-center h-full">
                       <TextInput
-                        className="text-center text-[13px] italic font-medium text-zinc200"
+                        className={`text-center text-[13px] italic font-medium text-zinc200 ${dataPage > 9 ? "min-w-[20px]" : dataPage > 99 && "min-w-[30px]"}`}
                         placeholderTextColor={colors.zinc400}
                         value={dataPage}
                         onChangeText={(value) => 
@@ -1255,7 +1286,7 @@ export default function Data ({ isSelectedTab }) {
                     
                     {/* Page Forward */}
                     {(dataPage < Math.ceil(dataLength / NUM_PER_PAGE) && Math.ceil(dataLength / NUM_PER_PAGE) !== 0) && (
-                      <View className="flex h-full justify-center mr-[-4px]">
+                      <View className="flex flex-row h-full justify-center mr-[-4px]">
                         <Icon
                           name="chevron-forward"
                           size={16}
@@ -1264,6 +1295,16 @@ export default function Data ({ isSelectedTab }) {
                             filterIngredientData(ingredientsSnapshot, "", recipeIds, spotlightIds,
                               (Number(dataPage) + 1).toString() // dataPage
                             )
+                          }
+                        />
+                        <Icon
+                          name="caret-forward"
+                          size={16}
+                          color={colors.zinc200}
+                          onPress={ !isNaN(Number(dataPage)) ? () => 
+                            filterIngredientData(ingredientsSnapshot, "", recipeIds, spotlightIds,
+                              Math.ceil(dataLength / NUM_PER_PAGE) // dataPage
+                            ) : undefined
                           }
                         />
                       </View>

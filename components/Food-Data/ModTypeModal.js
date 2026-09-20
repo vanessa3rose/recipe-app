@@ -84,7 +84,7 @@ const ModTypeModal = ({
     if (filterChanged) {
     
       // filters by changed
-      dataToUse = dataToUse.filter((oldIngredient) => {
+      dataToUse = (dataToUse ?? []).filter((oldIngredient) => {
         return oldIngredients.some((newIngredient) => 
           newIngredient.id === oldIngredient.id &&
           oldIngredient.ingredientTypes.sort().join(",") !== newIngredient.ingredientTypes.sort().join(",")
@@ -98,7 +98,7 @@ const ModTypeModal = ({
       .split(" ")
       .filter((word) => word.trim() !== "");
   
-    dataToUse = dataToUse.filter((ingredient) =>
+    dataToUse = (dataToUse ?? []).filter((ingredient) =>
       queryWords.every((word) =>
         ingredient.ingredientName.toLowerCase().includes(word)
       )
@@ -106,13 +106,13 @@ const ModTypeModal = ({
 
 
     // alphabetizes by ingredient name
-    dataToUse.sort((a, b) => 
+    (dataToUse ?? []).sort((a, b) => 
       a.ingredientName.localeCompare(b.ingredientName)
     );
 
     // if type filtering
     if (filterOn) {
-      dataToUse = dataToUse.filter((ingredient) =>
+      dataToUse = (dataToUse ?? []).filter((ingredient) =>
         ingredient.ingredientTypes.includes(typeToUse)
       )
     }

@@ -184,6 +184,8 @@ export default function Recipes ({ isSelectedTab }) {
 
   // for filtering
   const [filteredIngredientData, setFilteredIngredientData] = useState([]);
+  const [sortType, setSortType] = useState("alpha");
+  const [sortAsc, setSortAsc] = useState(true);
 
   // for ingredient dropdown
   const [ingredientDropdownOpen, setIngredientDropdownOpen] = useState(false);
@@ -200,7 +202,7 @@ export default function Recipes ({ isSelectedTab }) {
   
 
   // filters the ingredients based on the "search for ingredient" text input
-  const filterIngredientData = (ingredientQuery) => {
+  const filterIngredientData = (ingredientQuery, type, asc) => {
     
     let filtered = [];
     
@@ -215,7 +217,7 @@ export default function Recipes ({ isSelectedTab }) {
             .filter(word => word.trim() !== ''); // splits into words and remove empty strings
       
         return queryWords.every(word => ingredient.ingredientName.toLowerCase().includes(word));
-      }).sort((a, b) => a.ingredientName.localeCompare(b.ingredientName));
+      })
     }
 
     // filters for type
@@ -232,6 +234,31 @@ export default function Recipes ({ isSelectedTab }) {
       );
     }
 
+    // sorts data by price / cal
+    if (type === "cost") {
+      filtered.sort((a,b) => {
+        // min price
+        const minA = 
+          (Math.min(...storeKeys
+            .map(store => a?.ingredientData[store]?.priceContainer / (a?.ingredientData[store]?.calContainer === "0" ? a?.ingredientData[store]?.totalYield : a?.ingredientData[store]?.calContainer))
+            .filter(calc => !isNaN(calc))
+          ) * 100).toFixed(4);
+        const minB = 
+          (Math.min(...storeKeys
+            .map(store => b?.ingredientData[store]?.priceContainer / (b?.ingredientData[store]?.calContainer === "0" ? b?.ingredientData[store]?.totalYield : b?.ingredientData[store]?.calContainer))
+            .filter(calc => !isNaN(calc))
+          ) * 100).toFixed(4)
+        // current store price
+        const storeA = ((a?.ingredientData[selectedIngredientStore]?.priceContainer / a?.ingredientData[selectedIngredientStore]?.calContainer) * 100).toFixed(4);
+        const storeB = ((b?.ingredientData[selectedIngredientStore]?.priceContainer / b?.ingredientData[selectedIngredientStore]?.calContainer) * 100).toFixed(4);
+        // factors in order
+        return selectedIngredientStore === "-" ? asc ? minA - minB : minB - minA : asc ? storeA - storeB : storeB - storeA
+      })
+    // sorts data alphabetically
+    } else {
+      filtered.sort((a, b) => asc ? a.ingredientName.localeCompare(b.ingredientName) : b.ingredientName.localeCompare(a.ingredientName));
+    }
+
     // sets the data and shows the dropdown list of ingredients if there are ingredients to show
     if (filtered.length !== 0) {
       setSearchIngredientQuery(ingredientQuery);
@@ -240,6 +267,10 @@ export default function Recipes ({ isSelectedTab }) {
     } else {
       setFilteredIngredientData(filteredIngredientData);
     }
+
+    // sets the sort
+    setSortType(type);
+    setSortAsc(asc);
   
     // clears selected ingredient if it doesn't match filtering
     if (filtered.filter((ingredient) => ingredient.ingredientName.toLowerCase() === ingredientQuery.toLowerCase()).length === 0) {
@@ -252,7 +283,7 @@ export default function Recipes ({ isSelectedTab }) {
   useEffect(() => {
     setSearchIngredientQuery("");
     setIngredientDropdownOpen(false);
-    filterIngredientData(searchIngredientQuery);
+    filterIngredientData(searchIngredientQuery, sortType, sortAsc);
   }, [selectedIngredientType, selectedIngredientStore]);
 
   // decides the next store
@@ -1621,6 +1652,7 @@ export default function Recipes ({ isSelectedTab }) {
                     ) : (
                       <Image
                         source={storeImages[selectedRecipeData.ingredientStores[index]]?.src}
+                        fadeDuration={0}
                         alt="store"
                         style={{
                           width: storeImages[selectedRecipeData.ingredientStores[index]]?.width,
@@ -1835,6 +1867,7 @@ export default function Recipes ({ isSelectedTab }) {
                 : // when store is selected
                 <Image
                   source={storeImages[selectedIngredientStore]?.src || null}
+                  fadeDuration={0}
                   alt="store"
                   style={{
                     width: storeImages[selectedIngredientStore]?.width,
@@ -1902,7 +1935,7 @@ export default function Recipes ({ isSelectedTab }) {
               className="flex w-full h-full"
               onPress={() => { 
                 if (selectedRecipeId !== null) {
-                  filterIngredientData(searchIngredientQuery);
+                  filterIngredientData(searchIngredientQuery, sortType, sortAsc);
                   setIngredientDropdownOpen(false);
                   setKeyboardType("ingredient search");
                   setIsKeyboardOpen(true);
@@ -1990,7 +2023,7 @@ export default function Recipes ({ isSelectedTab }) {
 
             {/* INDICATOR */}
             {(selectedIngredientName !== null && selectedIngredientName !== "") && (
-              <View className="absolute left-1 bottom-0">
+              <View className={`absolute bottom-0 ${(ingredientDropdownOpen && selectedRecipeId && !isKeyboardOpen) ? "flex w-full justify-center items-center" : "left-1"}`}>
                 <Icon
                   name="link"
                   size={20}
@@ -2008,8 +2041,28 @@ export default function Recipes ({ isSelectedTab }) {
                 ingredientStore={null}
               />
             )}
+            
+            {/* LEFT BUTTONS */}
+            {(ingredientDropdownOpen && selectedRecipeId && !isKeyboardOpen) && (
+              <View className={`flex flex-row items-center justify-center absolute left-0.5 bottom-0.5 ${(sortType === "alpha") ? "space-x-[0px]" : "space-x-[2px]"}`}>
+                {/* type */}
+                <Icon
+                  name={sortType === "alpha" ? "language" : "card"}
+                  size={16}
+                  color="black"
+                  onPress={() => filterIngredientData(searchIngredientQuery, sortType === "alpha" ? "cost" : "alpha", sortAsc)}
+                />
+                {/* order */}
+                <Icon
+                  name={sortAsc ? "caret-down" : "caret-up"}
+                  size={14}
+                  color="black"
+                  onPress={() => filterIngredientData(searchIngredientQuery, sortType, !sortAsc)}
+                />
+              </View>
+            )}
 
-            {/* BUTTONS */}
+            {/* RIGHT BUTTONS */}
             <View className="flex flex-row space-x-[-2px] absolute right-0 bottom-0">
 
               {/* Drop Up */}
@@ -2018,7 +2071,7 @@ export default function Recipes ({ isSelectedTab }) {
                 size={20}
                 color="black"              
                 onPress={() => {
-                  filterIngredientData(searchIngredientQuery);
+                  filterIngredientData(searchIngredientQuery, sortType, sortAsc);
                   setIngredientDropdownOpen(true);
                 }}
               />
@@ -2095,14 +2148,14 @@ export default function Recipes ({ isSelectedTab }) {
               {/* Filter TextInput */}
               <TextInput
                 value={searchIngredientQuery}
-                onChangeText={filterIngredientData}
+                onChangeText={(value) => filterIngredientData(value, sortType, sortAsc)}
                 placeholder="search for ingredient"
                 placeholderTextColor={colors.zinc400}
                 className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[17px] z-10`}
                 multiline={true}
                 blurOnSubmit={true}
                 onFocus={() => {
-                  filterIngredientData(searchIngredientQuery);
+                  filterIngredientData(searchIngredientQuery, sortType, sortAsc);
                   setIngredientDropdownOpen(true);
                   setRecipeDropdownOpen(false);
                 }}
@@ -2177,8 +2230,28 @@ export default function Recipes ({ isSelectedTab }) {
                   />
                 </View>
               )}
+            
+              {/* LEFT BUTTONS */}
+              {ingredientDropdownOpen && (
+                <View className={`z-50 flex flex-row items-center justify-center absolute left-0.5 bottom-0.5 ${(sortType === "alpha") ? "space-x-[0px]" : "space-x-[2px]"}`}>
+                  {/* type */}
+                  <Icon
+                    name={sortType === "alpha" ? "language" : "card"}
+                    size={16}
+                    color="black"
+                    onPress={() => filterIngredientData(searchIngredientQuery, sortType === "alpha" ? "cost" : "alpha", sortAsc)}
+                  />
+                  {/* order */}
+                  <Icon
+                    name={sortAsc ? "caret-down" : "caret-up"}
+                    size={14}
+                    color="black"
+                    onPress={() => filterIngredientData(searchIngredientQuery, sortType, !sortAsc)}
+                  />
+                </View>
+              )}
               
-              {/* BUTTONS */}
+              {/* RIGHT BUTTONS */}
               <View className="flex flex-row space-x-[-2px] absolute right-0 bottom-0 z-20">
 
                 {/* Drop Up */}
@@ -2188,7 +2261,7 @@ export default function Recipes ({ isSelectedTab }) {
                   color="black"
                   onPress={() =>  {
                     setIngredientDropdownOpen(true);
-                    filterIngredientData(searchIngredientQuery);
+                    filterIngredientData(searchIngredientQuery, sortType, sortAsc);
                   }}
                 />
 
