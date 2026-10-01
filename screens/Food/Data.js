@@ -18,8 +18,10 @@ import storeKeys from '../../assets/storeKeys';
 import storeLabels from '../../assets/storeLabels';
 
 // fractions
-var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
+
+// validation
+import isFraction from '../../components/Validation/isFraction';
 
 // modals
 import ViewDataModal from '../../components/Food-Data/ViewDataModal';
@@ -216,8 +218,8 @@ export default function Data ({ isSelectedTab }) {
 
   // getting a specific store's ingredients
   const storeIngredientFetch = async (storeKey, ingredientsSnapshot) => {
-    
     try {
+
       // loops over snapshot and compiles data
       const ingredientsArray = ingredientsSnapshot?.docs.map((doc) => {
         const ingredient = doc.data();
@@ -227,7 +229,7 @@ export default function Data ({ isSelectedTab }) {
         let container = ingredient.ingredientData[storeKey]?.servingContainer || '';
         let cal = ingredient.ingredientData[storeKey]?.calServing || '';
         let price = ingredient.ingredientData[storeKey]?.priceContainer || '';
-        const validLink = ingredient.ingredientData[storeKey].link && ingredient.ingredientData[storeKey].link !== '#' ? ingredient.ingredientData[storeKey].link : null;
+        const validLink = ingredient.ingredientData[storeKey]?.link && ingredient.ingredientData[storeKey].link !== '#' ? ingredient.ingredientData[storeKey].link : null;
         
         // final data
         const formattedIngredient = {
@@ -235,15 +237,15 @@ export default function Data ({ isSelectedTab }) {
           ingredientName: ingredient.ingredientName || "",
           ingredientTypes: ingredient.ingredientTypes || [],
           link: validLink,
-          brand: ingredient.ingredientData[storeKey].brand || '',
+          brand: ingredient.ingredientData[storeKey]?.brand || '',
           unit: ingredient.ingredientData[storeKey]?.unit || '',
           servingSize: size,
           servingContainer: container,
-          totalYield: (size === "" || container === "") ? "" : (new Fractional(size)).multiply(new Fractional(container)).toString(), 
+          totalYield: (isFraction(size) && isFraction(container)) ? new Fraction(size).mul(new Fraction(container)).simplify(0.001).toFraction(true) : "",
           calServing: cal,
-          calContainer: (cal === "" || container === "") ? "" : ((new Fraction((new Fractional(cal)).multiply(new Fractional(container)).toString())) * 1).toFixed(0),
-          priceServing: (price === "" || container === "") ? "" : ((new Fraction((new Fractional(price)).divide(new Fractional(container)).toString())) * 1).toFixed(2),
-          priceContainer: price === "" ? "" : parseFloat(price).toFixed(2)
+          calContainer: (isFraction(cal) && isFraction(container)) ? new Fraction(cal).mul(new Fraction(container)).valueOf().toFixed(0) : "",
+          priceServing: (isFraction(price) && (isFraction(container) && new Fraction(container).valueOf() !== 0)) ? new Fraction(price).div(new Fraction(container)).valueOf().toFixed(2) : "",
+          priceContainer: (isFraction(price)) ? new Fraction(price).valueOf().toFixed(2) : ""
         };
   
         return formattedIngredient;
@@ -383,9 +385,9 @@ export default function Data ({ isSelectedTab }) {
       // for number sorting
       } else if (numSorts.includes(currKey)) {
         dataToUse = [...dataToUse].sort((a, b) => {
-          const numA = new Fractional(getValue(a, currKey)).numerator / new Fractional(getValue(a, currKey)).denominator;
-          const numB = new Fractional(getValue(b, currKey)).numerator / new Fractional(getValue(b, currKey)).denominator;
-
+          const numA = isFraction(getValue(a, currKey)) ? new Fraction(getValue(a, currKey)).valueOf() : 0;
+          const numB = isFraction(getValue(b, currKey)) ? new Fraction(getValue(b, currKey)).valueOf() : 0;
+          
           // 0-> or ->0
           if (currOrder === 'caret-down-outline') {
             return numA > numB ? 1 : numA < numB ? -1 : 0;
@@ -402,9 +404,9 @@ export default function Data ({ isSelectedTab }) {
           const strA = (getValue(a, 'unit') || '').toString().toLowerCase();
           const strB = (getValue(b, 'unit') || '').toString().toLowerCase();
           // number
-          const numA = new Fractional(getValue(a, currKey)).numerator / new Fractional(getValue(a, currKey)).denominator;
-          const numB = new Fractional(getValue(b, currKey)).numerator / new Fractional(getValue(b, currKey)).denominator;
-
+          const numA = isFraction(getValue(a, currKey)) ? new Fraction(getValue(a, currKey)).valueOf() : 0;
+          const numB = isFraction(getValue(b, currKey)) ? new Fraction(getValue(b, currKey)).valueOf() : 0;
+          
           // A->Z then 0-> or Z->A then ->0
           if (currOrder === 'caret-down-outline') {
             return strA > strB ? 1 : strA < strB ? -1 : (numA > numB ? 1 : numA < numB ? -1 : 0);
@@ -713,7 +715,7 @@ export default function Data ({ isSelectedTab }) {
               {/* input */}
               <TextInput
                 value={searchQuery}
-                onChangeText={setSearchQuery}
+                onChangeText={(value) => setSearchQuery(value.replaceAll('\'', '’'))}
                 placeholder={`search for ${filterType}`}
                 placeholderTextColor={colors.zinc400}
                 className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc350 pl-8 pr-[60px] text-[16px] leading-[18px] ml-2.5"
@@ -774,7 +776,7 @@ export default function Data ({ isSelectedTab }) {
                 {/* input */}
                 <TextInput
                   value={excludeQuery}
-                  onChangeText={setExcludeQuery}
+                  onChangeText={(value) => setExcludeQuery(value.replaceAll('\'', '’'))}
                   placeholder={`exclude from search`}
                   placeholderTextColor={colors.zinc400}
                   className={`flex-1 text-zinc800 bg-zinc100 rounded-[5px] border-[1px] italic border-zinc350 pl-8 pr-[60px] text-[14px] leading-[16px] ml-2.5 z-10 ${(excludeQuery !== "") && "line-through decoration-mauve500"}`}

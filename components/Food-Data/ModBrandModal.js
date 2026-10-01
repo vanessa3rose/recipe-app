@@ -332,6 +332,12 @@ const ModBrandModal = ({
   }
 
   
+  ///////////////////////////////// DYNAMIC HEIGHTS /////////////////////////////////
+
+  const [allInputHeight, setAllInputHeight] = useState(32);
+  const [storeInputHeight, setStoreInputHeight] = useState(Object.fromEntries([32, ...storeKeys].map(storeKey => [storeKey, 32])));
+
+  
   ///////////////////////////////// HTML /////////////////////////////////
   
   return (
@@ -419,17 +425,22 @@ const ModBrandModal = ({
 
 
             {/* BRAND INPUT */}
-            <View className="flex flex-row">
+            <View className="flex flex-row py-1">
 
               {/* Old Input */}
               <View className={`flex justify-center items-center bg-zinc350 border-[1px] border-zinc400 ${brandDropdownOpen === "-" ? "rounded-t-lg" : "rounded-lg"} ${(brand["-"] !== "" && brandDropdownOpen !== "-") ? "w-2/5" : "w-5/6"}`}>
                 <TextInput
                   value={brand["-"]}
-                  onChangeText={(value) => filterBrandList("-", value)}
+                  onChangeText={(value) => filterBrandList("-", value.replaceAll('\'', '’'))}
                   placeholder="brand"
                   placeholderTextColor={colors.zinc500}
                   className="flex w-full p-2 pl-1 pr-6 text-[14px] text-center leading-[17px]"
                   onFocus={() => filterBrandList("-", brand["-"])}
+                  onContentSizeChange={(e) => {
+                    const { width, height } = e.nativeEvent.contentSize;
+                    setAllInputHeight(height);
+                  }}
+                  style={{ height: Math.max(32, allInputHeight) }}
                   multiline={true}
                   blurOnSubmit={true}
                 />
@@ -512,7 +523,7 @@ const ModBrandModal = ({
                   <View className={`flex flex-row w-1/3 h-full justify-center items-center bg-zinc350 border-[1px] border-zinc400 ${brandDropdownOpen === "-" ? "rounded-t-lg" : "rounded-lg"}`}>
                     <TextInput
                       value={newBrand["-"]}
-                      onChangeText={(value) => setNewBrand(prev => ({ ...prev, ["-"]: value }))}
+                      onChangeText={(value) => setNewBrand(prev => ({ ...prev, ["-"]: value.replaceAll('\'', '’') }))}
                       placeholder="brand"
                       placeholderTextColor={colors.zinc500}
                       className="flex w-full p-2 text-[14px] text-center leading-[17px]"
@@ -561,11 +572,16 @@ const ModBrandModal = ({
                 <View className={`flex justify-center items-center bg-theme200 border-[1px] border-zinc400 ${brandDropdownOpen === store ? "rounded-t-lg" : "rounded-lg"} ${(brand[store] !== "" && brandDropdownOpen !== store) ? "w-2/5" : "w-3/4"}`}>
                   <TextInput
                     value={brand[store]}
-                    onChangeText={(value) => filterBrandList(store, value)}
+                    onChangeText={(value) => filterBrandList(store, value.replaceAll('\'', '’'))}
                     placeholder="brand"
                     placeholderTextColor={colors.zinc500}
-                    className="flex w-full p-2 pl-1 pr-6 text-[14px] text-center leading-[17px]"
+                    className="flex w-full p-2 pl-1 pr-8 text-[14px] text-center leading-[17px]"
                     onFocus={() => filterBrandList(store, brand[store])}
+                    onContentSizeChange={(e) => {
+                      const { width, height } = e.nativeEvent.contentSize;
+                      setStoreInputHeight({...storeInputHeight, [store]: height });
+                    }}
+                    style={{ height: Math.max(32, storeInputHeight[store]) }}
                     multiline={true}
                     blurOnSubmit={true}
                   />
@@ -629,7 +645,7 @@ const ModBrandModal = ({
                     <View className={`flex flex-row w-1/3 h-full justify-center items-center bg-theme200 border-[1px] border-zinc400 ${brandDropdownOpen === store ? "rounded-t-lg" : "rounded-lg"}`}>
                       <TextInput
                         value={newBrand[store]}
-                        onChangeText={(value) => setNewBrand(prev => ({ ...prev, [store]: value }))}
+                        onChangeText={(value) => setNewBrand(prev => ({ ...prev, [store]: value.replaceAll('\'', '’') }))}
                         placeholder="brand"
                         placeholderTextColor={colors.zinc500}
                         className="flex w-full p-2 text-[14px] text-center leading-[17px]"

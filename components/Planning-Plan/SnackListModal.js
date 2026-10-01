@@ -12,9 +12,10 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
 // fractions
-var Fractional = require('fractional').Fraction;
+import Fraction from 'fraction.js';
 
 // validation
+import isFraction from '../Validation/isFraction';
 import extractUnit from '../Validation/extractUnit';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 import validateDecimalInput from '../../components/Validation/validateDecimalInput';
@@ -101,18 +102,14 @@ const SnackListModal = ({
   
       // sums together all of the calories
       setSnackCal(
-        (snackData.map(snack => new Fractional(snack.cal).numerator / new Fractional(snack.cal).denominator)
-                  .filter(cal => !isNaN(cal))
-                  .reduce((sum, cal) => sum + cal, 0))
-        .toFixed(0)
+        (snackData.filter(snack => isFraction(snack.cal)).map(snack => new Fraction(snack.cal).valueOf())
+        .reduce((sum, cal) => sum + cal, 0)).toFixed(0)
       );
   
       // sums together all of the prices
       setSnackPrice(
-        (snackData.map(snack => new Fractional(snack.price).numerator / new Fractional(snack.price).denominator)
-                  .filter(price => !isNaN(price))
-                  .reduce((sum, price) => sum + price, 0))
-        .toFixed(2)
+        (snackData.filter(snack => isFraction(snack.price)).map(snack => new Fraction(snack.price).valueOf())
+        .reduce((sum, price) => sum + price, 0)).toFixed(2)
       );
     }
   }, [snackData]);
@@ -201,18 +198,12 @@ const SnackListModal = ({
     // refactored snackData
     const newSnackData = snackData?.map((snack) => ({
       ...snack,
-      amount: snack.amount === ""
-        ? "1" : snack.amount,
-      cal: (isNaN(snack.cal) || snack.cal === "")
-        ? "0" : snack.cal,
-      price: (isNaN(snack.price) || snack.price === "")
-        ? "0.00"
-        : ((new Fractional(snack.price)).numerator / (new Fractional(snack.price)).denominator).toFixed(2),
-      unit: snack.unit === "" 
-        ? extractUnit("serving(s)", snack.amount === "" ? "1" : snack.amount)
-        : snack.unit
+      amount: snack.amount === "" ? "1" : snack.amount,
+      cal: !isFraction(snack.cal) ? "0" : snack.cal,
+      price: !isFraction(snack.price) ? "0.00" : new Fraction(snack.price).valueOf().toFixed(2),
+      unit: snack.unit === "" ? extractUnit("serving(s)", snack.amount === "" ? "1" : snack.amount) : snack.unit
     })).filter((snack => snack.name !== ""));
-    
+
     // compiled data
     const compiledData = {
       snackTitle: snackTitle === "" ? "SNACKS" : snackTitle,
@@ -546,13 +537,20 @@ const SnackListModal = ({
 
   // updates the current amount of a snack
   const updateCurrInventory = (idx, snack, amt) => {
-
-    // calculations
-    const servingSize = new Fraction(snack.servingSize).numerator / new Fraction(snack.servingSize).denominator;
-    const amount = new Fraction(amt).numerator / new Fraction(amt).denominator;
-    const cal = (Number(snack.calServing) / servingSize) * amount;
-    const price = (Number(snack.priceServing) / servingSize) * amount;
     
+    // validation
+    const isServingValid = isFraction(snack.servingSize) && new Fraction(snack.servingSize).valueOf() !== 0;
+    const isAmountValid = isFraction(amt);
+    const isCalValid = isFraction(snack.calServing);
+    const isPriceValid = isFraction(snack.priceServing);
+    
+    // calculations
+    const cal = !(isServingValid && isAmountValid && isCalValid) ? "0"
+      : new Fraction(snack.calServing).div(new Fraction(snack.servingSize)).mul(new Fraction(amt.trim())).valueOf().toFixed(0);
+
+    const price = !(isServingValid && isAmountValid && isPriceValid) ? "0.00"
+      : new Fraction(snack.priceServing).div(new Fraction(snack.servingSize)).mul(new Fraction(amt.trim())).valueOf().toFixed(2);
+
     // stores data in state
     setInventoryList(prevList =>
       prevList.map((item) =>
@@ -560,13 +558,13 @@ const SnackListModal = ({
           ? {...item, data: {
                 ...item.data,
                 collectionSnacks: 
-                  item.data.collectionSnacks.map((snack, j) => j === idx 
-                    ? { ...snack, 
+                  item.data.collectionSnacks.map((snackItem, j) => j === idx 
+                    ? { ...snackItem, 
                         currAmount: amt, 
-                        currCal: isNaN(cal) ? "0" : cal.toFixed(0), 
-                        currPrice: isNaN(price) ? "0.00" : price.toFixed(2) 
+                        currCal: cal, 
+                        currPrice: price,
                       } 
-                    : snack 
+                    : snackItem 
                   ),
               },
             }
@@ -577,11 +575,14 @@ const SnackListModal = ({
 
   // to store the snack from the inventory
   const useSnack = async (snack, idx) => {
-
+    
     // calculations
-    const startAmt = new Fraction(snack.totalAmount).numerator / new Fraction(snack.totalAmount).denominator;
-    const subAmt = new Fraction(snack.currAmount).numerator / new Fraction(snack.currAmount).denominator;
-    const remaining = snack.totalAmount === "" ? "" : new Fractional(startAmt - subAmt).toString();
+    let remaining = "";
+    if (isFraction(snack.totalAmount) && isFraction(snack.currAmount)) {
+      remaining = new Fraction(snack.totalAmount).sub(new Fraction(snack.currAmount)).toFraction(true);
+    } else if (isFraction(snack.totalAmount)) {
+      remaining = new Fraction(snack.totalAmount).toFraction(true);
+    }
     
     // stores data in state
     setUpdatedInventoryList(prevList =>
@@ -590,9 +591,9 @@ const SnackListModal = ({
           ? {...item, data: {
                 ...item.data,
                 collectionSnacks: 
-                  item.data.collectionSnacks.map((snack, j) => j === idx 
-                    ? { ...snack, totalAmount: remaining.toString() } 
-                    : snack 
+                  item.data.collectionSnacks.map((snackItem, j) => j === idx 
+                    ? { ...snackItem, totalAmount: remaining } 
+                    : snackItem 
                   ),
               },
             }
@@ -607,9 +608,9 @@ const SnackListModal = ({
           ? {...item, data: {
                 ...item.data,
                 collectionSnacks: 
-                  item.data.collectionSnacks.map((snack, j) => j === idx 
-                    ? { ...snack, used: true } 
-                    : snack 
+                  item.data.collectionSnacks.map((snackItem, j) => j === idx 
+                    ? { ...snackItem, used: true } 
+                    : snackItem
                   ),
               },
             }
@@ -695,7 +696,7 @@ const SnackListModal = ({
                     multiline={true}
                     blurOnSubmit={true}
                     value={snackTitle}
-                    onChangeText={setSnackTitle}
+                    onChangeText={(value) => setSnackTitle(value.replaceAll('\'', '’'))}
                     editable={isEditing}
                   />
                 </View>
@@ -755,7 +756,7 @@ const SnackListModal = ({
                                   const updated = [...prev];
                                   updated[index] = {
                                     ...updated[index],
-                                    name: value
+                                    name: value.replaceAll('\'', '’')
                                   };
                                   return updated;
                                 });
@@ -802,7 +803,7 @@ const SnackListModal = ({
                                 const updated = [...prev];
                                 updated[index] = {
                                   ...updated[index],
-                                  unit: value
+                                  unit: value.replaceAll('\'', '’')
                                 };
                                 return updated;
                               });
@@ -879,7 +880,9 @@ const SnackListModal = ({
                                   const updated = [...prev];
                                   updated[index] = {
                                     ...updated[index],
-                                    price: snackData[index].price === "" ? "" : (new Fractional(snackData[index].price) * 1).toFixed(2)
+                                    price: !isFraction(updated[index]?.price)
+                                      ? "0.00"
+                                      : new Fraction(updated[index]?.price).valueOf().toFixed(2)
                                   };
                                   return updated;
                                 });
@@ -964,7 +967,7 @@ const SnackListModal = ({
                   <TextInput
                     className="w-full text-left text-[14px]"
                     value={snackKeywordQuery}
-                    onChangeText={(value) => filterSnacks(value, keywordType)}
+                    onChangeText={(value) => filterSnacks(value.replaceAll('\'', '’'), keywordType)}
                     placeholder="search for snack"
                     placeholderTextColor={colors.zinc400}
                   />
@@ -1254,7 +1257,7 @@ const SnackListModal = ({
                   <View key={idx} className="relative w-full flex flex-row bg-white border-b border-b-zinc400">
 
                     {/* Name */}
-                    <View className={`w-[32.5%] justify-center items-center bg-theme200 py-3 px-2 ${(snack?.totalAmount === "" || new Fraction(snack?.totalAmount).numerator / new Fraction(snack?.totalAmount).denominator > 0) ? "bg-theme200" : "bg-mauve100"}`}>
+                    <View className={`w-[32.5%] justify-center items-center bg-theme200 py-3 px-2 ${(snack?.totalAmount === "" || (isFraction(snack?.totalAmount) && new Fraction(snack.totalAmount).valueOf() > 0)) ? "bg-theme200" : "bg-mauve100"}`}>
                       <Text className="text-[12px] text-center pb-0.5 font-medium">
                         {snack.name}
                       </Text>
@@ -1264,7 +1267,7 @@ const SnackListModal = ({
                     <View className="w-[50%] flex flex-row">
 
                       {/* SUBMIT */}
-                      {(!snack.used && snack.currAmount !== "" && !isNaN(new Fraction(snack.currAmount).numerator) && !isNaN(new Fraction(snack.currAmount).denominator)) && (
+                      {(!snack.used && snack.currAmount !== "" && isFraction(snack.currAmount)) && (
                         <TouchableOpacity 
                           className="w-[30px] bg-zinc200 justify-center items-center z-50"
                           onPress={() => useSnack(snack, idx)}

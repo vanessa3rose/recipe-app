@@ -4,8 +4,10 @@
 import storeKeys from '../../assets/storeKeys';
 
 // fractions
-var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
+
+// validation
+import isFraction from '../../components/Validation/isFraction';
 
 // initialize firebase app
 import { getFirestore, collection, updateDoc, doc, getDocs, writeBatch } from 'firebase/firestore';
@@ -29,21 +31,24 @@ const ingredientEdit = async ({
 
     // function to calculate totalYield, calContainer, and priceServing for each store
     const storeCalculations = (store) => {
+      const storeData = updatedIngredient?.ingredientData?.[store] || {};
       
       // values
-      const servingSize = updatedIngredient.ingredientData[store].servingSize; 
-      const servingContainer = updatedIngredient.ingredientData[store].servingContainer; 
-      const calServing = updatedIngredient.ingredientData[store].calServing; 
-      const priceContainer = updatedIngredient.ingredientData[store].priceContainer; 
+      const servingSize = storeData.servingSize; 
+      const servingContainer = storeData.servingContainer; 
+      const calServing = storeData.calServing; 
+      const priceContainer = storeData.priceContainer; 
+
+      const hasValidPrice = isFraction(priceContainer);
+      const hasValidContainer = isFraction(servingContainer) && new Fraction(servingContainer).valueOf() > 0;
 
       // calculations
-      const totalYield = (servingSize === "" || servingContainer === "") ? "" : `${(new Fractional(servingSize)).multiply(new Fractional(servingContainer)).toString()}`;
-      const calContainer = (calServing === "" || servingContainer === "") ? "" : `${((new Fraction((new Fractional(calServing)).multiply(new Fractional(servingContainer)).toString())) * 1).toFixed(0)}`;
-      const priceServing = (priceContainer === "" || servingContainer === "") ? "" : `${((new Fraction((new Fractional(priceContainer)).divide(new Fractional(servingContainer)).toString())) * 1).toFixed(2)}`;
+      const totalYield = (isFraction(servingSize) && isFraction(servingContainer)) ? new Fraction(servingSize).mul(new Fraction(servingContainer)).simplify(0.001).toFraction(true) : "";
+      const calContainer = (isFraction(calServing) && isFraction(servingContainer)) ? new Fraction(calServing).mul(new Fraction(servingContainer)).valueOf().toFixed(0) : "";
+      const priceServing = (hasValidPrice && hasValidContainer) ? new Fraction(priceContainer).div(new Fraction(servingContainer)).valueOf().toFixed(2) : "";
     
       return { totalYield, calContainer, priceServing };
     };
-
 
     ///////////////////////////////// DATA /////////////////////////////////
 
@@ -82,46 +87,52 @@ const ingredientEdit = async ({
     recipesSnapshot.docs.forEach((recipeDoc) => {
       const recipeData = recipeDoc.data();
 
-      if (recipeData.ingredientIds !== null && Array.isArray(recipeData.ingredientIds)) {
-        let recipeModified = false; // tracks if changes were made
+      if (Array.isArray(recipeData?.ingredientIds)) {
+        let recipeModified = false;
 
         // only updates recipe ingredients if they match the edited one's id
         recipeData.ingredientIds.forEach((id, index) => {
           if (id !== null && id === editingId) {
-
+            
             // stores that the recipe was modified
             recipeModified = true;
 
             // stores the given ingredient's data
-            recipeData.ingredientData[index] = ingredient.ingredientData;
-            recipeData.ingredientNames[index] = ingredient.ingredientName;
-            recipeData.ingredientTypes[index] = ingredient.ingredientTypes;
+            recipeData.ingredientData[index] = ingredient?.ingredientData;
+            recipeData.ingredientNames[index] = ingredient?.ingredientName;
+            recipeData.ingredientTypes[index] = ingredient?.ingredientTypes;
 
 
             // if the current ingredient data is valid
             if (ingredient !== null) {
+              const storeObj = ingredient.ingredientData?.[recipeData.ingredientStores?.[index]] || {};
 
               // simple calculations
-              const amount = new Fractional(recipeData.ingredientAmounts[index]);
-              const totalYield = new Fractional(ingredient.ingredientData[recipeData.ingredientStores[index]].totalYield);
-              const calContainer = new Fractional(ingredient.ingredientData[recipeData.ingredientStores[index]].calContainer);
-              const priceContainer = new Fractional(ingredient.ingredientData[recipeData.ingredientStores[index]].priceContainer);
-
+              const rawAmount = recipeData.ingredientAmounts?.[index];
+              const rawYield = storeObj.totalYield;
+              const rawCal = storeObj.calContainer;
+              const rawPrice = storeObj.priceContainer;
+              
+              // validation
+              const hasValidInputs = isFraction(rawAmount) && isFraction(rawYield) && isFraction(rawCal) && isFraction(rawPrice);
+              const amountFrac = hasValidInputs ? new Fraction(rawAmount) : null;
+              const yieldFrac = hasValidInputs ? new Fraction(rawYield) : null;
+              
               // calculations for the recipeData based on the amount of the current recipe
-              if (isNaN(new Fraction(amount.toString()).valueOf()) || isNaN(new Fraction(totalYield.toString()).valueOf()) || isNaN(new Fraction(calContainer.toString()).valueOf()) || isNaN(new Fraction(priceContainer.toString()).valueOf())) {
+              if (!hasValidInputs || yieldFrac.valueOf() === 0) {
                 recipeData.ingredientCals[index] = "";
                 recipeData.ingredientPrices[index] = "";
                 recipeData.ingredientServings[index] = "";
-              } else if (amount.toString() === 0) {
+              } else if (amountFrac.valueOf() === 0) {
                 recipeData.ingredientCals[index] = 0;
                 recipeData.ingredientPrices[index] = 0;
                 recipeData.ingredientServings[index] = 0;
               } else {
-                recipeData.ingredientCals[index] = (new Fraction((amount.divide(totalYield)).multiply(calContainer).toString()) * 1);
-                recipeData.ingredientPrices[index] = (new Fraction((amount.divide(totalYield)).multiply(priceContainer).toString()) * 1);
-                recipeData.ingredientServings[index] = (new Fraction((totalYield.divide(amount)).toString()) * 1);
+                recipeData.ingredientCals[index] = amountFrac.div(yieldFrac).mul(new Fraction(rawCal)).valueOf();
+                recipeData.ingredientPrices[index] = amountFrac.div(yieldFrac).mul(new Fraction(rawPrice)).valueOf();
+                recipeData.ingredientServings[index] = yieldFrac.div(new Fraction(rawAmount)).valueOf();
               }
-          
+
               // calculates the next store based on the brands that are and are not empty
               const currStore = recipeData.ingredientStores[index];
               
@@ -156,11 +167,11 @@ const ingredientEdit = async ({
 
         // only updates if the recipe has been modified
         if (recipeModified) {
-
+          
           // running totals
-          let totalCal = 0;
-          let totalPrice = 0;
-          let totalServing = 0;
+          let totalCal = new Fraction(0);
+          let totalPrice = new Fraction(0);
+          let totalServing = new Fraction(0);
 
           // loops over the 12 ingredients and performs calculations
           for (var i = 0; i < 12; i++) {
@@ -168,19 +179,21 @@ const ingredientEdit = async ({
             // if the current ingredient is checked
             if (recipeData.ingredientChecks[i]) {
               // total calories
-              if (recipeData.ingredientCals[i] !== "") { totalCal += recipeData.ingredientCals[i]; }
+              if (isFraction(recipeData.ingredientCals[i])) { totalCal = totalCal.add(new Fraction(recipeData.ingredientCals[i])); }
               // total price
-              if (recipeData.ingredientPrices[i] !== "") { totalPrice += recipeData.ingredientPrices[i]; }
+              if (isFraction(recipeData.ingredientPrices[i])) { totalPrice = totalPrice.add(new Fraction(recipeData.ingredientPrices[i])); }
               // servings possible
-              if (recipeData.ingredientServings[i] !== "" && recipeData.ingredientServings[i] > totalServing) { totalServing = recipeData.ingredientServings[i]; }
+              if (isFraction(recipeData.ingredientServings[i])) {
+                const servingFrac = new Fraction(recipeData.ingredientServings[i]);
+                if (servingFrac.valueOf() > totalServing.valueOf()) { totalServing = servingFrac; }
+              }
             }
           }
 
           // sets the calculated data
-          recipeData.recipeCal = ((new Fraction(totalCal.toString())) * 1).toFixed(0);
-          recipeData.recipePrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
-          recipeData.recipeServing = ((new Fraction(totalServing.toString())) * 1).toFixed(2);
-
+          recipeData.recipeCal = totalCal.valueOf().toFixed(0);
+          recipeData.recipePrice = totalPrice.valueOf().toFixed(2);
+          recipeData.recipeServing = totalServing.valueOf().toFixed(2);
 
           // add the update operation to the batch
           recipeBatch.update(doc(db, 'RECIPES', recipeDoc.id), recipeData);
@@ -204,8 +217,8 @@ const ingredientEdit = async ({
     spotlightsSnapshot.docs.forEach((spotlightDoc) => {
       const spotlightData = spotlightDoc.data();
 
-      if (spotlightData.ingredientIds !== null && Array.isArray(spotlightData.ingredientIds)) {
-        let spotlightModified = false; // tracks if changes were made
+      if (Array.isArray(spotlightData.ingredientIds)) {
+        let spotlightModified = false;
 
         // only updates spotlight ingredients if they match the deleted one's id
         spotlightData.ingredientIds.forEach((id, index) => {
@@ -215,33 +228,39 @@ const ingredientEdit = async ({
             spotlightModified = true;
 
             // stores the given ingredient's data
-            spotlightData.ingredientData[index] = ingredient.ingredientData;
-            spotlightData.ingredientNames[index] = ingredient.ingredientName;
-            spotlightData.ingredientTypes[index] = ingredient.ingredientTypes;
+            spotlightData.ingredientData[index] = ingredient?.ingredientData;
+            spotlightData.ingredientNames[index] = ingredient?.ingredientName;
+            spotlightData.ingredientTypes[index] = ingredient?.ingredientTypes;
 
 
             // if the current ingredient data is valid
             if (ingredient !== null) {
+              const storeObj = ingredient.ingredientData?.[spotlightData.ingredientStores?.[index]] || {};
 
               // simple calculations
-              const amount = new Fractional(spotlightData.ingredientAmounts[index]);
-              const totalYield = new Fractional(ingredient.ingredientData[spotlightData.ingredientStores[index]].totalYield);
-              const calContainer = new Fractional(ingredient.ingredientData[spotlightData.ingredientStores[index]].calContainer);
-              const priceContainer = new Fractional(ingredient.ingredientData[spotlightData.ingredientStores[index]].priceContainer);
+              const rawAmount = spotlightData.ingredientAmounts?.[index];
+              const rawYield = storeObj.totalYield;
+              const rawCal = storeObj.calContainer;
+              const rawPrice = storeObj.priceContainer;
+              
+              // validation
+              const hasValidInputs = isFraction(rawAmount) && isFraction(rawYield) && isFraction(rawCal) && isFraction(rawPrice);
+              const amountFrac = hasValidInputs ? new Fraction(rawAmount) : null;
+              const yieldFrac = hasValidInputs ? new Fraction(rawYield) : null;
 
               // calculations for the spotlightData based on the amount of the current spotlight
-              if (isNaN(new Fraction(amount.toString()).valueOf()) || isNaN(new Fraction(totalYield.toString()).valueOf()) || isNaN(new Fraction(calContainer.toString()).valueOf()) || isNaN(new Fraction(priceContainer.toString()).valueOf())) {
+              if (!hasValidInputs || yieldFrac.valueOf() === 0) {
                 spotlightData.ingredientCals[index] = "";
                 spotlightData.ingredientPrices[index] = "";
                 spotlightData.ingredientServings[index] = "";
-              } else if (amount.toString() === 0) {
+              } else if (amountFrac.valueOf() === 0) {
                 spotlightData.ingredientCals[index] = 0;
                 spotlightData.ingredientPrices[index] = 0;
                 spotlightData.ingredientServings[index] = 0;
               } else {
-                spotlightData.ingredientCals[index] = (new Fraction((amount.divide(totalYield)).multiply(calContainer).toString()) * 1);
-                spotlightData.ingredientPrices[index] = (new Fraction((amount.divide(totalYield)).multiply(priceContainer).toString()) * 1);
-                spotlightData.ingredientServings[index] = (new Fraction((totalYield.divide(amount)).toString()) * 1);
+                spotlightData.ingredientCals[index] = amountFrac.div(yieldFrac).mul(new Fraction(rawCal)).valueOf();
+                spotlightData.ingredientPrices[index] = amountFrac.div(yieldFrac).mul(new Fraction(rawPrice)).valueOf();
+                spotlightData.ingredientServings[index] = yieldFrac.div(new Fraction(rawAmount)).valueOf();
               }
           
               // calculates the next store based on the brands that are and are not empty
@@ -282,24 +301,27 @@ const ingredientEdit = async ({
         if (spotlightModified) {
           
           // running totals
-          let totalCal = 0;
-          let totalPrice = 0;
-          let totalServing = 0;
+          let totalCal = new Fraction(0);
+          let totalPrice = new Fraction(0);
+          let totalServing = new Fraction(0);
       
           // loops over the 12 ingredients and performs calculations
           for (var i = 0; i < 12; i++) {
-              // total calories
-              if (spotlightData.ingredientCals[i] !== "") { totalCal += spotlightData.ingredientCals[i]; }
-              // total price
-              if (spotlightData.ingredientPrices[i] !== "") { totalPrice += spotlightData.ingredientPrices[i]; } 
-              // servings possible
-              if (spotlightData.ingredientServings[i] !== "" && spotlightData.ingredientServings[i] > totalServing) { totalServing = spotlightData.ingredientServings[i]; }
+            // total calories
+            if (isFraction(spotlightData.ingredientCals[i])) { totalCal = totalCal.add(new Fraction(spotlightData.ingredientCals[i])); }
+            // total price
+            if (isFraction(spotlightData.ingredientPrices[i])) { totalPrice = totalPrice.add(new Fraction(spotlightData.ingredientPrices[i])); } 
+            // servings possible
+            if (isFraction(spotlightData.ingredientServings[i])) {
+              const servingFrac = new Fraction(spotlightData.ingredientServings[i]);
+              if (servingFrac.valueOf() > totalServing.valueOf()) { totalServing = servingFrac; }
+            }
           }
 
           // sets the calculated data
-          spotlightData.spotlightCal = ((new Fraction(totalCal.toString())) * 1).toFixed(0);
-          spotlightData.spotlightPrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
-          spotlightData.spotlightServing = ((new Fraction(totalServing.toString())) * 1).toFixed(2);
+          spotlightData.spotlightCal = totalCal.valueOf().toFixed(0);
+          spotlightData.spotlightPrice = totalPrice.valueOf().toFixed(2);
+          spotlightData.spotlightServing = totalServing.valueOf().toFixed(2);
           
           // add the update operation to the batch
           spotlightBatch.update(doc(db, 'SPOTLIGHTS', spotlightDoc.id), spotlightData);

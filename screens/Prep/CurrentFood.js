@@ -17,9 +17,10 @@ import storeKeys from '../../assets/storeKeys';
 import storeImages from '../../assets/storeImages';
 
 // fractions
-var Fractional = require('fractional').Fraction;
+import Fraction from 'fraction.js';
 
 // validation
+import isFraction from '../../components/Validation/isFraction';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 import extractUnit from '../../components/Validation/extractUnit';
 import { numberToRoman } from '../../components/Validation/numberToRoman';
@@ -382,12 +383,36 @@ export default function CurrentFood ({ isSelectedTab }) {
   ///////////////////////////////// DELETING A CURRENT INGREDIENT /////////////////////////////////
 
   const [deletingId, setDeletingId] = useState(null);
+  const [deletingPrepList, setDeletingPrepList] = useState(null);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteChecked, setDeleteChecked] = useState(false);
   const [deleteName, setDeleteName] = useState("");
 
   // for when the "-" button is selected to delete the current ingredient
   const deleteIngredient = async (index) => {
+
+    // empty array to populate
+    const prepList = [];
+    
+    // loops through the preps
+    prepsSnapshot.forEach((doc) => {
+      // loops through the variants
+      doc.data()?.variants.forEach((variant, idx) => {
+        // loops through the ingredients
+        for (let i = 0; i < 12; i++) {
+          if (variant?.currentData?.[i] && variant?.currentData?.[i] !== null) {
+
+            const listId = currentList[index].ingredientId === "" ? currentList[index].ingredientName : currentList[index].ingredientId;
+            const dataId = variant.currentData[i].ingredientId === "" ? variant.currentData[i].ingredientName : variant.currentData[i].ingredientId;
+            if (listId === dataId && variant.currentIncluded[i]) {
+              prepList.push(variant.prepName + (doc.data().variants.length > 1 ? (" (" + numberToRoman(idx + 1) + ")") : ""));
+            }
+          }
+        }
+      })
+    });
+    
+    setDeletingPrepList(prepList);
     setDeletingId(currentIds[index]);
     setDeleteChecked(currentList[index].check);
     setDeleteName(currentList[index].ingredientName);
@@ -524,8 +549,8 @@ export default function CurrentFood ({ isSelectedTab }) {
     const currentData = currentDocSnap.data();
     
     // stores the current amount total to subtract from if not empty
-    let calcAmount = currentData.amountTotal;
-    if (calcAmount !== "") {
+    if (isFraction(currentData.amountTotal)) {
+      let calcAmount = new Fraction(currentData.amountTotal);
 
       // loop over all preps
       for (const prepDoc of prepsSnapshot.docs) {
@@ -538,15 +563,15 @@ export default function CurrentFood ({ isSelectedTab }) {
 
           // loops over all 12 ingredients and finds the ones that match the current
           for (let i = 0; i < 12; i++) {
-            if (varData.currentIds[i] === currentIds[index] && varData.currentIncluded?.[i] && varData.currentAmounts?.[i] !== "") {
-              calcAmount = ((new Fractional(calcAmount)).subtract((new Fractional(varData.currentAmounts[i])).multiply(new Fractional(varData.prepMult)))).toString();
+            if (varData.currentIds[i] === currentIds[index] && varData.currentIncluded?.[i] && isFraction(varData.currentAmounts?.[i]) && isFraction(varData.prepMult)) {
+              calcAmount = calcAmount.sub((new Fraction(varData.currentAmounts[i])).mul(new Fraction(varData.prepMult)));
             }
           }
         }
       };
       
       // updates the data in the current ingredient doc
-      await updateDoc(doc(db, 'CURRENTS', currentIds[index]), { amountLeft: calcAmount.toString() });
+      await updateDoc(doc(db, 'CURRENTS', currentIds[index]), { amountLeft: calcAmount.toFraction(true) });
 
       // refreshes data
       await loadCurrents();
@@ -569,9 +594,9 @@ export default function CurrentFood ({ isSelectedTab }) {
     setPriceModalVisible(true);
   }
 
-  // to update the list of notes
+  // to update the list of prices
   const submitPrices = async (newUnitPrice, newContainerPrice) => {
-
+    
     // sets the current price in the state
     setCurrPrices((prevState) => {
       const updatedPrices = [...prevState];
@@ -831,7 +856,6 @@ export default function CurrentFood ({ isSelectedTab }) {
     return mergedList;
   };
 
-
   // to import the list of ingredients from the shopping list
   const importIngredients = async () => {
 
@@ -841,35 +865,42 @@ export default function CurrentFood ({ isSelectedTab }) {
     // the combined shopping list from the helper function
     const combinedData = await mergeShoppingLists();
     
-    // gets the list of ingredient IDs from currentList - matching the archive
-    const ingredientIds = currentList.map((ingredient) => ingredient.ingredientId).filter((id, index) => currentList[index].archive === showArchive);
-    const ingredientStores = currentList.map((ingredient) => ingredient.ingredientStore).filter((store, index) => currentList[index].archive === showArchive);
-    
     // loops over the combined shopping list to find them in the current list of ingredients
     for (let i = 0; i < combinedData.id.length; i++) {
-      const index = ingredientIds.indexOf(combinedData.id[i]);
+      
+      // finds the exact index in currentList where archive, id, and store match
+      const index = currentList.findIndex((item) => 
+        item.archive === showArchive && item.ingredientId === combinedData.id[i] && item.ingredientStore === combinedData.store[i]
+      );
+
+      // validation
+      const hasValidYieldNeeded = combinedData.yieldNeeded[i] !== 0 && isFraction(combinedData.yieldNeeded[i]);
+      const hasValidShoppingInputs = isFraction(combinedData.amountNeeded[i]) && isFraction(combinedData.totalYield[i]);
       
       // only imports the ingredients with a needed yield (from spotlights with a mult of > 0) and that are included & checked off
-      if (combinedData.yieldNeeded[i] !== 0 && new Fractional(combinedData.yieldNeeded[i]).numerator !== undefined && combinedData.included[i] && combinedData.check[i]) {
+      if (hasValidYieldNeeded && hasValidShoppingInputs && combinedData.included[i] && combinedData.check[i]) {
         importIds.push(combinedData.id[i]);
+        const shoppingAmount = new Fraction(combinedData.amountNeeded[i]).mul(new Fraction(combinedData.totalYield[i]));
 
         // if the current ingredient of the combined list is in the current list
-        if (index !== -1 && combinedData.store[i] === ingredientStores[index]) {
-          // calculate the total amount and amount left using both the current and shopping list amounts
-          const amountTotal = ((new Fractional(
-            currentList[index].amountTotal === "" ? "0" 
-            : currentList[index].amountTotal)).add(((new Fractional(combinedData.amountNeeded[i])).multiply(new Fractional(combinedData.totalYield[i]))).toString())).toString();
-          const amountLeft = 
-            currentList[index].amountLeft === "?" 
-            ? (new Fractional(combinedData.amountNeeded[i])).multiply(new Fractional(combinedData.totalYield[i])).toString()
-            : (new Fractional(currentList[index].amountLeft)).add(((new Fractional(combinedData.amountNeeded[i])).multiply(new Fractional(combinedData.totalYield[i]))).toString()).toString();
+        if (index !== -1) {
+          // calculate total amount
+          const currentTotal = isFraction(currentList[index].amountTotal) ? new Fraction(currentList[index].amountTotal) : new Fraction(0);
+          const amountTotal = currentTotal.add(shoppingAmount);
+          
+          // calculate amount left
+          let amountLeft;
+          if (currentList[index].amountLeft === "?") { amountLeft = shoppingAmount; } 
+          else if (isFraction(currentList[index].amountLeft)) { amountLeft = new Fraction(currentList[index].amountLeft).add(shoppingAmount); } 
+          else { amountLeft = shoppingAmount; }
+          
           // edits the current ingredient accordingly
           await currentEdit({
             editingId: currentIds[index],
-            amountLeft: amountLeft.toString(), 
-            amountTotal: amountTotal.toString(), 
+            amountLeft: amountLeft.toFraction(true), 
+            amountTotal: amountTotal.toFraction(true), 
             archive: currentList[index].archive, 
-            check: amountTotal.toString() === "0", 
+            check: amountTotal.valueOf() === 0, 
             containerPrice: currentList[index].containerPrice, 
             ingredientData: currentList[index].ingredientData, 
             ingredientId: currentList[index].ingredientId, 
@@ -883,8 +914,8 @@ export default function CurrentFood ({ isSelectedTab }) {
         // if the current ingredient of the combined list is new (not in the current list)
         } else {   
           // calculate the total amount and amount left based only on the shopping list
-          const amountTotal = ((new Fractional(combinedData.amountNeeded[i])).multiply(new Fractional(combinedData.totalYield[i]))).toString();
-          const amountLeft = ((new Fractional(combinedData.amountNeeded[i])).multiply(new Fractional(combinedData.totalYield[i]))).toString();
+          const amountTotal = shoppingAmount;
+          const amountLeft = shoppingAmount;
           
           // gets the ingredient data
           const docSnap = await getDoc(doc(db, 'INGREDIENTS', combinedData.id[i])); 
@@ -897,11 +928,11 @@ export default function CurrentFood ({ isSelectedTab }) {
               ...data.ingredientData,
             } : combinedData.data[i];
           
-          // adds the current ingredient, since it is new
+          // adds the current ingredient, since it's new
           await currentAdd(combinedData.id[i], overallData, combinedData.name[i], combinedData.store[i], data?.ingredientTypes || [], showArchive, {
-            check: amountTotal.toString() === "0", 
-            amountTotal: amountTotal.toString(), 
-            amountLeft: amountLeft.toString(), 
+            check: amountTotal.valueOf() === 0, 
+            amountTotal: amountTotal.toFraction(true), 
+            amountLeft: amountLeft.toFraction(true), 
             unitPrice: "0.00", 
             containerPrice: "0.00",
           });
@@ -1120,6 +1151,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                           <DeleteCurrentModal
                             id={deletingId}
                             isChecked={deleteChecked}
+                            prepList={deletingPrepList}
                             currentName={deleteName}
                             visible={deleteModalVisible}
                             onConfirm={confirmDelete}
@@ -1172,9 +1204,14 @@ export default function CurrentFood ({ isSelectedTab }) {
 
                                   {/* Amount Left (CALCULATED) */}
                                   <Text className={`pl-2 border-l-[1px] border-l-zinc400 text-[12px] 
-                                      ${curr.amountLeft !== "" ? (new Fractional(curr.amountLeft).numerator === 0 ? "text-yellow-500" 
-                                        : (new Fractional(curr.amountLeft).numerator / (new Fractional(curr.amountLeft).denominator)) < 0 ? "text-pink-500" 
-                                        : "text-emerald-500") : "text-white"}`}>
+                                    ${(() => {
+                                      if (!isFraction(curr.amountLeft)) return "text-zinc700";
+                                      const val = new Fraction(curr.amountLeft).valueOf();
+                                      if (val === 0) return "text-yellow-500";
+                                      if (val < 0) return "text-pink-500";
+                                      return "text-emerald-500";
+                                    })()}`
+                                  }>
                                     {curr.amountLeft}
                                   </Text>
                                 </View>
@@ -1564,7 +1601,7 @@ export default function CurrentFood ({ isSelectedTab }) {
               {/* Filter TextInput */}
               <TextInput
                 value={searchIngredientQuery}
-                onChangeText={filterIngredientData}
+                onChangeText={(value) => filterIngredientData(value.replaceAll('\'', '’'))}
                 placeholder="search for ingredient"
                 placeholderTextColor={colors.zinc400}
                 className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[17px] z-40`}

@@ -18,10 +18,10 @@ import storeLabels from '../../assets/storeLabels';
 import storeImages from '../../assets/storeImages';
 
 // fractions
-var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
 // validation
+import isFraction from '../../components/Validation/isFraction';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 import extractUnit from '../../components/Validation/extractUnit';
 
@@ -590,11 +590,11 @@ export default function Recipes ({ isSelectedTab }) {
   
   // to calculate each of the ingredient's details, and the totals at the bottom
   const calcAmounts = (data) => {
-
+    
     // running totals
-    let totalCal = 0;
-    let totalPrice = 0;
-    let totalServing = 0;
+    let totalCal = new Fraction(0);
+    let totalPrice = new Fraction(0);
+    let totalServing = new Fraction(0);
     
     // loops over the list of all ingredients
     data.ingredientAmounts.forEach((value, index) => {
@@ -605,13 +605,8 @@ export default function Recipes ({ isSelectedTab }) {
         // general variables
         const ingredient = data.ingredientData[index];
         const storeKey = data.ingredientStores[index];
-        const brandKey = ingredient[storeKey].brand;
-
-        // fractional calculations
-        const amount = new Fractional(value);
-        const totalYield = new Fractional(ingredient[storeKey].totalYield);
-        const calContainer = new Fractional(ingredient[storeKey].calContainer);
-        const priceContainer = new Fractional(ingredient[storeKey].priceContainer);
+        const storeData = ingredient[storeKey] || {};
+        const brandKey = storeData.brand || "";
         
         // invalid (1)
         if (value === "" || brandKey === "") {
@@ -627,60 +622,51 @@ export default function Recipes ({ isSelectedTab }) {
           data.ingredientPrices[index] = 0.00;
           data.ingredientServings[index] = 0.00;
           
-        // validates the fractional value
-        } else if (amount !== 0 && !isNaN(amount.numerator) && !isNaN(amount.denominator) && amount.denominator !== 0) {
-
+        // validates the fraction value
+        } else if (isFraction(value)) {
           data.ingredientAmounts[index] = value;
+                    
+          // fraction calculations
+          const amount = new Fraction(value.trim());
+          const rawYield = storeData.totalYield;
+          const rawCal = storeData.calContainer;
+          const rawPrice = storeData.priceContainer;
+
+          const hasValidYield = isFraction(rawYield) && new Fraction(rawYield).valueOf() !== 0;
           
           // calculate calories if the arguments are valid
-          if (Object.entries(totalYield).length !== 0 && Object.entries(calContainer).length !== 0
-              && !isNaN((new Fraction(totalYield.toString())) * 1) && !isNaN((new Fraction(calContainer.toString())) * 1)) {
-
+          if (hasValidYield && isFraction(rawCal)) {
             // individual
-            data.ingredientCals[index] = new Fraction(amount.divide(totalYield).multiply(calContainer).toString()) * 1;
-          
+            data.ingredientCals[index] = amount.div(new Fraction(rawYield)).mul(new Fraction(rawCal)).valueOf();
             // overall if the current checkbox is checked
             if (data.ingredientChecks[index]) {
-              totalCal = (new Fractional(totalCal)).add(amount.divide(totalYield).multiply(calContainer)).toString();
+              totalCal = totalCal.add(amount.div(new Fraction(rawYield)).mul(new Fraction(rawCal)));
             }
-
           // set individual calories to 0 if arguments are not valid
-          } else {
-            data.ingredientCals[index] = new Fraction(0) * 1;
-          }
+          } else { data.ingredientCals[index] = 0; }
 
           // calculates prices if the arguments are valid
-          if (Object.entries(totalYield).length !== 0 && Object.entries(priceContainer).length !== 0
-              && !isNaN((new Fraction(totalYield.toString())) * 1) && !isNaN((new Fraction(priceContainer.toString())) * 1)) {
-          
+          if (hasValidYield && isFraction(rawPrice)) {
             // individual
-            data.ingredientPrices[index] = new Fraction(amount.divide(totalYield).multiply(priceContainer).toString()) * 1;
-
+            data.ingredientPrices[index] = amount.div(new Fraction(rawYield)).mul(new Fraction(rawPrice)).valueOf();
             // overall if the current checkbox is checked
             if (data.ingredientChecks[index]) {
-              totalPrice = (new Fractional(totalPrice)).add(amount.divide(totalYield).multiply(priceContainer)).toString();
+              totalPrice = totalPrice.add(amount.div(new Fraction(rawYield)).mul(new Fraction(rawPrice)));
             }
-
           // set individual prices to 0 if arguments are not valid
-          } else {
-            data.ingredientPrices[index] = new Fraction(0) * 1;
-          }
+          } else { data.ingredientPrices[index] = 0; }
 
           // calculate servings if the arguments are valid
-          if (Object.entries(totalYield).length !== 0 && !isNaN((new Fraction(totalYield.toString())) * 1)) {
-         
+          if (hasValidYield && amount.valueOf() !== 0) {
+            const servingsVal = new Fraction(rawYield).div(amount);
             // individual
-            data.ingredientServings[index] =  new Fraction(totalYield.divide(amount).toString()) * 1;
-
+            data.ingredientServings[index] = servingsVal.valueOf();
             // overall if the current checkbox is checked
-            if (data.ingredientChecks[index]) {
-              totalServing = (totalServing === 0 || totalServing > new Fraction(totalYield.divide(amount).toString()) * 1) ? new Fraction(totalYield.divide(amount).toString()) * 1 : totalServing;
+            if (data.ingredientChecks[index] && (totalServing.valueOf() === 0 || servingsVal.valueOf() < totalServing.valueOf())) {
+              totalServing = servingsVal;
             }
-
           // set individual servings to 0 if arguments are not valid
-          } else {
-            data.ingredientServings[index] = new Fraction(0) * 1;
-          }
+          } else { data.ingredientServings[index] = 0; }
         }
       }
 
@@ -693,9 +679,9 @@ export default function Recipes ({ isSelectedTab }) {
     });
     
     // stores the totals
-    data.recipeCal = ((new Fraction(totalCal.toString())) * 1).toFixed(0);
-    data.recipePrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
-    data.recipeServing = ((new Fraction(totalServing.toString())) * 1).toFixed(2);
+    data.recipeCal = totalCal.valueOf().toFixed(0);
+    data.recipePrice = totalPrice.valueOf().toFixed(2);
+    data.recipeServing = totalServing.valueOf().toFixed(2);
     
     return data;
   }
@@ -1196,7 +1182,12 @@ export default function Recipes ({ isSelectedTab }) {
     const docSnap = await getDoc(doc(db, 'INGREDIENTS', id));
     if (docSnap.exists()) { setSelectedIngredient(docSnap.data()); }
   }
+    
+    
+  ///////////////////////////////// DYNAMIC WIDTHS /////////////////////////////////
   
+  const [inputWidth, setInputWidth] = useState(new Array(12).fill(6));
+
   
   ///////////////////////////////// SCROLLING /////////////////////////////////
   
@@ -1239,7 +1230,7 @@ export default function Recipes ({ isSelectedTab }) {
             {/* text input */}
             <TextInput
               value={recipeKeywordQuery}
-              onChangeText={(value) => filterRecipeList(value, ingredientKeywordQuery, selectedRecipeTag)}
+              onChangeText={(value) => filterRecipeList(value.replaceAll('\'', '’'), ingredientKeywordQuery, selectedRecipeTag)}
               placeholder="recipe keyword(s)"
               placeholderTextColor={colors.zinc400}
               className="flex-1 bg-white radius-[5px] border-[1px] border-zinc300 pl-2.5 pr-[20px] text-[14px] leading-[17px]"
@@ -1265,7 +1256,7 @@ export default function Recipes ({ isSelectedTab }) {
             {/* text input */}
             <TextInput
               value={ingredientKeywordQuery}
-              onChangeText={(value) => filterRecipeList(recipeKeywordQuery, value, selectedRecipeTag)}
+              onChangeText={(value) => filterRecipeList(recipeKeywordQuery, value.replaceAll('\'', '’'), selectedRecipeTag)}
               placeholder="ingredient keyword(s)"
               placeholderTextColor={colors.zinc400}
               className="flex-1 bg-white radius-[5px] border-[1px] border-zinc300 pl-2.5 pr-[20px] text-[14px] leading-[17px]"
@@ -1547,7 +1538,17 @@ export default function Recipes ({ isSelectedTab }) {
                   <View className="flex flex-row space-x-[3px]">
                     {/* Input Amount */} 
                     <TextInput
-                      key={index}
+                      key={`${selectedRecipeId}-${index}`}
+                      onContentSizeChange={(e) => { 
+                        const width = e.nativeEvent.contentSize.width; 
+                        setInputWidth((prevWidths) => {
+                          if (prevWidths[index] === width) return prevWidths;
+                          const nextWidths = [...prevWidths];
+                          nextWidths[index] = width;
+                          return nextWidths;
+                        });
+                      }}
+                      style={{ minWidth: inputWidth[index] }}
                       className="bg-zinc100 text-[10px] leading-[12px] text-center"
                       placeholder={selectedRecipeData.ingredientAmounts[index] !== "" ? selectedRecipeData.ingredientAmounts[index] : "_"}
                       placeholderTextColor="black"
@@ -1617,16 +1618,19 @@ export default function Recipes ({ isSelectedTab }) {
             ingredientData={selectedRecipeData?.ingredientData[calcIndex]}
             ingredientName={selectedRecipeData?.ingredientNames[calcIndex]}
             ingredientStore={selectedRecipeData?.ingredientStores[calcIndex]}
-            initialCals={selectedRecipeData?.ingredientCals[calcIndex].toFixed(0)}
-            initialPrice={selectedRecipeData?.ingredientPrices[calcIndex].toFixed(2)}
-            initialServings={selectedRecipeData?.ingredientServings[calcIndex].toFixed(2)}
-            initialAmount={selectedRecipeData?.ingredientAmounts[calcIndex]}
+            initialCals={selectedRecipeData?.ingredientCals?.[calcIndex] != null ? Number(selectedRecipeData.ingredientCals[calcIndex]).toFixed(0) : "0"}
+            initialPrice={selectedRecipeData?.ingredientPrices?.[calcIndex] != null ? Number(selectedRecipeData.ingredientPrices[calcIndex]).toFixed(2) : "0.00"}
+            initialServings={selectedRecipeData?.ingredientServings?.[calcIndex] != null ? Number(selectedRecipeData.ingredientServings[calcIndex]).toFixed(2) : "0.00"}
+            initialAmount={selectedRecipeData?.ingredientAmounts?.[calcIndex] ?? ""}
             totalAmountUsed={null}
             amountsUsed={null}
             othersUsed={null}
             selectedUsed={null}
             altPrepVariants={null}
-            amountContainer={selectedRecipeData?.ingredientData[calcIndex][selectedRecipeData?.ingredientStores[calcIndex]].totalYield === "" ? 0 : new Fractional (selectedRecipeData?.ingredientData[calcIndex][selectedRecipeData?.ingredientStores[calcIndex]].totalYield).toString()}
+            amountContainer={(() => {
+              const rawYield = selectedRecipeData?.ingredientData?.[calcIndex]?.[selectedRecipeData?.ingredientStores?.[calcIndex]]?.totalYield;
+              return isFraction(rawYield) ? new Fraction(rawYield).simplify(0.001).toFraction(true) : "";
+            })()}
             servingSize={null}
           />
         )}
@@ -2148,7 +2152,7 @@ export default function Recipes ({ isSelectedTab }) {
               {/* Filter TextInput */}
               <TextInput
                 value={searchIngredientQuery}
-                onChangeText={(value) => filterIngredientData(value, sortType, sortAsc)}
+                onChangeText={(value) => filterIngredientData(value.replaceAll('\'', '’'), sortType, sortAsc)}
                 placeholder="search for ingredient"
                 placeholderTextColor={colors.zinc400}
                 className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[17px] z-10`}

@@ -235,7 +235,7 @@ const ModMealModal = ({
                 multiline={true}
                 blurOnSubmit={true}
                 value={mealName}
-                onChangeText={setMealName}
+                onChangeText={(value) => setMealName(value.replaceAll('\'', '’'))}
               />
             </View>
             

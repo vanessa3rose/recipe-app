@@ -13,8 +13,10 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
 // fractions
-var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
+
+// validation
+import isFraction from '../../components/Validation/isFraction';
 
 // firebase
 import prepAdd from '../../firebase/Preps/prepAdd';
@@ -118,78 +120,72 @@ const AddPrepModal = ({
 
   // to submit the meal prep
   const submitModal = async () => {
-
     let data = null;
 
     // if a copycat prep is added
     if (option === "SPOTLIGHT") {
-      let currCals = ["", "", "", "", "", "", "", "", "", "", "", ""];
-      let currPrices = ["", "", "", "", "", "", "", "", "", "", "", ""];
-      let currAmounts = selectedSpotlightData.ingredientAmounts;
+      const ingredientAmounts = selectedSpotlightData?.ingredientAmounts || [];
+      const currentDocs = await Promise.all(selectedCurrentIds.map((id) => (id !== "" ? getDoc(doc(db, 'CURRENTS', id)) : null)));
 
-      let currData = [null, null, null, null, null, null, null, null, null, null, null, null]
+      let currCals = Array(12).fill("");
+      let currPrices = Array(12).fill("");
+      let currAmounts = [...ingredientAmounts];
+      let currData = Array(12).fill(null);
 
-      let totalCal = 0;
-      let totalPrice = 0;
+      let totalCal = new Fraction(0);
+      let totalPrice = new Fraction(0);
       
       // loops over the 12 currents
       for (let index = 0; index < 12; index++) {
-        if (selectedCurrentIds[index] !== "") {
+        const currentDoc = currentDocs[index];
+        if (selectedCurrentIds[index] !== "" && currentDoc?.exists()) {
           
           // gets the current data
-          const currentDoc = await getDoc(doc(db, 'CURRENTS', selectedCurrentIds[index]));
           const selectedCurrentData = currentDoc.data();
           currData[index] = selectedCurrentData;
           
           // general variables
           const current = selectedCurrentData;
-          const storeKey = selectedCurrentData.ingredientStore;
+          const storeKey = current?.ingredientStore;
           
-          // fractional calculations
-          const amount = new Fractional(selectedSpotlightData.ingredientAmounts[index]);
-          const servings = storeKey !== "-" ? new Fractional(current.ingredientData[storeKey].totalYield) : new Fractional(current.ingredientData["-"].servingSize);
-          const cals = storeKey !== "-" ? new Fractional(current.ingredientData[storeKey].calContainer) : new Fractional(current.ingredientData["-"].calServing);
-          const priceUnit = new Fractional(current.unitPrice);
+          // fraction calculations
+          const rawAmount = ingredientAmounts[index];
+          const rawServings = storeKey !== "-" ? current?.ingredientData?.[storeKey]?.totalYield : current?.ingredientData?.["-"]?.servingSize;
+          const rawCals = storeKey !== "-" ? current?.ingredientData?.[storeKey]?.calContainer : current?.ingredientData?.["-"]?.calServing;
+          const rawPrice = current?.unitPrice;
+          
+          // validation
+          const isAmountValid = isFraction(rawAmount) && new Fraction(rawAmount).valueOf() !== 0;
+          const isServingValid = isFraction(rawServings) && new Fraction(rawServings).valueOf() !== 0;
           
           // invalid 
-          if (selectedSpotlightData.ingredientAmounts[index] === "" || selectedSpotlightData.ingredientAmounts[index] === "0") {
+          if (!isAmountValid) {
             currAmounts[index] = "";
             currCals[index] = "";
             currPrices[index] = "";
             
-          // validates the fractional value
-          } else if (amount !== 0 && !isNaN(amount.numerator) && !isNaN(amount.denominator) && amount.denominator !== 0) {
+          // validates the fraction value
+          } else {
+            const amountFrac = new Fraction(rawAmount);
+            const servingFrac = isServingValid ? new Fraction(rawServings) : null;
             
             // calculate calories if the arguments are valid
-            if (!isNaN((new Fraction(servings.toString())) * 1) && !isNaN((new Fraction(cals.toString())) * 1)) {
+            if (isServingValid && isFraction(rawCals)) {
               // individual
-              currCals[index] = new Fraction(amount.divide(servings).multiply(cals).toString()) * 1;
+              currCals[index] = amountFrac.div(servingFrac).mul(new Fraction(rawCals)).valueOf();
               // overall
-              totalCal = (new Fractional(totalCal)).add(amount.divide(servings).multiply(cals)).toString();
-
+              totalCal = totalCal.add(amountFrac.div(servingFrac).mul(new Fraction(rawCals)));
             // set individual calories to 0 if arguments are not valid
-            } else {
-              currCals[index] = new Fraction(0) * 1;
-            }
+            } else { currCals[index] = 0; }
 
             // calculates prices if the arguments are valid
-            if (!isNaN((new Fraction(priceUnit.toString())) * 1)) {
-            
+            if (isFraction(rawPrice)) {
               // individual
-              currPrices[index] = new Fraction(amount.multiply(priceUnit).toString()) * 1;
+              currPrices[index] = amountFrac.mul(new Fraction(rawPrice)).valueOf();
               // overall
-              totalPrice = (new Fractional(totalPrice)).add(amount.multiply(priceUnit)).toString();
-
+              totalPrice = totalPrice.add(amountFrac.mul(new Fraction(rawPrice)));
             // set individual prices to 0 if arguments are not valid
-            } else {
-              currPrices[index] = new Fraction(0) * 1;
-            }
-            
-          // if the amount is not valid
-          } else {
-            currAmounts[index] = "";
-            currCals[index] = "";
-            currPrices[index] = "";
+            } else { currPrices[index] = 0; }
           }
 
         // if the selected data is null
@@ -205,8 +201,8 @@ const AddPrepModal = ({
         prepName: selectedSpotlightData.spotlightName,
         prepNote: "",
         prepMult: selectedSpotlightData.spotlightMult,
-        prepCal: ((new Fraction(totalCal.toString())) * 1).toFixed(0), 
-        prepPrice: ((new Fraction(totalPrice.toString())) * 1).toFixed(2), 
+        prepCal: totalCal.valueOf().toFixed(0), 
+        prepPrice: totalPrice.valueOf().toFixed(2), 
         currentData: currData, 
         currentIds: selectedCurrentIds,
         currentAmounts: currAmounts, 
@@ -219,12 +215,12 @@ const AddPrepModal = ({
     // if a new prep is added
     } else {
       data = {
-        currentAmounts: ["", "", "", "", "", "", "", "", "", "", "", ""], 
-        currentCals: ["", "", "", "", "", "", "", "", "", "", "", ""], 
-        currentData: [null, null, null, null, null, null, null, null, null, null, null, null], 
-        currentIds: ["", "", "", "", "", "", "", "", "", "", "", ""], 
-        currentPrices: ["", "", "", "", "", "", "", "", "", "", "", ""],
-        currentIncluded: ["", "", "", "", "", "", "", "", "", "", "", ""],
+        currentAmounts: Array(12).fill(""), 
+        currentCals: Array(12).fill(""), 
+        currentData: Array(12).fill(null), 
+        currentIds: Array(12).fill(""), 
+        currentPrices: Array(12).fill(""),
+        currentIncluded: Array(12).fill(""),
         prepCal: "0", 
         prepMult: 0,
         prepName: prepName,

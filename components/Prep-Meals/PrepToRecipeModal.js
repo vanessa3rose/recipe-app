@@ -17,8 +17,10 @@ import storeLabels from '../../assets/storeLabels';
 import storeImages from '../../assets/storeImages';
 
 // fractions
-var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
+
+// validation
+import isFraction from '../../components/Validation/isFraction';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 import extractUnit from '../Validation/extractUnit';
 
@@ -194,35 +196,38 @@ const PrepToRecipeModal = ({
 
   // to change the edited ingredient's amount, which triggers the cal / $ / serving calculation
   const changeAmount = (value, index, ingredient, storeKey) => {
+    console.log(changeAmount)
+    const storeData = ingredient?.[storeKey] || {};
     
-    let cals = 0;
-    let prices = 0.00;
-    let servings = 0.00;
+    let cals = "";
+    let prices = "";
+    let servings = "";
     
-    // fractional calculations
-    const amount = new Fractional(value);
-    const totalYield = new Fractional(ingredient[storeKey].totalYield);
-    const calContainer = new Fractional(ingredient[storeKey].calContainer);
-    const priceContainer = new Fractional(ingredient[storeKey].priceContainer);
+    // fraction calculations
+    const rawYield = storeData.totalYield;
+    const rawCal = storeData.calContainer;
+    const rawPrice = storeData.priceContainer;
+    
+    // validation
+    const amountFrac = isFraction(value) ? new Fraction(value.trim()) : null;
+    const yieldFrac = isFraction(rawYield) ? new Fraction(rawYield) : null;
+    const isYieldValid = yieldFrac && yieldFrac.valueOf() !== 0;
 
-    // validates the fractional value
-    if (value !== "0" && value !== "" && ingredient[storeKey].brand !== "" && amount !== 0 && !isNaN(amount.numerator) && !isNaN(amount.denominator) && amount.denominator !== 0) {
+    // validates the fraction value
+    if (isFraction(value) && Boolean(storeData.brand)) {
+      if (amountFrac.valueOf() === 0) {
+        cals = 0;
+        prices = 0;
+        servings = 0;
 
-      // calculate calories if the arguments are valid
-      if (Object.entries(totalYield).length !== 0 && Object.entries(calContainer).length !== 0
-          && !isNaN((new Fraction(totalYield.toString())) * 1) && !isNaN((new Fraction(calContainer.toString())) * 1)) {
-        cals = new Fraction(amount.divide(totalYield).multiply(calContainer).toString()) * 1;
-      }
+      } else if (isYieldValid) {
 
-      // calculates prices if the arguments are valid
-      if (Object.entries(totalYield).length !== 0 && Object.entries(priceContainer).length !== 0
-          && !isNaN((new Fraction(totalYield.toString())) * 1) && !isNaN((new Fraction(priceContainer.toString())) * 1)) {
-        prices = new Fraction(amount.divide(totalYield).multiply(priceContainer).toString()) * 1;
-      }
-
-      // calculate servings if the arguments are valid
-      if (Object.entries(totalYield).length !== 0 && !isNaN((new Fraction(totalYield.toString())) * 1)) {
-        servings =  new Fraction(totalYield.divide(amount).toString()) * 1;
+        // calculate calories if the arguments are valid
+        if (isFraction(rawCal)) { cals = amountFrac.div(yieldFrac).mul(new Fraction(rawCal)).valueOf(); }
+        // calculates prices if the arguments are valid
+        if (isFraction(rawPrice)) { prices = amountFrac.div(yieldFrac).mul(new Fraction(rawPrice)).valueOf(); }
+        // calculate servings if the arguments are valid
+        servings =  yieldFrac.div(amountFrac).valueOf();
       }
     }
     
@@ -1104,7 +1109,7 @@ const PrepToRecipeModal = ({
                       {/* text input */}
                       <TextInput
                         value={ingredientKeywordQuery}
-                        onChangeText={setIngredientKeywordQuery}
+                        onChangeText={(value) => setIngredientKeywordQuery(value.replaceAll('\'', '’'))}
                         placeholder="ingredient keyword(s)"
                         placeholderTextColor={colors.zinc400}
                         className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc300 pl-2.5 pr-[20px] text-[13px] leading-[16px]"
@@ -1130,7 +1135,7 @@ const PrepToRecipeModal = ({
                         {/* text input */}
                         <TextInput
                           value={recipeKeywordQuery}
-                          onChangeText={setRecipeKeywordQuery}
+                          onChangeText={(value) => setRecipeKeywordQuery(value)}
                           placeholder="recipe keyword(s)"
                           placeholderTextColor={colors.zinc400}
                           className="flex-1 bg-white rounded-[5px] border-[1px] border-zinc300 pl-2.5 pr-[20px] text-[13px] leading-[16px]"
@@ -1326,7 +1331,7 @@ const PrepToRecipeModal = ({
                 <TextInput
                   value={searchIngredientQuery}
                   onChangeText={(value) => {
-                    filterIngredientData(value, sortType, sortAsc);
+                    filterIngredientData(value.replaceAll('\'', '’'), sortType, sortAsc);
                     setIngredientDropdownOpen(true);
                   }}
                   placeholder="search for ingredient"

@@ -11,10 +11,10 @@ import colors from '../../assets/colors';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 // fractions
-var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
 // validation
+import isFraction from '../../components/Validation/isFraction';
 import validateFractionInput from '../Validation/validateFractionInput';
 import extractUnit from '../Validation/extractUnit';
 
@@ -37,23 +37,45 @@ const ModPriceModal = ({
 
   // to load in the data
   useEffect(() => {
-
-    if (modalVisible) {
+    if (modalVisible && currentData) {
+      const storeData = currentData?.ingredientData?.[currentStore] || {};
       
       // using given data
       setContainerCost(currentData.containerPrice);
       setName(currentData.ingredientName);
-      setUnit(currentData.ingredientData[currentStore].unit);
+      setUnit(storeData.unit);
+      
+      // raw data
+      const rawContainerPrice = currentData.containerPrice;
+      const rawTotalYield = storeData.totalYield;
 
       // if completely custom
-      if (currentData.ingredientData[currentStore].totalYield === undefined) {
+      if (rawTotalYield === undefined) {
         setUnitPrice(currentPrice);
-        setAmount((currentPrice === "0.00" || currentPrice === "0.0000") ? "0" : (new Fractional(currentData.containerPrice)).divide(new Fractional(currentPrice)).toString() || "0");
+
+        // validation
+        const isPriceValid = isFraction(currentPrice) && new Fraction(currentPrice).valueOf() !== 0;
+        const isCostValid = isFraction(rawContainerPrice);
+
+        if (isPriceValid && isCostValid) {
+          setAmount(new Fraction(rawContainerPrice).div(new Fraction(currentPrice)).toFraction(true));
+        } else {
+          setAmount("0");
+        }
 
       // if ingredient
       } else {
-        setAmount(currentData.ingredientData[currentStore].totalYield || "0");
-        setUnitPrice(((new Fractional(currentData.containerPrice)).divide(new Fractional(currentData.ingredientData[currentStore].totalYield))).toString());
+        setAmount(rawTotalYield || "0");
+
+        // validation
+        const isYieldValid = isFraction(rawTotalYield) && new Fraction(rawTotalYield).valueOf() !== 0;
+        const isCostValid = isFraction(rawContainerPrice);
+        
+        if (isYieldValid && isCostValid) {
+          setUnitPrice(new Fraction(rawContainerPrice).div(new Fraction(rawTotalYield)).toFraction(true));
+        } else {
+          setUnitPrice("0.00");
+        }
       }
     }
   }, [modalVisible]);
@@ -63,13 +85,16 @@ const ModPriceModal = ({
 
   // when the containerCost and amount are changed, update the unitPrice
   useEffect(() => {
-    if (containerCost !== "" && amount !== "") {
-      const newPrice = isNaN(new Fractional(containerCost).divide(new Fractional(amount)).denominator) || new Fractional(containerCost).divide(new Fractional(amount)).denominator === 0 ? 0 : new Fraction((new Fractional(containerCost)).divide(new Fractional(amount)).toString()) * 1;
-      setUnitPrice(newPrice >= 0.01 ? newPrice.toFixed(2) : newPrice.toFixed(4));
+    if (isFraction(containerCost) && isFraction(amount)) {
+      if (new Fraction(amount.trim()).valueOf() === 0) { setUnitPrice("0.00"); }
+      else {
+        const newPrice = new Fraction(containerCost.trim()).div(new Fraction(amount.trim())).valueOf();
+        setUnitPrice(newPrice >= 0.01 ? newPrice.toFixed(2) : newPrice.toFixed(4));
+      }
     } else {
-      setUnitPrice(currentPrice);
+      setUnitPrice(currentPrice || "0.00");
     }
-  }, [containerCost, amount]);
+  }, [containerCost, amount, currentPrice]);
 
 
   ///////////////////////////////// ON CLOSE /////////////////////////////////
@@ -80,14 +105,15 @@ const ModPriceModal = ({
 
   // to submit the modal
   const submitModal = async () => {
-
+    
     // for the modals
-    setContainerCostValid(containerCost !== "");
-    setAmountValid(amount !== "");
-
+    setContainerCostValid(isFraction(containerCost));
+    setAmountValid(isFraction(amount));
+    
     // if valid
-    if (containerCost !== "" && amount !== "") {
-      closeModal(unitPrice, isNaN(new Fractional(containerCost).numerator / new Fractional(containerCost).denominator) ? "0.00" : (new Fractional(containerCost).numerator / new Fractional(containerCost).denominator).toFixed(2));
+    if (isFraction(containerCost) && isFraction(amount)) {
+      // chop of last two digits if 00
+      closeModal(unitPrice.replace(/(\.\d{2})00$/, "$1"), new Fraction(containerCost).valueOf().toFixed(2));
       exitModal();
     }
   };
@@ -136,12 +162,12 @@ const ModPriceModal = ({
               <Text className="px-2 py-1 italic font-semibold">Calculated Unit Price</Text>
 
               {/* $ or ¢ display */}
-              {((new Fraction(unitPrice)).toString() * 1) >= 0.01 || unitPrice === "0.00" || unitPrice === "" || unitPrice === undefined || unitPrice === "0.0000"
-              ?
-                <Text className="p-1 italic">{"$"}{((new Fraction(unitPrice)).toString() * 1).toFixed(2)}</Text>
-              :
-                <Text className="p-1 italic">{((new Fraction(unitPrice)).toString() * 100).toFixed(2)}{"¢"}</Text>
-              }
+              <Text className="p-1 italic">
+                {isFraction(unitPrice) && new Fraction(unitPrice).valueOf() < 0.01 && new Fraction(unitPrice).valueOf() > 0
+                  ? `${(new Fraction(unitPrice).valueOf() * 100).toFixed(2)}¢`
+                  : `$${isFraction(unitPrice) ? new Fraction(unitPrice).valueOf().toFixed(2) : "0.00"}`
+                }
+              </Text>
             </View>
           </View>
 
@@ -215,23 +241,36 @@ const ModPriceModal = ({
             </View>
 
             {/* BUTTONS */}
-            <View className="flex flex-row justify-center items-center ml-auto">
+            <View className="flex flex-row w-full justify-between items-center">
+              {/* Reset */}
+              {!(containerCost === "0.00" && amount === "0") && (
+                <Icon 
+                  size={20}
+                  color="black"
+                  name="ban-outline"
+                  onPress={() => {
+                    setContainerCost("0.00");
+                    setAmount("0");
+                  }}
+                />
+              )}
 
-              {/* Check */}
-              <Icon 
-                size={24}
-                color="black"
-                name="checkmark"
-                onPress={submitModal}
-              />
-
-              {/* X */}
-              <Icon 
-                size={24}
-                color="black"
-                name="close-outline"
-                onPress={exitModal}
-              />
+              <View className="flex flex-row justify-center items-center ml-auto">
+                {/* Check */}
+                <Icon 
+                  size={24}
+                  color="black"
+                  name="checkmark"
+                  onPress={submitModal}
+                />
+                {/* X */}
+                <Icon 
+                  size={24}
+                  color="black"
+                  name="close-outline"
+                  onPress={exitModal}
+                />
+              </View>
             </View>
           </View>
         </View>

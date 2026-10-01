@@ -14,10 +14,10 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
 // fractions
-var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
 // validation
+import isFraction from '../../components/Validation/isFraction';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 import validateWholeNumberInput from '../../components/Validation/validateWholeNumberInput';
 import validateDecimalInput from '../../components/Validation/validateDecimalInput';
@@ -116,6 +116,7 @@ export default function MealPrep ({ isSelectedTab }) {
     setPrepsIds(prepGlobal.data().preps.map((doc) => doc.id));
     setPrepsCompleted(prepGlobal.data().preps.map((doc) => doc.completed));
     setPrepsCustom(prepGlobal.data().preps.map((doc) => doc.custom));
+    setPrepsStarred(prepGlobal.data().preps.map((doc) => doc.starred));
 
     // gets the specific global prep info
     const prepId = prepGlobal?.data()?.id;
@@ -282,7 +283,7 @@ export default function MealPrep ({ isSelectedTab }) {
     const prepsArray = querySnapshot.docs.map((doc) => {
       const formattedPrep = {
         id: doc.id,
-        ... doc.data(),
+        ...doc.data(),
       };
       return formattedPrep;
     })
@@ -297,6 +298,7 @@ export default function MealPrep ({ isSelectedTab }) {
     setPrepsIds(prep.data().preps.map((doc) => doc.id));
     setPrepsCompleted(prep.data().preps.map((doc) => doc.completed));
     setPrepsCustom(prep.data().preps.map((doc) => doc.custom));
+    setPrepsStarred(prep.data().preps.map((doc) => doc.starred));
   };
 
 
@@ -434,16 +436,23 @@ export default function MealPrep ({ isSelectedTab }) {
         const variantId = selectedPrepData.variants[selectedPrepVariant].variantId;
         const prepIndex = prepsIds.indexOf(selectedPrepId);
 
-        const { [variantId]: _removedCompleted, ...newCompleted } = prepsCompleted[prepIndex];
-        const { [variantId]: _removedCustom, ...newCustom } = prepsCustom[prepIndex];
+        const { [variantId]: _removedCompleted, ...newCompleted } = prepsCompleted[prepIndex] || {};
+        const { [variantId]: _removedCustom, ...newCustom } = prepsCustom[prepIndex] || {};
+        const { [variantId]: _removedStarred, ...newStarred } = prepsStarred[prepIndex] || {};
 
         const prepsData = prepsIds.map((id, i) => ({
           id,
           completed: id === selectedPrepId ? newCompleted : prepsCompleted[i],
           custom: id === selectedPrepId ? newCustom : prepsCustom[i],
+          starred: id === selectedPrepId ? newStarred : prepsStarred[i],
         }));
 
         await updateDoc(doc(db, 'GLOBALS', 'prep'), { preps: prepsData });
+      
+        // stores the new data
+        setPrepsCompleted(prepsData.map((prep) => prep.completed));
+        setPrepsCustom(prepsData.map((prep) => prep.custom));
+        setPrepsStarred(prepsData.map((prep) => prep.starred));
 
         
       // when deleting the whole prep - no variants left
@@ -471,10 +480,22 @@ export default function MealPrep ({ isSelectedTab }) {
         const newIds = prepsIds.filter((_, index) => index !== prepIndex);
         const newCompleted = prepsCompleted.filter((_, index) => index !== prepIndex);
         const newCustom = prepsCustom.filter((_, index) => index !== prepIndex);
+        const newStarred = prepsStarred.filter((_, index) => index !== prepIndex);
         
-        const prepsData = newIds.map((id) => ({ id, completed: newCompleted[newIds.indexOf(id)], custom: newCustom[newIds.indexOf(id)] }));
+        const prepsData = newIds.map((id, i) => ({ 
+          id, 
+          completed: newCompleted[i], 
+          custom: newCustom[i], 
+          starred: newStarred[i], 
+        }));
         
         await updateDoc(doc(db, 'GLOBALS', 'prep'), { preps: prepsData });
+      
+        // stores the new data
+        setPrepsIds(newIds);
+        setPrepsCompleted(newCompleted);
+        setPrepsCustom(newCustom);
+        setPrepsStarred(newStarred);
       }
 
       // reset
@@ -585,8 +606,8 @@ export default function MealPrep ({ isSelectedTab }) {
   const calcAmounts = (data) => {
 
     // running totals
-    let totalCal = 0;
-    let totalPrice = 0;
+    let totalCal = new Fraction(0);
+    let totalPrice = new Fraction(0);
     
     // loops over the list of all ingredients
     data.currentAmounts.forEach((value, index) => {
@@ -596,13 +617,9 @@ export default function MealPrep ({ isSelectedTab }) {
 
         // general variables
         const current = data.currentData[index];
-        const storeKey = data.currentData[index].ingredientStore;
-        
-        // fractional calculations
-        const amount = new Fractional(value);
-        const servings = storeKey !== "-" ? new Fractional(current.ingredientData[storeKey].totalYield) : new Fractional(current.ingredientData["-"].servingSize);
-        const cals = storeKey !== "-" ? new Fractional(current.ingredientData[storeKey].calContainer) : new Fractional(current.ingredientData["-"].calServing);
-        const priceUnit = new Fractional(current.unitPrice);
+        const storeKey = current.ingredientStore;
+        const ingredientData = current.ingredientData || {};
+        const storeData = ingredientData[storeKey] || ingredientData["-"] || {};
         
         // invalid (1)
         if (value === "") {
@@ -616,55 +633,46 @@ export default function MealPrep ({ isSelectedTab }) {
           data.currentCals[index] = 0;
           data.currentPrices[index] = 0.00;
           
-        // validates the fractional value
-        } else if (amount !== 0 && !isNaN(amount.numerator) && !isNaN(amount.denominator) && amount.denominator !== 0) {
-
+        // validates the fraction value
+        } else if (isFraction(value)) {
           data.currentAmounts[index] = value;
           
+          // fraction calculations
+          const amount = new Fraction(value.trim());
+          const rawServing = storeKey !== "-" ? storeData.totalYield : storeData.servingSize;
+          const rawCal = storeKey !== "-" ? storeData.calContainer : storeData.calServing;
+          const rawPrice = current.unitPrice;
+          
+          const hasValidServing = isFraction(rawServing) && new Fraction(rawServing).valueOf() !== 0;
+          
           // calculate calories if the arguments are valid
-          if (!isNaN((new Fraction(servings.toString())) * 1) && !isNaN((new Fraction(cals.toString())) * 1)) {
-          
+          if (hasValidServing && isFraction(rawCal)) {
             // individual
-            data.currentCals[index] = new Fraction(amount.divide(servings).multiply(cals).toString()) * 1;
-          
+            data.currentCals[index] = amount.div(new Fraction(rawServing)).mul(new Fraction(rawCal)).valueOf();
             // overall
-            totalCal = data.currentIncluded[index] 
-              ? (new Fractional(totalCal)).add(amount.divide(servings).multiply(cals)).toString()
-              : totalCal;
-
+            if (data.currentIncluded[index]) {
+              totalCal = totalCal.add(amount.div(new Fraction(rawServing)).mul(new Fraction(rawCal)));
+            }
           // set individual calories to 0 if arguments are not valid
-          } else {
-            data.currentCals[index] = new Fraction(0) * 1;
-          }
+          } else { data.currentCals[index] = 0; }
 
           // calculates prices if the arguments are valid
-          if (!isNaN((new Fraction(priceUnit.toString())) * 1)) {
-          
+          if (isFraction(rawPrice)) {
             // individual
-            data.currentPrices[index] = new Fraction(amount.multiply(priceUnit).toString()) * 1;
-
+            data.currentPrices[index] = amount.mul(new Fraction(rawPrice)).valueOf();
             // overall
-            totalPrice = data.currentIncluded[index] 
-            ? (new Fractional(totalPrice)).add(amount.multiply(priceUnit)).toString()
-            : totalPrice;
-
+            if (data.currentIncluded[index]) {
+              totalPrice = totalPrice.add(amount.mul(new Fraction(rawPrice)));
+            }
           // set individual prices to 0 if arguments are not valid
-          } else {
-            data.currentPrices[index] = new Fraction(0) * 1;
-          }
-          
-        // if the amount is not valid
-        } else {
-          data.currentAmounts[index] = "";
-          data.currentCals[index] = "";
-          data.currentPrices[index] = "";
+          } else { data.currentPrices[index] = 0; }
         }
       }
     });
     
     // stores the rounded versions of the calories and price
-    data.prepCal = ((new Fraction(totalCal.toString())) * 1).toFixed(0);
-    data.prepPrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
+    data.prepCal = totalCal.valueOf().toFixed(0);
+    data.prepPrice = totalPrice.valueOf().toFixed(2);
 
     // returns the data for use of other functions
     return data;
@@ -686,15 +694,18 @@ export default function MealPrep ({ isSelectedTab }) {
         const amount = selectedPrepData.variants[selectedPrepVariant].currentAmounts[index];        // the current amount listed in the meal prep
 
         // recalculates the total and remaining amounts
-        if (data && total !== "" && amount !== "") {
-          
-          const calcAmountTotal = incrementing ? ((new Fractional(total)).add(new Fractional(amount))).toString() : ((new Fractional(total)).subtract(new Fractional(amount))).toString();
+        if (data && total !== "" && amount !== "" && selectedPrepData?.variants?.[selectedPrepVariant]?.currentIds?.[index]) {
+          if (isFraction(total) && isFraction(amount)) {
 
-          // updates the data in the current ingredient doc within the batch
-          batch.update(doc(db, 'CURRENTS', selectedPrepData.variants[selectedPrepVariant].currentIds[index]), {
-            check: calcAmountTotal.toString() === "0",
-            amountTotal: calcAmountTotal.toString(),
-          });
+            const calcAmountTotal = incrementing ? new Fraction(total).add(new Fraction(amount)) : new Fraction(total).sub(new Fraction(amount));
+            const formattedTotal = calcAmountTotal.toFraction(true);
+            
+            // updates the data in the current ingredient doc within the batch
+            batch.update(doc(db, 'CURRENTS', selectedPrepData.variants[selectedPrepVariant].currentIds[index]), {
+              check: calcAmountTotal.valueOf() === 0,
+              amountTotal: formattedTotal,
+            });
+          }
         }
       }
     }
@@ -725,8 +736,8 @@ export default function MealPrep ({ isSelectedTab }) {
       const currentData = currentDoc.data();
       const currentId = currentDoc.id;
       
-      let calcAmount = currentData.amountTotal;
-      if (calcAmount !== "") {
+      if (isFraction(currentData?.amountTotal || "")) {
+        let calcAmount = new Fraction(currentData.amountTotal.trim());
 
         // loop over all preps
         for (const prepDoc of prepsSnapshot?.docs) {
@@ -739,16 +750,16 @@ export default function MealPrep ({ isSelectedTab }) {
 
             // loops over all 12 ingredients and finds the ones that match the current
             for (let i = 0; i < 12; i++) {
-              if (varData.currentIds[i] === currentId && varData.currentIncluded?.[i] && varData.currentAmounts?.[i] !== "") {
-                calcAmount = ((new Fractional(calcAmount)).subtract((new Fractional(varData.currentAmounts[i])).multiply(new Fractional(varData.prepMult)))).toString();
+              if (varData.currentIds[i] === currentId && varData.currentIncluded?.[i] && isFraction(varData.currentAmounts?.[i] || "") && isFraction(varData?.prepMult || "")) {
+                calcAmount = calcAmount.sub(new Fraction(varData.currentAmounts[i].trim()).mul(new Fraction(varData.prepMult)));
               }
             }
           }
         }
 
         // adds the update to the batch for amountLeft if the amount has been changed
-        if (currentData.amountLeft !== calcAmount.toString()) {
-          batch.update(doc(db, 'CURRENTS', currentId), { amountLeft: calcAmount.toString() });
+        if (currentData.amountLeft !== calcAmount.simplify(0.001).toFraction(true) && currentId) {
+          batch.update(doc(db, 'CURRENTS', currentId), { amountLeft: calcAmount.simplify(0.001).toFraction(true) });
         }
       }
     }
@@ -757,9 +768,9 @@ export default function MealPrep ({ isSelectedTab }) {
     await batch.commit();
 
     // updates whether there is enough of each current ingredient left of the selected meal prep
-    updateEnoughLeft(selectedPrepData?.variants[selectedPrepVariant]);
+    if (selectedPrepData?.variants?.[selectedPrepVariant]) { updateEnoughLeft(selectedPrepData.variants[selectedPrepVariant]); }
     updateCurrents();
-  };
+  }
     
 
   ///////////////////////////////// AMOUNTS LEFT CALCULATIONS /////////////////////////////////
@@ -779,7 +790,7 @@ export default function MealPrep ({ isSelectedTab }) {
     for (let index = 0; index < 12; index++) {
       
       // if the current index has data and the multiplicity is not 0
-      if (calcData?.currentData[index] && calcData?.prepMult !== 0) {
+      if (calcData?.currentData?.[index] && calcData?.prepMult !== 0 && calcData?.currentIds[index] !== "") {
         
         // gets the current ingredient data
         const currentDocSnap = await getDoc(doc(db, 'CURRENTS', calcData.currentIds[index]));
@@ -874,11 +885,19 @@ export default function MealPrep ({ isSelectedTab }) {
     const newCustom = [...prepsCustom, { [prepData.variants[0].variantId]: "currents" }];
     setPrepsCustom(newCustom);
 
+    const newStarred = [...prepsStarred, { [prepData.variants[0].variantId]: false }];
+    setPrepsCustom(newStarred);
+
     const newIds = [...prepsIds, docId];
     setPrepsIds(newIds);
 
     // stores the new data
-    const prepsData = newIds.map((id) => ({ id, completed: newCompleted[newIds.indexOf(id)], custom: newCustom[newIds.indexOf(id) ]}));
+    const prepsData = newIds.map((id) => ({ 
+      id, 
+      completed: newCompleted[newIds.indexOf(id)], 
+      custom: newCustom[newIds.indexOf(id)],
+      starred: newStarred[newIds.indexOf(id)],
+    }));
     updateDoc(doc(db, 'GLOBALS', 'prep'), { preps: prepsData });
 
     // reload settings
@@ -936,11 +955,25 @@ export default function MealPrep ({ isSelectedTab }) {
         acc[id] = prepsCustom[prepIdx][id] ?? "currents";
         return acc;
       }, {});
+
+      // to restructure the current prep's starred
+      let newStarred = [...prepsStarred];
+      newStarred[prepIdx] = (vIds ?? []).reduce((acc, id) => {
+        acc[id] = prepsStarred[prepIdx][id] ?? false;
+        return acc;
+      }, {});
       
       // stores the new data
       setPrepsCompleted(newCompleted);
       setPrepsCustom(newCustom);
-      const prepsData = prepsIds.map((id) => ({ id, completed: newCompleted[prepsIds.indexOf(id)], custom: newCustom[prepsIds.indexOf(id)] }));
+      setPrepsStarred(newStarred);
+
+      const prepsData = prepsIds.map((id) => ({ 
+        id, 
+        completed: newCompleted[prepsIds.indexOf(id)], 
+        custom: newCustom[prepsIds.indexOf(id)], 
+        starred: newStarred[prepsIds.indexOf(id)], 
+      }));
       updateDoc(doc(db, 'GLOBALS', 'prep'), { preps: prepsData });
     }
 
@@ -965,12 +998,20 @@ export default function MealPrep ({ isSelectedTab }) {
       const newIds = prepsIds.filter((_, index) => index !== prepIdx);
       const newCompleted = prepsCompleted.filter((_, index) => index !== prepIdx);
       const newCustom = prepsCustom.filter((_, index) => index !== prepIdx);
+      const newStarred = prepsStarred.filter((_, index) => index !== prepIdx);
       
       // stores the new data
       setPrepsIds(newIds);
       setPrepsCompleted(newCompleted);
       setPrepsCustom(newCustom);
-      const prepsData = newIds.map((id) => ({ id, completed: newCompleted[newIds.indexOf(id)], custom: newCustom[newIds.indexOf(id)] }));
+      setPrepsStarred(newStarred);
+
+      const prepsData = newIds.map((id) => ({ 
+        id, 
+        completed: newCompleted[newIds.indexOf(id)], 
+        custom: newCustom[newIds.indexOf(id)],
+        starred: newStarred[newIds.indexOf(id)],
+      }));
       await updateDoc(doc(db, 'GLOBALS', 'prep'), { preps: prepsData });
 
       // restores data
@@ -991,20 +1032,20 @@ export default function MealPrep ({ isSelectedTab }) {
       const newIncluded = variant.currentIncluded.map((check, i) => i === index ? !check : check);
       
       // to populate the totals of this variant
-      let totalCal = 0;
-      let totalPrice = 0;
+      let totalCal = new Fraction(0);
+      let totalPrice = new Fraction(0);
 
       // loops over the checks to only add checked data
       for (let i = 0; i < 12; i++) {
         if (newIncluded[i]) {
-          totalCal += variant.currentCals[i] * 1;
-          totalPrice += variant.currentPrices[i] * 1;
+          totalCal = totalCal.add(isFraction(variant.currentCals[i]) ? new Fraction(variant.currentCals[i]) : new Fraction(0));
+          totalPrice = totalPrice.add(isFraction(variant.currentPrices[i]) ? new Fraction(variant.currentPrices[i]) : new Fraction(0));
         }
       }
 
       // conversions
-      totalCal = (new Fraction(totalCal) * 1).toFixed(0);
-      totalPrice = (new Fraction(totalPrice) * 1).toFixed(2);
+      totalCal = totalCal.valueOf().toFixed(0);
+      totalPrice = totalPrice.valueOf().toFixed(2);
 
       // rebuilds variant
       const updatedVariant = {
@@ -1054,13 +1095,13 @@ export default function MealPrep ({ isSelectedTab }) {
 
   // updates the current list of current ingredients
   const updateCurrents = async () => {
-
+    
     // gets the collection of current ingredients
     const querySnapshot = await getDocs(collection(db, 'CURRENTS'));
     const currents = querySnapshot.docs.map((doc) => {
       const formattedCurrent = {
         id: doc.id, 
-        ... doc.data()
+        ...doc.data()
       }
       return formattedCurrent;
     })
@@ -1437,7 +1478,7 @@ export default function MealPrep ({ isSelectedTab }) {
   // when an ingredient's details are clicked to view the modal
   const showCalcModal = (index) => {
     if (selectedPrepData?.variants?.[selectedPrepVariant]?.currentData[index] !== null) {
-      let amountUsed = "0";
+      let amountUsed = new Fraction(0);
       let prepsUsed = [];
       let amtsUsed = [];
 
@@ -1450,9 +1491,14 @@ export default function MealPrep ({ isSelectedTab }) {
             // loops over the matching ingredients and adds their amounts * prep mults
             for (let i = 0; i < 12; i++) {
               if (variant.currentData[i] && variant.currentIds[i] === selectedPrepData?.variants?.[selectedPrepVariant]?.currentIds[index]) {
-                prepsUsed.push((prep.variants.length === 1) ? (prep.prepName) : (prep.prepName + " (" + numberToRoman(idx + 1) + ")"));
-                amtsUsed.push(new Fractional(variant.currentAmounts[i]).multiply(new Fractional(variant.prepMult)));
-                amountUsed = (new Fractional(amountUsed).add(new Fractional(variant.currentAmounts[i]).multiply(new Fractional(variant.prepMult)))).toString();
+                if (isFraction(variant.currentAmounts[i]) && isFraction(variant.prepMult)) {
+                  const calculatedAmt = new Fraction(variant.currentAmounts[i]).mul(new Fraction(variant.prepMult));
+                  
+                  prepsUsed.push((prep.variants.length === 1) ? (prep.prepName) : (prep.prepName + " (" + numberToRoman(idx + 1) + ")"));
+                 
+                  amtsUsed.push(calculatedAmt.simplify(0.001).toFraction(true));
+                  amountUsed = amountUsed.add(calculatedAmt);
+                }
               }
             }
           })
@@ -1462,17 +1508,19 @@ export default function MealPrep ({ isSelectedTab }) {
       // for modal arguments
       setOtherPrepsUsed(prepsUsed);
       setOtherAmtsUsed(amtsUsed);
-      setTotalAmtUsed(amountUsed);
+      setTotalAmtUsed(amountUsed.simplify(0.001).toFraction(true));
 
       // for other variants
       let altPreps = [];
 
       const currId = selectedPrepData.variants[selectedPrepVariant].currentIds[index];
 
+      // loops over other variants
       selectedPrepData.variants.forEach((variant, idx) => {
+        // not the current variant
         if (idx !== selectedPrepVariant) {
           const currIdx = selectedPrepData.variants[idx].currentIds.indexOf(currId);
-
+          
           if (currIdx !== -1) {
             altPreps.push({
               variant: idx + 1,
@@ -1504,11 +1552,12 @@ export default function MealPrep ({ isSelectedTab }) {
   }
     
   
-  ///////////////////////////////// PREP COMPLETION & CUSTOM /////////////////////////////////
+  ///////////////////////////////// PREP COMPLETION & CUSTOM & STARRED /////////////////////////////////
 
   const [prepsIds, setPrepsIds] = useState(null);
   const [prepsCompleted, setPrepsCompleted] = useState(null);
   const [prepsCustom, setPrepsCustom] = useState(null);
+  const [prepsStarred, setPrepsStarred] = useState(null);
 
   // to toggle the current prep's selected checkbox
   const changeCompleted = async () => {
@@ -1520,7 +1569,12 @@ export default function MealPrep ({ isSelectedTab }) {
     newCompleted[prepIdx][variantId] = !prepsCompleted[prepIdx][variantId];
     
     // stores the data for the db
-    const prepsData = prepsIds.map((id) => ({ id, completed: newCompleted[prepsIds.indexOf(id)], custom: prepsCustom[prepsIds.indexOf(id)] }));
+    const prepsData = prepsIds.map((id) => ({ 
+      id, 
+      completed: newCompleted[prepsIds.indexOf(id)], 
+      custom: prepsCustom[prepsIds.indexOf(id)],
+      starred: prepsStarred[prepsIds.indexOf(id)],
+    }));
       
     // stores the change
     updateDoc(doc(db, 'GLOBALS', 'prep'), { preps: prepsData });
@@ -1544,7 +1598,12 @@ export default function MealPrep ({ isSelectedTab }) {
     newCustom[prepIdx][variantId] = value;
     
     // stores the data for the db
-    const prepsData = prepsIds.map((id) => ({ id, completed: prepsCompleted[prepsIds.indexOf(id)], custom: newCustom[prepsIds.indexOf(id)] }));
+    const prepsData = prepsIds.map((id) => ({ 
+      id, 
+      completed: prepsCompleted[prepsIds.indexOf(id)], 
+      custom: newCustom[prepsIds.indexOf(id)],
+      starred: prepsStarred[prepsIds.indexOf(id)],
+    }));
       
     // stores the change
     updateDoc(doc(db, 'GLOBALS', 'prep'), { preps: prepsData });
@@ -1581,6 +1640,35 @@ export default function MealPrep ({ isSelectedTab }) {
 
     // recalc amounts left globally
     await calcAllAmountsLeft();
+  }
+
+  // to toggle the current prep's starred status
+  const changeStarred = async () => {
+    const prepIdx = prepsIds.indexOf(selectedPrepId);
+    
+    // changes only the current prep's selection
+    const variantId = selectedPrepData.variants[selectedPrepVariant].variantId;
+    let newStarred = [...prepsStarred];
+    newStarred[prepIdx][variantId] = !prepsStarred[prepIdx][variantId];
+    
+    // stores the data for the db
+    const prepsData = prepsIds.map((id) => ({ 
+      id, 
+      completed: prepsCompleted[prepsIds.indexOf(id)], 
+      custom: prepsCustom[prepsIds.indexOf(id)],
+      starred: newStarred[prepsIds.indexOf(id)],
+    }));
+      
+    // stores the change
+    updateDoc(doc(db, 'GLOBALS', 'prep'), { preps: prepsData });
+    setPrepsStarred(newStarred);
+
+    // reloads
+    setPrepDropdownOpen(false);
+    await reloadPrep(selectedPrepId, false);
+
+    // reload settings
+    refreshPreps();
   }
     
   
@@ -1648,20 +1736,37 @@ export default function MealPrep ({ isSelectedTab }) {
 
     // gets the new prep data
     let data = {...selectedPrepData};
-    data.variants[selectedPrepVariant] = {
-      currentAmounts: data.variants[selectedPrepVariant].currentAmounts.filter((_, i) => i !== index), 
-      currentCals: data.variants[selectedPrepVariant].currentCals.filter((_, i) => i !== index), 
-      currentData: data.variants[selectedPrepVariant].currentData.filter((_, i) => i !== index), 
-      currentIds: data.variants[selectedPrepVariant].currentIds.filter((_, i) => i !== index), 
-      currentPrices: data.variants[selectedPrepVariant].currentPrices.filter((_, i) => i !== index),
-      currentIncluded: data.variants[selectedPrepVariant].currentIncluded.filter((_, i) => i !== index),
-      prepCal: (data.variants[selectedPrepVariant].currentCals.map(cal => new Fractional(cal).numerator / new Fractional(cal).denominator).filter(cal => !isNaN(cal)).reduce((sum, cal) => sum + cal, 0)).toFixed(0), 
-      prepMult: data.variants[selectedPrepVariant].prepMult,
-      prepName: data.variants[selectedPrepVariant].prepName,
-      prepNote: data.variants[selectedPrepVariant].prepNote,
-      prepPrice: (data.variants[selectedPrepVariant].currentPrices.map(cal => new Fractional(cal).numerator / new Fractional(cal).denominator).filter(cal => !isNaN(cal)).reduce((sum, cal) => sum + cal, 0)).toFixed(2), 
-      prepId: selectedPrepId,
-      variantId: data.variants[selectedPrepVariant].variantId,
+    const activeVariant = data.variants?.[selectedPrepVariant];
+    if (activeVariant) {
+
+      // filters out the deleted index across all array properties
+      const updatedAmounts = (activeVariant.currentAmounts || []).filter((_, i) => i !== index);
+      const updatedCals = (activeVariant.currentCals || []).filter((_, i) => i !== index);
+      const updatedData = (activeVariant.currentData || []).filter((_, i) => i !== index);
+      const updatedIds = (activeVariant.currentIds || []).filter((_, i) => i !== index);
+      const updatedPrices = (activeVariant.currentPrices || []).filter((_, i) => i !== index);
+      const updatedIncluded = (activeVariant.currentIncluded || []).filter((_, i) => i !== index);
+
+      // accumulates totals on the updates arrays
+      let totalCal = new Fraction(0);
+      updatedIncluded.forEach((isIncluded, i) => {
+        if (isIncluded) {
+          if (isFraction(updatedCals[i])) { totalCal = totalCal.add(new Fraction(updatedCals[i])); }
+        }
+      });
+
+      // rebuilds the updated variant
+      data.variants[selectedPrepVariant] = {
+        ...activeVariant,
+        currentAmounts: updatedAmounts,
+        currentCals: updatedCals,
+        currentData: updatedData,
+        currentIds: updatedIds,
+        currentPrices: updatedPrices,
+        currentIncluded: updatedIncluded,
+        prepCal: totalCal.valueOf().toFixed(0),
+        prepId: selectedPrepId,
+      };
     }
 
     // updates totals
@@ -1698,10 +1803,7 @@ export default function MealPrep ({ isSelectedTab }) {
   // when changing numerical values
   const updateTotals = (data) => {
     let prepData = {...data};
-    
     prepData.variants[selectedPrepVariant].prepCal = (prepData.variants[selectedPrepVariant].currentCals ?? []).reduce((sum, cal) => sum + Number(cal), 0).toFixed(0);
-    prepData.variants[selectedPrepVariant].prepPrice = (prepData.variants[selectedPrepVariant].currentPrices ?? []).reduce((sum, price) => sum + Number(price), 0).toFixed(2);
-
     setSelectedPrepData(prepData);
     return prepData;
   }
@@ -1711,6 +1813,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
   const [copyModalVisible, setCopyModalVisible] = useState(false);
   const [plansSnapshot, setPlansSnapshot] = useState(null);
+  const [plansDates, setPlansDates] = useState(null);
 
   // gets the list of plans and open the copy modal
   const fetchPlans = async () => {
@@ -1767,6 +1870,14 @@ export default function MealPrep ({ isSelectedTab }) {
   }
   
   
+  ///////////////////////////////// DYNAMIC WIDTHS /////////////////////////////////
+  
+  const [normalInputWidth, setNormalInputWidth] = useState(new Array(12).fill(6));
+  const [customUnitWidth, setCustomUnitWidth] = useState([6]);
+  const [customAmtWidth, setCustomAmtWidth] = useState([6]);
+  const [customCalWidth, setCustomCalWidth] = useState([6]);
+  
+  
   ///////////////////////////////// SCROLLING /////////////////////////////////
   
   const [scrollY, setScrollY] = useState(0);
@@ -1798,15 +1909,15 @@ export default function MealPrep ({ isSelectedTab }) {
 
       {/* TOP SECTION */}
       {((selectedPrepData !== null) && (prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] !== "simple")) && (
-        <View className="flex flex-row w-5/6 h-[13.5%] justify-center items-center">
+        <View className="flex flex-row px-5 h-[13.5%] justify-center items-center">
 
           {/* NOTES */}
-          <View className="bg-zinc200 w-full h-[50px]">
+          <View className="flex flex-1 bg-zinc200 h-[50px]">
 
             {/* text input */}
             <TextInput
               value={selectedNote}
-              onChangeText={setSelectedNote}
+              onChangeText={(note) => setSelectedNote(note.replaceAll('\'', '’'))}
               onBlur={() => dbNote()}
               multiline={true}
               placeholder="notes"
@@ -1831,13 +1942,15 @@ export default function MealPrep ({ isSelectedTab }) {
             </View>
           </View>
 
-          {/* SAVE AS RECIPE */}
-          {(prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "currents") && (
-            <View className="flex pl-2">
+          {/* BUTTONS */}
+          <View className="flex flex-col pl-2 justify-center items-center space-y-1">
+
+            {/* save as recipe */}
+            {(prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "currents") && (
               <Icon
                 name="bookmarks"
-                size={24}
-                color={colors.zinc800}
+                size={20}
+                color={colors.theme900}
                 onPress={() => {
                   if (selectedPrepId !== null) {
                     setDeleteAfterSave(false);
@@ -1845,8 +1958,16 @@ export default function MealPrep ({ isSelectedTab }) {
                   }
                 }}
               />
-            </View>
-          )}
+            )}
+
+            {/* INFO - non simple */}
+            <Icon
+              name={prepsStarred?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] ? "star" : "star-outline"}
+              color={prepsStarred?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] ? colors.zinc700 : colors.zinc450}
+              size={14}
+              onPress={changeStarred}
+            />
+          </View>
         </View>
       )}
 
@@ -2000,7 +2121,7 @@ export default function MealPrep ({ isSelectedTab }) {
                                     : (prep?.id === selectedPrepId ? "text-mauve500 line-through decoration-double" : "text-zinc500 line-through decoration-double")
                                   )
                                 }`}>
-                                  {`\u00A0(${prep.variants.map(v => `${v.prepMult}`).join(':')})\u00A0`}
+                                  {`\u00A0(${prep.variants.map(v => `${v.prepMult}${prepsStarred[prepsIds.indexOf(prep.id)]?.[v.variantId] ? "✶" : ""}`).join(':')})\u00A0`}
                                 </Text>
                               }
                               <Text className={`text-[12px] font-bold ${
@@ -2150,6 +2271,7 @@ export default function MealPrep ({ isSelectedTab }) {
           {/* simple custom */}
           {(prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "simple") ? (
             <View className="flex flex-col max-h-[60%] bg-zinc700 w-full justify-center items-center px-8 py-12">
+
               {/* Note Input */}
               <View className="flex justify-center items-center w-full bg-white rounded-t-lg py-6 border-0.5 border-zinc500">
                 <TextInput
@@ -2164,7 +2286,7 @@ export default function MealPrep ({ isSelectedTab }) {
                       if (!prev) return prev;
 
                       const updatedVariants = [...prev.variants];
-                      updatedVariants[selectedPrepVariant].prepNote = value;
+                      updatedVariants[selectedPrepVariant].prepNote = value.replaceAll('\'', '’');
                       
                       return { ...prev, variants: updatedVariants, };
                     });
@@ -2174,6 +2296,18 @@ export default function MealPrep ({ isSelectedTab }) {
                     updateComplexPrep(-1);
                   }}
                 />
+
+                {/* STAR - SIMPLE */}
+                {(prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "simple") &&
+                  <View className="absolute w-full top-1 right-1 justify-end items-end z-50">
+                    <Icon
+                      name={prepsStarred?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] ? "star" : "star-outline"}
+                      color={prepsStarred?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] ? colors.zinc700 : colors.zinc450}
+                      size={16}
+                      onPress={changeStarred}
+                    />
+                  </View>
+                }
               </View>
 
               {/* Details Input */}
@@ -2259,7 +2393,7 @@ export default function MealPrep ({ isSelectedTab }) {
                           const updatedVariants = [...prev.variants];
                           const updatedCurrentData = [...updatedVariants[selectedPrepVariant].currentData];
 
-                          updatedCurrentData[index] = { ...updatedCurrentData[index], ingredientName: value, };
+                          updatedCurrentData[index] = { ...updatedCurrentData[index], ingredientName: value.replaceAll('\'', '’'), };
                           updatedVariants[selectedPrepVariant] = { ...updatedVariants[selectedPrepVariant], currentData: updatedCurrentData, };
 
                           return { ...prev, variants: updatedVariants, };
@@ -2280,9 +2414,10 @@ export default function MealPrep ({ isSelectedTab }) {
 
                     {/* amount and units */}
                     {selectedPrepData?.variants?.[selectedPrepVariant]?.currentData?.[index] ?
-                      <View className="flex flex-row space-x-[3px]">
+                      <View className="flex flex-row space-x-[3px] justify-center items-center">
                         {/* Amount */}
                         <TextInput
+                          key={`a-${selectedPrepVariant}-${index}`}
                           className="text-black text-[10px] text-center pl-4"
                           placeholder="_"
                           placeholderTextColor={colors.zinc450}
@@ -2300,6 +2435,17 @@ export default function MealPrep ({ isSelectedTab }) {
                               return { ...prev, variants: updatedVariants, };
                             });
                           }}
+                          // onLayout={(e) => {
+                          //   const width = e.nativeEvent.layout.width;
+                          //   console.log(customAmtWidth)
+                          //   setCustomAmtWidth((prevWidths) => {
+                          //     if (prevWidths[index] === width) return prevWidths;
+                          //     const nextWidths = [...prevWidths];
+                          //     nextWidths[index] = width;
+                          //     return nextWidths;
+                          //   });
+                          // }}
+                          // style={{ minWidth: customAmtWidth[index] }}
                           blurOnSubmit={true}
                           onFocus={() => setIsKeyboardOpen(true)}
                           onBlur={() => {
@@ -2309,6 +2455,7 @@ export default function MealPrep ({ isSelectedTab }) {
                         />
                         {/* Unit */}
                         <TextInput
+                          key={`u-${selectedPrepVariant}-${index}`}
                           className="text-black text-[10px] text-center pr-4"
                           placeholder="units"
                           placeholderTextColor={colors.zinc450}
@@ -2320,12 +2467,23 @@ export default function MealPrep ({ isSelectedTab }) {
                               const updatedVariants = [...prev.variants];
                               const updatedCurrentData = [...updatedVariants[selectedPrepVariant].currentData];
 
-                              updatedCurrentData[index].ingredientData[current.ingredientStore].unit = value;
+                              updatedCurrentData[index].ingredientData[current.ingredientStore].unit = value.replaceAll('\'', '’');
                               updatedVariants[selectedPrepVariant] = { ...updatedVariants[selectedPrepVariant], currentData: updatedCurrentData, };
 
                               return { ...prev, variants: updatedVariants, };
                             });
                           }}
+                          // onLayout={(e) => {
+                          //   const width = e.nativeEvent.layout.width;
+                          //   console.log(customUnitWidth)
+                          //   setCustomUnitWidth((prevWidths) => {
+                          //     if (prevWidths[index] === width) return prevWidths;
+                          //     const nextWidths = [...prevWidths];
+                          //     nextWidths[index] = width;
+                          //     return nextWidths;
+                          //   });
+                          // }}
+                          // style={{ minWidth: customUnitWidth[index] }}
                           blurOnSubmit={true}
                           onFocus={() => setIsKeyboardOpen(true)}
                           onBlur={() => {
@@ -2343,6 +2501,7 @@ export default function MealPrep ({ isSelectedTab }) {
                     {/* calories */}
                     <View className="flex flex-row justify-center items-center space-x-1">
                       <TextInput
+                        key={`c-${selectedPrepVariant}-${index}`}
                         className="text-black text-[10px]"
                         placeholder="_"
                         placeholderTextColor={colors.zinc450}
@@ -2362,6 +2521,17 @@ export default function MealPrep ({ isSelectedTab }) {
                             return newData;
                           });
                         }}
+                        // onContentSizeChange={(e) => { 
+                        //   const width = e.nativeEvent.contentSize.width; 
+                        //   console.log(customCalWidth);
+                        //   setCustomCalWidth((prevWidths) => {
+                        //     if (prevWidths[index] === width) return prevWidths;
+                        //     const nextWidths = [...prevWidths];
+                        //     nextWidths[index] = width;
+                        //     return nextWidths;
+                        //   });
+                        // }}
+                        // style={{ minWidth: customCalWidth[index] }}
                         blurOnSubmit={true}
                         onFocus={() => setIsKeyboardOpen(true)}
                         onBlur={() => {
@@ -2369,7 +2539,6 @@ export default function MealPrep ({ isSelectedTab }) {
                           updateComplexPrep(index);
                         }}
                       />
-                      
                       {/* label */}
                       <Text className="text-[10px]">cal</Text>
                     </View>
@@ -2456,10 +2625,20 @@ export default function MealPrep ({ isSelectedTab }) {
 
                     {/* amount and units */}
                     {selectedPrepData?.variants?.[selectedPrepVariant]?.currentData?.[index] ?
-                      <View className="flex flex-row space-x-[3px]">
+                      <View className="flex flex-row space-x-[1px]">
                         {/* Input Amount */}
                         <TextInput
-                          key={index}
+                          key={`n-${selectedPrepVariant}-${index}`}
+                          onContentSizeChange={(e) => { 
+                            const width = e.nativeEvent.contentSize.width; 
+                            setNormalInputWidth((prevWidths) => {
+                              if (prevWidths[index] === width) return prevWidths;
+                              const nextWidths = [...prevWidths];
+                              nextWidths[index] = width;
+                              return nextWidths;
+                            });
+                          }}
+                          style={{ minWidth: normalInputWidth[index] }}
                           className="text-[10px] leading-[12px] text-center"
                           placeholder={(selectedPrepData?.variants?.[selectedPrepVariant]?.currentData[index] !== null && selectedPrepData?.variants[selectedPrepVariant].currentAmounts[index] !== "") ? selectedPrepData?.variants[selectedPrepVariant].currentAmounts[index] : "_"}
                           placeholderTextColor="black"
@@ -2537,13 +2716,14 @@ export default function MealPrep ({ isSelectedTab }) {
               othersUsed={otherPrepsUsed}
               selectedUsed={null}
               altPrepVariants={altPrepVariants}
-              amountContainer={new Fraction(selectedPrepData.variants[selectedPrepVariant].currentData[calcIndex].amountTotal === "" ? 0 : selectedPrepData.variants[selectedPrepVariant].currentData[calcIndex].amountTotal) * 1}
+              amountContainer={isFraction(selectedPrepData.variants[selectedPrepVariant].currentData[calcIndex].amountTotal) ? new Fraction(selectedPrepData.variants[selectedPrepVariant].currentData[calcIndex].amountTotal).valueOf() : 0}
               servingSize={
-                new Fraction(selectedPrepData?.variants[selectedPrepVariant].currentData[calcIndex].ingredientData[selectedPrepData?.variants[selectedPrepVariant].currentData[calcIndex].ingredientStore].servingSize) * 1 === 0 
-                ? // if completely custom
-                  1
-                : // if pre-existing
-                  new Fraction (selectedPrepData?.variants[selectedPrepVariant].currentData[calcIndex].ingredientData[selectedPrepData?.variants[selectedPrepVariant].currentData[calcIndex].ingredientStore].servingSize) * 1
+                (() => {
+                  const rawServing = selectedPrepData?.variants?.[selectedPrepVariant]?.currentData?.[calcIndex]?.ingredientData?.[selectedPrepData?.variants?.[selectedPrepVariant]?.currentData?.[calcIndex]?.ingredientStore]?.servingSize;
+                  return isFraction(rawServing) && new Fraction(rawServing).valueOf() !== 0
+                    ? rawServing   // pre-existing
+                    : "1";         // completely custom
+                })()
               }
             />
           )}

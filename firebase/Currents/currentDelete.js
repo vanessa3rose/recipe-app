@@ -3,6 +3,9 @@
 // fractions
 import Fraction from 'fraction.js';
 
+// validation
+import isFraction from '../../components/Validation/isFraction';
+
 // initialize firebase app
 import { getFirestore, doc, deleteDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { app } from '../../firebase.config';
@@ -96,8 +99,8 @@ export async function currentDelete (currentId) {
             }
 
             // sets the calculated data
-            variant.prepCal = ((new Fraction(totalCal.toString())) * 1).toFixed(0);
-            variant.prepPrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
+            variant.prepCal = isFraction(totalCal) ? new Fraction(totalCal).valueOf().toFixed(0) : "0";
+            variant.prepPrice = isFraction(totalPrice) ? new Fraction(totalPrice).valueOf().toFixed(2) : "0.00";
           }
         }
       })

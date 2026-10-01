@@ -529,7 +529,7 @@ const ModIngredientModal = ({
                 multiline={true}
                 blurOnSubmit={true}
                 value={ingredientName}
-                onChangeText={setIngredientName}
+                onChangeText={(value) => setIngredientName(value.replaceAll('\'', '’'))}
               />
             </View>
 
@@ -562,7 +562,7 @@ const ModIngredientModal = ({
                         placeholderTextColor={colors.zinc500}
                         className="w-full text-[12px] leading-[14px] text-center pb-1"
                         value={customType}
-                        onChangeText={setCustomType}
+                        onChangeText={(value) => setCustomType(value.replaceAll('\'', '’'))}
                         multiline={true}
                         blurOnSubmit={true}
                       />
@@ -653,7 +653,7 @@ const ModIngredientModal = ({
                   onChangeText={(value) => {
                     setLink((prev) => {
                       const updated = { ...prev }; 
-                      updated[store] = value.slice(value.lastIndexOf(" ") + 1);
+                      updated[store] = value.slice(value.lastIndexOf(" ") + 1).replaceAll('\'', '’');
                       return updated;
                     })
                   }}
@@ -694,7 +694,7 @@ const ModIngredientModal = ({
                       <View className="flex flex-row">
                         <TextInput
                           value={brand[store]}
-                          onChangeText={(value) => filterBrandList(store, value)}
+                          onChangeText={(value) => filterBrandList(store, value.replaceAll('\'', '’'))}
                           placeholder="brand"
                           placeholderTextColor={colors.zinc500}
                           className={`flex w-full h-[45px] bg-theme200 border-[1px] border-zinc400 text-[14px] text-center leading-[17px] ${filteredBrandLists[store].map(brand => brand.value).includes(brand[store]) ? "text-mauve800" : "text-black"} ${(brand[store] === "") && "italic"} ${brandDropdownOpen[store] ? "rounded-t-[5px] border-b-0" : "rounded-[5px]"}`}
@@ -793,7 +793,7 @@ const ModIngredientModal = ({
                               placeholder="unit(s)"
                               placeholderTextColor={colors.zinc400}
                               value={unit[store]}
-                              onChangeText={(value) => filterUnits(value, store)}
+                              onChangeText={(value) => filterUnits(value.replaceAll('\'', '’'), store)}
                             />
 
                             {/* dropdown */}

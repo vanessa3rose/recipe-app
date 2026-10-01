@@ -1,8 +1,10 @@
 ///////////////////////////////// IMPORTS /////////////////////////////////
 
 // fractions
-var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
+
+// validation
+import isFraction from '../../components/Validation/isFraction';
 
 // initialize firebase app
 import { getFirestore, collection, updateDoc, doc, getDocs, writeBatch } from 'firebase/firestore';
@@ -19,7 +21,7 @@ const currentEdit = async ({
     unitPrice,
 }) => {
 
-
+  
   ///////////////////////////////// FUNCTION /////////////////////////////////
 
   try {
@@ -69,13 +71,13 @@ const currentEdit = async ({
     // loops over all meal preps
     prepsSnapshot.docs.forEach((prepDoc) => {
       let prepData = prepDoc.data();
-      let prepModified = false; // tracks if prep changes were made
+      let prepModified = false;
 
       // loops over the variants
       prepData.variants?.forEach((variant) => {
-        if (variant.currentIds && Array.isArray(variant.currentIds)) {
-          let variantModified = false; // tracks if variant changes were made
-
+        if (Array.isArray(variant?.currentIds)) {
+          let variantModified = false;
+          
           // only updates meal prep ingredients if they match the edited one's id
           variant.currentIds.forEach((id, index) => {
             if (id !== null && id === editingId) {
@@ -90,26 +92,30 @@ const currentEdit = async ({
 
               // if the current ingredient data is valid
               if (current !== null) {
-  
-                // simple calculations
                 const storeKey = current.ingredientStore;
-                const amount = new Fractional(variant.currentAmounts[index] === "" ? 0 : variant.currentAmounts[index]);
-                const servings = storeKey !== "-" ? new Fractional(current.ingredientData[storeKey].totalYield) : new Fractional(current.ingredientData["-"].servingSize);
-                const cals = storeKey !== "-" ? new Fractional(current.ingredientData[storeKey].calContainer) : new Fractional(current.ingredientData["-"].calServing);
-                const priceUnit = new Fractional(current.unitPrice);
-                
-                // calculations for the recipeData based on the amount of the current recipe
-                if (isNaN(new Fraction(amount.toString()).valueOf()) || isNaN(new Fraction(priceUnit.toString()).valueOf()) || isNaN(new Fraction(servings.toString()).valueOf()) || isNaN(new Fraction(cals.toString()).valueOf())) {
-                  variant.currentCals[index] = "";
-                  variant.currentPrices[index] = "";
-                } else if (amount.toString() === 0) {
-                  variant.currentCals[index] = 0;
-                  variant.currentPrices[index] = 0;
-                } else {
-                  variant.currentCals[index] = (new Fraction((amount.divide(servings)).multiply(cals).toString()) * 1);
-                  variant.currentPrices[index] = (new Fraction((amount.multiply(priceUnit)).toString()) * 1);
-                }
 
+                // simple calculations
+                const rawAmount = isFraction(variant.currentAmounts?.[index]) ? variant.currentAmounts[index] : "0";
+                const rawServing = storeKey !== "-" ? current.ingredientData?.[storeKey]?.totalYield : current.ingredientData?.["-"]?.servingSize.trim();
+                const rawCal = storeKey !== "-" ? current.ingredientData?.[storeKey]?.calContainer : current.ingredientData?.["-"]?.calServing;
+                const rawPrice = current.unitPrice;
+                
+                // validation
+                const hasValidCalInputs = isFraction(rawAmount) && isFraction(rawServing) && isFraction(rawCal) && new Fraction(rawServing).valueOf() !== 0;
+                const hasValidPriceInputs = isFraction(rawAmount) && isFraction(rawPrice);
+                
+                // calculate calories
+                if (hasValidCalInputs) {
+                  variant.currentCals[index] = new Fraction(rawAmount).valueOf() === 0 
+                    ? "0" : new Fraction(rawAmount).div(new Fraction(rawServing)).mul(new Fraction(rawCal)).valueOf().toFixed(0);
+                } else { variant.currentCals[index] = ""; }
+                
+                // calculate prices
+                if (hasValidPriceInputs) {
+                  variant.currentPrices[index] = new Fraction(rawAmount).valueOf() === 0 
+                    ? "0.00" : new Fraction(rawAmount).mul(new Fraction(rawPrice)).valueOf().toFixed(2);
+                } else { variant.currentPrices[index] = ""; }
+                
               // if the current ingredient is not valid, clear its values
               } else {
                 variant.currentAmounts[index] = "";
@@ -125,22 +131,22 @@ const currentEdit = async ({
 
           // only updates if the variant has been modified
           if (variantModified) {
-        
+            
             // running totals
-            let totalCal = 0;
-            let totalPrice = 0;
+            let totalCal = new Fraction(0);
+            let totalPrice = new Fraction(0);
     
-            // loops over the 12 ingredients and performs calculations
-            for (var i = 0; i < 12; i++) {
+            // loops over the ingredients and performs calculations
+            for (var i = 0; i < variant?.currentData?.length; i++) {
               // total calories
-              if (variant.currentCals[i] !== "" && variant.currentIncluded[i]) { totalCal += variant.currentCals[i]; }
+              if (isFraction(variant.currentCals[i]) && variant.currentIncluded[i]) { totalCal = totalCal.add(new Fraction(variant.currentCals[i])); }
               // total price
-              if (variant.currentPrices[i] !== "" && variant.currentIncluded[i]) { totalPrice += variant.currentPrices[i]; }
+              if (isFraction(variant.currentPrices[i]) && variant.currentIncluded[i]) { totalPrice = totalPrice.add(new Fraction(variant.currentPrices[i])); }
             }
-
+            
             // sets the calculated data
-            variant.prepCal = ((new Fraction(totalCal.toString())) * 1).toFixed(0);
-            variant.prepPrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
+            variant.prepCal = totalCal.valueOf().toFixed(0);
+            variant.prepPrice = totalPrice.valueOf().toFixed(2);
           }
         }
       })

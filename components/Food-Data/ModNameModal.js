@@ -383,7 +383,7 @@ const ModNameModal = ({
                   value={searchQuery}
                   onChangeText={(value) => {
                     if (value !== oldValue) { setFilterMatch(false); }
-                    setSearchQuery(value);
+                    setSearchQuery(value.replaceAll('\'', '’'));
                     setEditingId(null);
                   }}
                   placeholder="search for ingredient"
@@ -512,7 +512,7 @@ const ModNameModal = ({
             <TextInput 
               value={oldValue}
               onChangeText={(value) => {
-                if (filterMatch) { setSearchQuery(value); }
+                if (filterMatch) { setSearchQuery(value.replaceAll('\'', '’')); }
                 setOldValue(value);
               }}
               placeholder="original"
@@ -533,7 +533,7 @@ const ModNameModal = ({
             {/* new value input */}
             <TextInput 
               value={newValue}
-              onChangeText={setNewValue}
+              onChangeText={(value) => setNewValue(value.replaceAll('\'', '’'))}
               placeholder="new"
               placeholderTextColor={colors.zinc450}
               className={`text-[13px] w-5/12 bg-zinc300 text-center py-2 px-1 rounded-md border border-zinc100 ${(oldValue === "") && "italic"}`}
@@ -561,7 +561,7 @@ const ModNameModal = ({
                     ? // editing
                       <TextInput
                         value={editingValue}
-                        onChangeText={setEditingValue}
+                        onChangeText={(value) => setEditingValue(value.replaceAll('\'', '’'))}
                         className="text-left text-[12.5px] leading-[14px] font-medium text-white italic"
                         multiline={true}
                         blurOnSubmit={true}

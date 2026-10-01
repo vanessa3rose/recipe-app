@@ -14,9 +14,10 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
 // fractions
-var Fractional = require('fractional').Fraction;
+import Fraction from 'fraction.js';
 
 // validation
+import isFraction from '../../components/Validation/isFraction';
 import { numberToRoman } from '../../components/Validation/numberToRoman';
 
 // modals
@@ -997,28 +998,35 @@ export default function WeeklyPlan ({ isSelectedTab }) {
   }, [selectedPrepId]);
 
   // function to loop over the prepData to create dropdown items for each
-  const fetchDropdownItems = async (completed, data) => {
+  const fetchDropdownItems = async (preps, data) => {
 
     // flattens the completed preps
-    const completedFlattened = (completed ?? []).reduce((acc, prep) => { return { ...acc, ...prep.completed }; }, {});
+    const completedFlattened = (preps ?? []).reduce((acc, prep) => { return { ...acc, ...prep.completed }; }, {});
     // filters the data to replace noncompleted with null
-    const filteredData = data.map(prep => ({
+    const filteredData = (data ?? []).map(prep => ({
       ...prep,
-      variants: prep?.variants.map(v => completedFlattened[v.variantId] ? v : null)
+      variants: (prep?.variants ?? []).map(v => completedFlattened[v.variantId] ? v : null)
     }));
 
     setFilteredPrepData(filteredData);
+    
+    // pre-flatten stars
+    const stars = (preps ?? []).reduce((acc, prep) => { return { ...acc, ...prep.starred }; }, {});
 
     // stores the updated dropdown items
     let updatedItems = await Promise.all(
       filteredData.map(async (prep) => {
+
+        // gets starred
+        const variantsStarred = (prep?.variants ?? [])?.map(v => stars[v?.variantId]);
         
         // gets all variant's remaining amounts
         const variantRemainings = await Promise.all(prep?.variants.map((variant, index) => ((variant !== null) ? calcRemaining(prep.id, index, selectedPrepVariant, variant) : null)));
-        const remaining = variantRemainings.filter(rem => rem !== null).join(':');
+        const remaining = variantRemainings?.filter(rem => rem !== null);
+        const remainingStarred = variantRemainings?.filter(rem => rem !== null)?.map((rem, i) => variantsStarred[i] ? rem + "✶" : rem);
         
         // gets totals
-        const split = remaining.split(":").filter(amt => amt !== "");
+        const split = remaining.filter(amt => amt !== "");
         const length = split.length;
         const numPositive = split.filter(amt => Number(amt) > 0).length;
         const numZero = split.filter(amt => Number(amt) === 0).length;
@@ -1026,7 +1034,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
 
         // reformats
         return {
-          label: `(${remaining}) ${prep.prepName}`,
+          label: `(${remainingStarred.join(':')}) ${prep.prepName}`,
           value: prep.id,
           key: prep.id,
           labelStyle: { color: 'black' },
@@ -1685,14 +1693,11 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                 <Text className="text-white text-[12px]">
                   {
                     (() => {
-                      const lunch = new Fractional(data?.meals?.lunch?.prepData?.prepCal || 0);
-                      const dinner = new Fractional(data?.meals?.dinner?.prepData?.prepCal || 0);
-                      const snack = new Fractional(data?.snacks?.snackCal || 0);
+                      const lunch = isFraction(data?.meals?.lunch?.prepData?.prepCal) ? new Fraction(data?.meals?.lunch?.prepData?.prepCal) : new Fraction(0);
+                      const dinner = isFraction(data?.meals?.dinner?.prepData?.prepCal) ? new Fraction(data?.meals?.dinner?.prepData?.prepCal) : new Fraction(0);
+                      const snack = isFraction(data?.snacks?.snackCal) ? new Fraction(data?.snacks?.snackCal) : new Fraction(0);
 
-                      const total = lunch.add(dinner).add(snack);
-                      const value = (total).numerator / total.denominator;
-
-                      return isNaN(value) ? "0" : value.toFixed(0);
+                      return lunch.add(dinner).add(snack).valueOf().toFixed(0);
                     })()
                   }{" cal"}
                 </Text>
@@ -1701,14 +1706,11 @@ export default function WeeklyPlan ({ isSelectedTab }) {
                 <Text className="text-white text-[12px]">
                   {"$"}{
                     (() => {
-                      const lunch = new Fractional(data?.meals?.lunch?.prepData?.prepPrice || 0);
-                      const dinner = new Fractional(data?.meals?.dinner?.prepData?.prepPrice || 0);
-                      const snack = new Fractional(data?.snacks?.snackPrice || 0);
+                      const lunch = isFraction(data?.meals?.lunch?.prepData?.prepPrice) ? new Fraction(data?.meals?.lunch?.prepData?.prepPrice) : new Fraction(0);
+                      const dinner = isFraction(data?.meals?.dinner?.prepData?.prepPrice) ? new Fraction(data?.meals?.dinner?.prepData?.prepPrice) : new Fraction(0);
+                      const snack = isFraction(data?.snacks?.snackPrice) ? new Fraction(data?.snacks?.snackPrice) : new Fraction(0);
 
-                      const total = lunch.add(dinner).add(snack);
-                      const value = total.numerator / total.denominator;
-
-                      return isNaN(value) ? "0.00" : value.toFixed(2);
+                      return lunch.add(dinner).add(snack).valueOf().toFixed(2);
                     })()
                   }
                 </Text>
@@ -1831,7 +1833,7 @@ export default function WeeklyPlan ({ isSelectedTab }) {
           )}
 
           {/* variant selection */}
-          {((filteredPrepData?.find(prep => prep.id === selectedPrepId)?.variants?.length) > 1) && (
+          {((filteredPrepData?.find(prep => prep.id === selectedPrepId)?.variants?.length) > 1) ? (
             <View className="absolute w-full bottom-[-10px] flex bg-white overflow-hidden">
               <Picker
                 selectedValue={selectedPrepVariant}
@@ -1841,12 +1843,20 @@ export default function WeeklyPlan ({ isSelectedTab }) {
               >
                 {(filteredPrepData?.find(prep => prep.id === selectedPrepId)?.variants || []).map((v, index) => ((v !== null) && (
                   <Picker.Item
-                    label={"VARIANT " + numberToRoman(index + 1)}
+                    label={
+                      (globalPrepInfo.map(p => p.starred ?? []).reduce((acc, obj) => ({ ...acc, ...obj }), {} )?.[filteredPrepData?.find(prep => prep.id === selectedPrepId)?.variants?.[selectedPrepVariant]?.variantId] ? "★ " : "")
+                      + "VARIANT " + numberToRoman(index + 1) + 
+                      (globalPrepInfo.map(p => p.starred ?? []).reduce((acc, obj) => ({ ...acc, ...obj }), {} )?.[filteredPrepData?.find(prep => prep.id === selectedPrepId)?.variants?.[selectedPrepVariant]?.variantId] ? " ★" : "")
+                    }
                     value={index}
                     key={index}
                   />
                 )))}
               </Picker>
+            </View>
+          ) : (globalPrepInfo?.map(p => p.starred ?? []).reduce((acc, obj) => ({ ...acc, ...obj }), {} )?.[filteredPrepData?.find(prep => prep.id === selectedPrepId)?.variants?.[selectedPrepVariant]?.variantId]) && (
+            <View className="absolute bottom-[-10px] w-full flex justify-center items-center">
+              <Text className="text-theme700">★★★</Text>
             </View>
           )}
         </View>

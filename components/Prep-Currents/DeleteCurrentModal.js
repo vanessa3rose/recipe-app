@@ -4,7 +4,7 @@
 import React from 'react';
 
 // UI components
-import { Modal, View, Text, TouchableOpacity } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
 
 // firebase
 import { currentDelete } from '../../firebase/Currents/currentDelete';
@@ -13,7 +13,7 @@ import { currentDelete } from '../../firebase/Currents/currentDelete';
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
 const DeleteCurrentModal = ({ 
-  id, isChecked, currentName, visible, onConfirm, onCancel
+  id, isChecked, prepList, currentName, visible, onConfirm, onCancel
 }) => {
 
   
@@ -62,6 +62,32 @@ const DeleteCurrentModal = ({
               this will remove the ingredient from any date on or after today in the planning tab
             </Text>
           }
+
+          {/* Prep List */}
+          {(prepList !== null && prepList.length > 0) && (
+            <View className="space-y-2">
+              {/* divider */}
+              <View className="h-[1px] bg-zinc400 my-5 mx-2"/>
+
+              <Text className="text-zinc600 text-center">
+                preps including this ingredient:
+              </Text>
+
+              <ScrollView className="flex flex-col px-10 max-h-[180px]">
+                {/* maps the recipe list */}
+                {prepList?.sort((a,b) => a.localeCompare(b)).map((prep, index) => 
+                  <View className="flex flex-row space-x-2" key={index}>
+                    <Text className="italic text-mauve700 text-left">
+                      {"-"}
+                    </Text>
+                    <Text className="italic text-mauve700 text-left">
+                      {prep}
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          )}
 
           <View className="flex flex-row justify-center space-x-10 pt-7">
 

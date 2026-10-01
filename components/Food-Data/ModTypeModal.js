@@ -499,7 +499,7 @@ const ModTypeModal = ({
                 <TextInput
                   className="w-full mb-1 text-center text-[14px] leading-[17px]"
                   value={searchQuery}
-                  onChangeText={setSearchQuery}
+                  onChangeText={(value) => setSearchQuery(value.replaceAll('\'', '’'))}
                   placeholder="search for ingredient"
                   placeholderTextColor={colors.zinc400}
                   multiline={true}
@@ -553,7 +553,7 @@ const ModTypeModal = ({
                         placeholderTextColor={colors.zinc500}
                         className="w-full text-[12px] leading-[14px] text-center"
                         value={customType}
-                        onChangeText={setCustomType}
+                        onChangeText={(value) => setCustomType(value.replaceAll('\'', '’'))}
                         multiline={true}
                         blurOnSubmit={true}
                       />
@@ -580,7 +580,7 @@ const ModTypeModal = ({
                         placeholderTextColor={colors.zinc500}
                         className="w-full text-[12px] leading-[14px] text-center"
                         value={editType}
-                        onChangeText={setEditType}
+                        onChangeText={(value) => setEditType(value.replaceAll('\'', '’'))}
                         multiline={true}
                         blurOnSubmit={true}
                       />

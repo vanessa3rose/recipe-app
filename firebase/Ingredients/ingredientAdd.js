@@ -4,8 +4,10 @@
 import storeKeys from '../../assets/storeKeys';
 
 // fractions
-var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
+
+// validation
+import isFraction from '../../components/Validation/isFraction';
 
 // initialize firebase app
 import { getFirestore, collection, addDoc } from 'firebase/firestore';
@@ -29,7 +31,6 @@ const ingredientAdd = async ({
     
     // function to calculate totalYield, calContainer, and priceServing for each store
     const storeCalculations = (store) => {
-      
       // values
       const servingSize = newIngredient.ingredientData[store].servingSize; 
       const servingContainer = newIngredient.ingredientData[store].servingContainer; 
@@ -37,10 +38,10 @@ const ingredientAdd = async ({
       const priceContainer = newIngredient.ingredientData[store].priceContainer; 
 
       // calculations
-      const totalYield = (servingSize === "" || servingContainer === "") ? "" : `${(new Fractional(servingSize)).multiply(new Fractional(servingContainer)).toString()}`;
-      const calContainer = (calServing === "" || servingContainer === "") ? "" : `${((new Fraction((new Fractional(calServing)).multiply(new Fractional(servingContainer)).toString())) * 1).toFixed(0)}`;
-      const priceServing = (priceContainer === "" || servingContainer === "") ? "" : `${((new Fraction((new Fractional(priceContainer)).divide(new Fractional(servingContainer)).toString())) * 1).toFixed(2)}`;
-    
+      const totalYield = (!isFraction(servingSize) || !isFraction(servingContainer)) ? "" : new Fraction(servingSize).mul(new Fraction(servingContainer)).simplify(0.001).toFraction(true);
+      const calContainer = (!isFraction(calServing) || !isFraction(servingContainer)) ? "" : new Fraction(calServing).mul(new Fraction(servingContainer)).valueOf().toFixed(0);
+      const priceServing = (!isFraction(priceContainer) || !(isFraction(servingContainer) && new Fraction(servingContainer).valueOf() !== 0)) ? "" : new Fraction(priceContainer).div(new Fraction(servingContainer)).valueOf().toFixed(2);
+
       return { totalYield, calContainer, priceServing };
     };
 

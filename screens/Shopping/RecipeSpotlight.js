@@ -24,12 +24,12 @@ import ViewIngredientModal from '../../components/MultiUse/ViewIngredientModal';
 import StoreRecipeModal from '../../components/Shopping-Spotlight/StoreRecipeModal';
 
 // fractions
-var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
-import validateFractionInput from '../../components/Validation/validateFractionInput';
-import extractUnit from '../../components/Validation/extractUnit';
 
 // validation
+import isFraction from '../../components/Validation/isFraction';
+import validateFractionInput from '../../components/Validation/validateFractionInput';
+import extractUnit from '../../components/Validation/extractUnit';
 import { numberToRoman } from '../../components/Validation/numberToRoman';
 
 // firebase
@@ -654,9 +654,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   const calcAmounts = (data) => {
     
     // running totals
-    let totalCal = 0;
-    let totalPrice = 0;
-    let totalServing = 0;
+    let totalCal = new Fraction(0);
+    let totalPrice = new Fraction(0);
+    let totalServing = new Fraction(0);
     
     // loops over the list of all ingredients
     data.ingredientAmounts.forEach((value, index) => {
@@ -667,13 +667,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
         // general variables
         const ingredient = data.ingredientData[index];
         const storeKey = data.ingredientStores[index];
-        const brandKey = ingredient[storeKey].brand;
-
-        // fractional calculations
-        const amount = new Fractional(value);
-        const totalYield = new Fractional(ingredient[storeKey].totalYield);
-        const calContainer = new Fractional(ingredient[storeKey].calContainer);
-        const priceContainer = new Fractional(ingredient[storeKey].priceContainer);
+        const storeData = ingredient[storeKey] || {};
+        const brandKey = storeData.brand || "";
 
         // invalid (1)
         if (value === "" || brandKey === "") {
@@ -682,59 +677,54 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
           data.ingredientPrices[index] = 0.00;
           data.ingredientServings[index] = 0.00;
         
-        // invalid (2)
+        // invalid (2) 
         } else if (value === "0") {
           data.ingredientAmounts[index] = "0";
           data.ingredientCals[index] = 0;
           data.ingredientPrices[index] = 0.00;
           data.ingredientServings[index] = 0.00;
         
-          // validates the fractional value
-        } else if (amount !== 0 && !isNaN(amount.numerator) && !isNaN(amount.denominator) && amount.denominator !== 0) {
-
+          // validates the fraction value
+        } else if (isFraction(value)) {
           data.ingredientAmounts[index] = value;
           
-          // calculate calories if the arguments are valid
-          if (totalYield.toString() !== "NaN NaN/undefined" && !isNaN((new Fraction(totalYield.toString())) * 1) && calContainer.toString() !== "NaN NaN/undefined" && !isNaN((new Fraction(calContainer.toString())) * 1)) {
-          
-            // individual
-            data.ingredientCals[index] = new Fraction(amount.divide(totalYield).multiply(calContainer).toString()) * 1;
-          
-            // overall
-            totalCal = (new Fractional(totalCal)).add(amount.divide(totalYield).multiply(calContainer)).toString();
+          // fraction calculations
+          const amount = new Fraction(value.trim());
+          const rawYield = storeData.totalYield;
+          const rawCal = storeData.calContainer;
+          const rawPrice = storeData.priceContainer;
 
+          const hasValidYield = isFraction(rawYield) && new Fraction(rawYield).valueOf() !== 0;
+          
+          // calculate calories if the arguments are valid
+          if (hasValidYield && isFraction(rawCal)) {
+            // individual
+            data.ingredientCals[index] = amount.div(new Fraction(rawYield)).mul(new Fraction(rawCal)).valueOf();
+            // overall
+            totalCal = totalCal.add(amount.div(new Fraction(rawYield)).mul(new Fraction(rawCal)));
           // set individual calories to 0 if arguments are not valid
-          } else {
-            data.ingredientCals[index] = new Fraction(0) * 1;
-          }
+          } else { data.ingredientCals[index] = 0; }
 
           // calculates prices if the arguments are valid
-          if (totalYield.toString() !== "NaN NaN/undefined" && !isNaN((new Fraction(totalYield.toString())) * 1) && priceContainer.toString() !== "NaN NaN/undefined" && !isNaN((new Fraction(priceContainer.toString())) * 1)) {
-          
+          if (hasValidYield && isFraction(rawPrice)) {
             // individual
-            data.ingredientPrices[index] = new Fraction(amount.divide(totalYield).multiply(priceContainer).toString()) * 1;
-
+            data.ingredientPrices[index] = amount.div(new Fraction(rawYield)).mul(new Fraction(rawPrice)).valueOf();
             // overall
-            totalPrice = (new Fractional(totalPrice)).add(amount.divide(totalYield).multiply(priceContainer)).toString();
-
-          // set individual prices to 0 if arguments are not valid
-          } else {
-            data.ingredientPrices[index] = new Fraction(0) * 1;
-          }
-    
-          // calculate servings if the arguments are valid
-          if (totalYield.toString() !== "NaN NaN/undefined" && !isNaN((new Fraction(totalYield.toString())) * 1)) {
-          
-            // individual
-            data.ingredientServings[index] = amount.toString() === "0" ? 0 : new Fraction(totalYield.divide(amount).toString()) * 1;
-
-            // overall
-            totalServing = (totalServing === 0 || totalServing > new Fraction(totalYield.divide(amount).toString()) * 1) ? new Fraction(totalYield.divide(amount).toString()) * 1 : totalServing;
-
+            totalPrice = totalPrice.add(amount.div(new Fraction(rawYield)).mul(new Fraction(rawPrice)));
           // set individual servings to 0 if arguments are not valid
-          } else {
-            data.ingredientServings[index] = new Fraction(0) * 1;
-          }
+          } else { data.ingredientPrices[index] = 0; }
+          
+          // calculate servings if the arguments are valid
+          if (hasValidYield && amount.valueOf() !== 0) {
+            const servingsVal = new Fraction(rawYield).div(amount);
+            // individual
+            data.ingredientServings[index] = servingsVal.valueOf();
+            // overall (keep minimum non-zero servings limit across ingredients)
+            if (totalServing.valueOf() === 0 || servingsVal.valueOf() < totalServing.valueOf()) { 
+              totalServing = servingsVal; 
+            }
+          // set individual servings to 0 if arguments are not valid
+          } else { data.ingredientServings[index] = 0; }
         }
       }
 
@@ -747,10 +737,9 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     });
     
     // stores the totals
-    data.spotlightCal = ((new Fraction(totalCal.toString())) * 1).toFixed(0);
-    data.spotlightPrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
-    data.spotlightServing = ((new Fraction(totalServing.toString())) * 1).toFixed(2);
-
+    data.spotlightCal = totalCal.valueOf().toFixed(0);
+    data.spotlightPrice = totalPrice.valueOf().toFixed(2);
+    data.spotlightServing = totalServing.valueOf().toFixed(2);
     return data;
   }
 
@@ -1368,33 +1357,37 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   // when an ingredient's details are clicked to view the modal
   const showCalcModal = (index) => {
     if (selectedSpotlightData?.ingredientData[index] !== null) {
-      let amountUsed = "0";
+      let amountUsed = new Fraction(0);
       let spotlightsUsed = [];
       let amtsUsed = [];
       let selectedUsed = [];
 
-      // loops over the other spotlights
+      // loops over the spotlights
       spotlightList.forEach((spotlight) => {
         if (spotlight.id !== selectedSpotlightId) {
           
           // loops over the matching ingredients and adds their amounts * spotlight mults
           for (let i = 0; i < 12; i++) {
             if (spotlight.ingredientData[i] !== null && spotlight.ingredientIds[i] === selectedSpotlightData.ingredientIds[index]) {
-              spotlightsUsed.push(spotlight.spotlightName);
-              amtsUsed.push(new Fractional(spotlight.ingredientAmounts[i]).multiply(new Fractional(spotlight.spotlightMult)));
-              selectedUsed.push(spotlightsSelected?.[spotlightsIds?.indexOf(spotlight.id)]);
-              amountUsed = (new Fractional(amountUsed).add(new Fractional(spotlight.ingredientAmounts[i]).multiply(new Fractional(spotlight.spotlightMult)))).toString();
+              if (isFraction(spotlight.ingredientAmounts[i]) && isFraction(spotlight.spotlightMult)) {
+                const calculatedAmt = new Fraction(spotlight.ingredientAmounts[i]).mul(new Fraction(spotlight.spotlightMult));
+
+                spotlightsUsed.push(spotlight.spotlightName);
+                selectedUsed.push(spotlightsSelected?.[spotlightsIds?.indexOf(spotlight.id)]);
+
+                amtsUsed.push(calculatedAmt.simplify(0.001).toFraction(true));
+                amountUsed = amountUsed.add(calculatedAmt);
+              }
             }
           }
         }
-      })
-
+      });
+      
       // for modal arguments
       setOtherSpotlightsUsed(spotlightsUsed);
       setOtherAmtsUsed(amtsUsed);
-      setTotalAmtUsed(amountUsed);
+      setTotalAmtUsed(amountUsed.simplify(0.001).toFraction(true));
       setOtherSelectedUsed(selectedUsed);
-      
 
       // opens modal
       setCalcIndex(index);
@@ -1483,6 +1476,11 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     const docSnap = await getDoc(doc(db, 'INGREDIENTS', id));
     if (docSnap.exists()) { setSelectedIngredient(docSnap.data()); }
   }
+    
+    
+  ///////////////////////////////// DYNAMIC WIDTHS /////////////////////////////////
+  
+  const [inputWidth, setInputWidth] = useState(new Array(12).fill(6));
       
       
   ///////////////////////////////// SCROLLING /////////////////////////////////
@@ -1528,7 +1526,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               {/* text input */}
               <TextInput
                 value={ingredientKeywordQuery}
-                onChangeText={(value) => filterRecipeList(recipeKeywordQuery, value, selectedRecipeTag)}
+                onChangeText={(value) => filterRecipeList(recipeKeywordQuery, value.replaceAll('\'', '’'), selectedRecipeTag)}
                 placeholder="ingredient keyword(s)"
                 placeholderTextColor={colors.zinc400}
                 className="flex-1 text-[14px] leading-[17px] pl-2.5 pr-[20px] border-[1px] border-zinc300 rounded-[5px] bg-white"
@@ -1610,7 +1608,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               <View className="flex flex-row flex-1">
                 <TextInput
                   value={recipeKeywordQuery}
-                  onChangeText={(value) => filterRecipeList(value, ingredientKeywordQuery, selectedRecipeTag)}
+                  onChangeText={(value) => filterRecipeList(value.replaceAll('\'', '’'), ingredientKeywordQuery, selectedRecipeTag)}
                   placeholder="recipe keyword(s)"
                   placeholderTextColor={'white'}
                   className={`flex-1 text-white text-[14px] leading-[17px] pl-2.5 pr-[20px] bg-zinc400 ${recipeDropdownOpen ? "rounded-t-[5px]" : "rounded-[5px]"}`}
@@ -1688,7 +1686,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                     onPress={() => {
                       if (recipeKeywordQuery !== "" && !recipeDropdownOpen) {
                         changeGlobalRecipe();
-                        navigation.navigate('FOOD', { screen: 'Recipes' });
+                        navigation.navigate('FOOD', { screen: 'Recipes', timestamp: Date.now(), });
                         clearRecipeSearch();
                       }
                     }}
@@ -1984,7 +1982,17 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   <View className="flex flex-row space-x-[3px]">
                     {/* Input Amount */}
                     <TextInput
-                      key={index}
+                      key={`${selectedSpotlightId}-${index}`}
+                      onContentSizeChange={(e) => { 
+                        const width = e.nativeEvent.contentSize.width; 
+                        setInputWidth((prevWidths) => {
+                          if (prevWidths[index] === width) return prevWidths;
+                          const nextWidths = [...prevWidths];
+                          nextWidths[index] = width;
+                          return nextWidths;
+                        });
+                      }}
+                      style={{ minWidth: inputWidth[index] }}
                       className={`text-[10px] leading-[12px] px-0.5 text-center ${(selectedSpotlightData?.ingredientAmountEdited[index] && selectedSpotlightData?.recipeId !== null) ? "bg-zinc300" : (selectedSpotlightData?.recipeId !== null) ? "bg-theme100" : ""}`}
                       placeholder={(selectedSpotlightData.ingredientAmounts[index] !== "") ? selectedSpotlightData.ingredientAmounts[index] : "_"}
                       placeholderTextColor="black"
@@ -2058,16 +2066,19 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             ingredientData={selectedSpotlightData?.ingredientData[calcIndex]}
             ingredientName={selectedSpotlightData?.ingredientNames[calcIndex]}
             ingredientStore={selectedSpotlightData?.ingredientStores[calcIndex]}
-            initialCals={selectedSpotlightData?.ingredientCals[calcIndex].toFixed(0)}
-            initialPrice={selectedSpotlightData?.ingredientPrices[calcIndex].toFixed(2)}
-            initialServings={selectedSpotlightData?.ingredientServings[calcIndex].toFixed(2)}
-            initialAmount={selectedSpotlightData?.ingredientAmounts[calcIndex]}
+            initialCals={selectedSpotlightData?.ingredientCals?.[calcIndex] ? Number(selectedSpotlightData.ingredientCals[calcIndex]).toFixed(0) : "0"}
+            initialPrice={selectedSpotlightData?.ingredientPrices?.[calcIndex] ? Number(selectedSpotlightData.ingredientPrices[calcIndex]).toFixed(2) : "0.00"}
+            initialServings={selectedSpotlightData?.ingredientServings?.[calcIndex] ? Number(selectedSpotlightData.ingredientServings[calcIndex]).toFixed(2) : "0.00"}
+            initialAmount={selectedSpotlightData?.ingredientAmounts?.[calcIndex] ?? ""}
             totalAmountUsed={totalAmtUsed}
             amountsUsed={otherAmtsUsed}
             othersUsed={otherSpotlightsUsed}
             selectedUsed={otherSelectedUsed}
             altPrepVariants={null}
-            amountContainer={new Fractional(selectedSpotlightData?.ingredientData[calcIndex][selectedSpotlightData?.ingredientStores[calcIndex]].totalYield).toString()}
+            amountContainer={(() => {
+              const rawYield = selectedSpotlightData?.ingredientData?.[calcIndex]?.[selectedSpotlightData?.ingredientStores?.[calcIndex]]?.totalYield;
+              return isFraction(rawYield) ? new Fraction(rawYield).simplify(0.001).toFraction(true) : "";
+            })()}
             servingSize={null}
           />
         )}
@@ -2474,7 +2485,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
               {/* Filter TextInput */}
               <TextInput
                 value={searchIngredientQuery}
-                onChangeText={(value) => filterIngredientData(value, sortType, sortAsc, true)}
+                onChangeText={(value) => filterIngredientData(value.replaceAll('\'', '’'), sortType, sortAsc, true)}
                 placeholder="search for ingredient"
                 placeholderTextColor={colors.zinc400}
                 className={`${ingredientDropdownOpen ? "rounded-b-[5px]" : "rounded-[5px]"} flex-1 bg-white border-[1px] border-zinc300 px-[10px] text-[14px] leading-[17px] z-10`}

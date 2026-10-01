@@ -227,7 +227,7 @@ const PlanNoteModal = ({
                       placeholder={isEditing ? "—" : ""}
                       placeholderTextColor={colors.theme300}
                       value={note.title || ""}
-                      onChangeText={(value) => updateNote("title", index, value)}
+                      onChangeText={(value) => updateNote("title", index, value.replaceAll('\'', '’'))}
                       onFocus={() => setKeyboardType("title")}
                       onBlur={() => setKeyboardType("")}
                       editable={isEditing && !isAdding}
@@ -252,7 +252,7 @@ const PlanNoteModal = ({
                         placeholder="note"
                         placeholderTextColor={colors.zinc350}
                         value={note.details || ""}
-                        onChangeText={(value) => updateNote("details", index, value)}
+                        onChangeText={(value) => updateNote("details", index, value.replaceAll('\'', '’'))}
                         multiline={true}
                         onFocus={() => setKeyboardType(index)}
                         onBlur={() => setKeyboardType("")}

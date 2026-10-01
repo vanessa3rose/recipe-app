@@ -7,9 +7,10 @@ import React from 'react';
 import { Modal, View, Text, TouchableOpacity } from 'react-native';
 
 // fractions
-var Fractional = require('fractional').Fraction;
+import Fraction from 'fraction.js';
 
 // validation
+import isFraction from '../Validation/isFraction';
 import extractUnit from '../Validation/extractUnit';
 
 
@@ -72,34 +73,38 @@ const RecipeListModal = ({
 
           {/* amounts */}
           <View className="flex flex-row w-full justify-center items-center space-x-3 pt-5 px-10">
+            
+            {/* total amount */}
+            <View className="flex flex-col w-1/3 justify-center items-center bg-theme400 rounded-md border-[1px] border-zinc400">
+              <Text className="font-semibold w-full py-1 rounded-t-md text-center text-[12px]">
+                TOTAL
+              </Text>
+              <Text className="text-black bg-theme300 w-full py-1 rounded-b-md text-center text-[12px]">
+              {(isFraction(ingredient.totalYield) && isFraction(ingredient.amountNeeded)) 
+                ? (new Fraction(ingredient.totalYield)).mul(new Fraction(ingredient.amountNeeded)).toFraction(true)
+                : ""}
+              </Text>
+            </View>
 
             {/* amount used */}
             <View className="flex flex-col w-1/3 justify-center items-center bg-theme200 rounded-md border-[1px] border-zinc400">
-              <Text className="font-semibold w-full py-1 rounded-t-md text-center text-[12px]">
+              <Text className="font-semibold w-full py-1 rounded-t-md text-zinc900 text-center text-[12px]">
                 USED
               </Text>
               <Text className="text-theme900 bg-theme100 w-full py-1 rounded-b-md text-center text-[12px]">
-                {(new Fractional(ingredient.yieldNeeded)).toString()}
+                {(isFraction(ingredient.yieldNeeded) ? new Fraction(ingredient.yieldNeeded).toFraction(true) : "")}
               </Text>
             </View>
 
             {/* amount remaining */}
             <View className="flex flex-col w-1/3 justify-center items-center bg-theme200 rounded-md border-[1px] border-zinc400">
-              <Text className="font-semibold w-full py-1 rounded-t-md text-center text-[12px]">
+              <Text className="font-semibold w-full py-1 rounded-t-md text-zinc900 text-center text-[12px]">
                 LEFT
               </Text>
               <Text className="text-theme900 bg-theme100 w-full py-1 rounded-b-md text-center text-[12px]">
-              {(new Fractional(ingredient.totalYield)).multiply(new Fractional(ingredient.amountNeeded)).subtract(new Fractional(ingredient.yieldNeeded)).toString()}
-              </Text>
-            </View>
-            
-            {/* total amount */}
-            <View className="flex flex-col w-1/3 justify-center items-center bg-theme200 rounded-md border-[1px] border-zinc400">
-              <Text className="font-semibold w-full py-1 rounded-t-md text-center text-[12px]">
-                TOTAL
-              </Text>
-              <Text className="text-theme900 bg-theme100 w-full py-1 rounded-b-md text-center text-[12px]">
-              {(new Fractional(ingredient.totalYield)).multiply(new Fractional(ingredient.amountNeeded)).toString()}
+              {(isFraction(ingredient.totalYield) && isFraction(ingredient.amountNeeded) && isFraction(ingredient.yieldNeeded))
+                ? (new Fraction(ingredient.totalYield)).mul(new Fraction(ingredient.amountNeeded)).sub(new Fraction(ingredient.yieldNeeded)).toFraction(true)
+                : ""}
               </Text>
             </View>
           </View>

@@ -216,7 +216,7 @@ const ModTagModal = ({
           <View className="h-[1px] bg-zinc400 mb-4"/>
 
 
-          {/* USER INPUT - new tag name*/}
+          {/* USER INPUT - new tag name */}
           <View className="flex flex-row w-full justify-evenly items-center mb-2">
             <TextInput
               className="border-0.5 border-zinc500 bg-white rounded-md px-2 h-[30px] w-3/4 text-[14px] leading-[17px]"
@@ -229,7 +229,7 @@ const ModTagModal = ({
                   .split(' ')
                   .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
                   .join(' ');
-                setNewTag(capitalizedText);
+                setNewTag(capitalizedText.replaceAll('\'', '’'));
               }}
             />
    

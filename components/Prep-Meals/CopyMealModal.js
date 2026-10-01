@@ -294,7 +294,7 @@ const CopyMealModal = ({
                 {/* text input */}
                 <TextInput
                   value={prepKeywordQuery}
-                  onChangeText={(value) => filterPreps(keywordType, value, prepTypeFilter, prepRestaurantFilter, uniquePrepNames, uniquePrepIds, uniquePrepData)}
+                  onChangeText={(value) => filterPreps(keywordType, value.replaceAll('\'', '’'), prepTypeFilter, prepRestaurantFilter, uniquePrepNames, uniquePrepIds, uniquePrepData)}
                   placeholder={`${keywordType} keyword(s)`}
                   placeholderTextColor={colors.zinc400}
                   className={`flex-1 w-5/6 bg-white ${(type === "simple") ? "rounded-md" : "rounded-r-md"} border-[1px] border-zinc300 pl-2.5 pr-10 py-1.5 text-[14px] leading-[17px]`}

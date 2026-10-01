@@ -54,10 +54,9 @@ const ModCurrentModal = ({
       
         // collects the ingredient's data
         let current = { ...initialData }
-        current.ingredientData["-"] = { calServing, servingSize, unit };
+        current.ingredientData["-"] = { calServing, servingSize: servingSize.trim(), unit };
 
         try {  
-          
           // updates the ingredient
           currentEdit({
             editingId: editingId,
@@ -205,7 +204,7 @@ const ModCurrentModal = ({
                   placeholder="unit(s)"
                   placeholderTextColor={colors.zinc400}
                   value={unit}
-                  onChangeText={(value) => filterUnits(value)}
+                  onChangeText={(value) => filterUnits(value.replaceAll('\'', '’'))}
                 />
                 
                 {/* dropdown */}

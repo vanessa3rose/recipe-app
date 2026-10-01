@@ -17,10 +17,10 @@ import storeKeys from '../../assets/storeKeys';
 import storeImages from '../../assets/storeImages';
 
 // fractions
-var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
 // validation
+import isFraction from '../Validation/isFraction';
 import extractUnit from '../Validation/extractUnit';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 import validateDecimalInput from '../../components/Validation/validateDecimalInput';
@@ -140,8 +140,8 @@ const MealDetailsModal = ({
         prepName: prepName,
         prepNote: prepNote,
         prepMult: 0,
-        prepCal: prepCal === "" ? "0" : ((new Fractional(prepCal).numerator) / (new Fractional(prepCal).denominator)).toFixed(0), 
-        prepPrice: prepPrice === "" ? "0.00" : ((new Fractional(prepPrice).numerator) / (new Fractional(prepPrice).denominator)).toFixed(2), 
+        prepCal: !isFraction(prepCal) ? "0" : new Fraction(prepCal).valueOf().toFixed(0), 
+        prepPrice: !isFraction(prepPrice) ? "0.00" : new Fraction(prepPrice).valueOf().toFixed(2),
         prepId: newId,
         currentData: [], 
         currentIds: [], 
@@ -257,15 +257,13 @@ const MealDetailsModal = ({
 
       // sums together all of the current's calories
       setPrepCal(prepCurrentCals === null ? "0" :
-        (prepCurrentCals.map(cal => new Fractional(cal).numerator / new Fractional(cal).denominator)
-          .filter(cal => !isNaN(cal)).reduce((sum, cal) => sum + cal, 0)).toFixed(0)
+        (prepCurrentCals.filter(cal => isFraction(cal)).map(cal => new Fraction(cal).valueOf()).reduce((sum, cal) => sum + cal, 0)).toFixed(0)
       );
     }
   }, [prepCurrentCals, createComplex]);
 
   // to create a new meal prep with ingredients
   const submitNewComplex = async () => {
-    
     if (prepName === "") { setIsNameValid(false); }
 
     else {
@@ -307,14 +305,14 @@ const MealDetailsModal = ({
         prepName: prepName,
         prepNote: "",
         prepMult: 0,
-        prepCal: prepCal === "" ? "0" : ((new Fractional(prepCal).numerator) / (new Fractional(prepCal).denominator)).toFixed(0), 
-        prepPrice: prepPrice === "" ? "0.00" : ((new Fractional(prepPrice).numerator) / (new Fractional(prepPrice).denominator)).toFixed(2), 
+        prepCal: !isFraction(prepCal) ? "0" : new Fraction(prepCal).valueOf().toFixed(0), 
+        prepPrice: !isFraction(prepPrice) ? "0.00" : new Fraction(prepPrice).valueOf().toFixed(2), 
         prepId: newId,
         currentData: newCurrentData, 
         currentIds: Array(newCurrentData.length).fill(""), 
         currentAmounts: newCurrentAmounts, 
-        currentCals: prepCurrentCals.map(cal => !isNaN(new Fractional(cal).numerator / new Fractional(cal).denominator) ? new Fractional(cal).numerator / new Fractional(cal).denominator : 0), 
-        currentPrices: prepCurrentPrices.map(price => !isNaN(new Fractional(price).numerator / new Fractional(price).denominator) ? new Fractional(price).numerator / new Fractional(price).denominator : 0),
+        currentCals: prepCurrentCals.map(cal => !isFraction(cal) ? 0 : new Fraction(cal).valueOf()), 
+        currentPrices: prepCurrentPrices.map(price => !isFraction(price) ? 0 : new Fraction(price).valueOf()),
         currentIncluded: Array(newCurrentData.length).fill(""),
       };
 
@@ -758,21 +756,26 @@ const MealDetailsModal = ({
   const [selectedIngredient, setSelectedIngredient] = useState(null);
   const [selectedIngredientAmount, setSelectedIngredientAmount] = useState("");
 
-  // to store the snack from the inventory
+  // to store the ingredient from the inventory
   const useIngredient = async () => {
+    
+    // data extraction
+    const servingSize = selectedIngredient?.ingredientData?.[selectedStore]?.servingSize;
+    const calServing = selectedIngredient?.ingredientData?.[selectedStore]?.calServing;
+    const priceServing = selectedIngredient?.ingredientData?.[selectedStore]?.priceServing;
+
+    // validation
+    const isAmountValid = isFraction(selectedIngredientAmount);
+    const isServingValid = isFraction(servingSize) && new Fraction(servingSize).valueOf() !== 0;
 
     // calculations
-    const ingredientCal = (isFinite(new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator) && isFinite(new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)) ?
-                          ((new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)
-                          / (new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator)
-                          * selectedIngredient?.ingredientData?.[selectedStore]?.calServing).toFixed(0)
-                          : "0";
-    const ingredientPrice = (isFinite(new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator) && isFinite(new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)) ?
-                            ((new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)
-                            / (new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator)
-                            * selectedIngredient?.ingredientData?.[selectedStore]?.priceServing).toFixed(2)
-                            : "0.00";
-
+    const ingredientCal = isAmountValid && isServingValid && isFraction(calServing)
+                        ? new Fraction(selectedIngredientAmount).div(new Fraction(servingSize)).mul(new Fraction(calServing))
+                          .valueOf().toFixed(0) : "0";
+    const ingredientPrice = isAmountValid && isServingValid && isFraction(priceServing)
+                          ? new Fraction(selectedIngredientAmount).div(new Fraction(servingSize)).mul(new Fraction(priceServing))
+                            .valueOf().toFixed(2) : "0.00";
+                            
     // updates prep price
     setPrepPrice(
       ((Number(ingredientPrice) || 0) +
@@ -1236,7 +1239,7 @@ const MealDetailsModal = ({
                         multiline={true}
                         blurOnSubmit={true}
                         value={prepName}
-                        onChangeText={setPrepName}
+                        onChangeText={(value) => setPrepName(value.replaceAll('\'', '’'))}
                       />
                     </View>
                     
@@ -1295,7 +1298,7 @@ const MealDetailsModal = ({
                       onFocus={() => setKeyboardType("note")}
                       onBlur={() => setKeyboardType("")}
                       value={prepNote}
-                      onChangeText={setPrepNote}
+                      onChangeText={(value) => setPrepNote(value.replaceAll('\'', '’'))}
                     />
 
                     {(keyboardType === "note") && (
@@ -1349,7 +1352,7 @@ const MealDetailsModal = ({
                         multiline={true}
                         blurOnSubmit={true}
                         value={prepName}
-                        onChangeText={setPrepName}
+                        onChangeText={(value) => setPrepName(value.replaceAll('\'', '’'))}
                       />
                     </View>
     
@@ -1369,7 +1372,7 @@ const MealDetailsModal = ({
                           $
                         </Text>
                         <TextInput
-                          className="flex text-left text-[11px] text-white leading-[13px]"
+                          className="flex text-left text-[11px] text-white leading-[13px] min-w-[25px]"
                           placeholder={prepPrice === "" ? "0.00" : prepPrice}
                           placeholderTextColor={colors.zinc400}
                           value={prepPrice}
@@ -1417,7 +1420,7 @@ const MealDetailsModal = ({
                                   placeholder="ingredient name"
                                   placeholderTextColor={colors.zinc350}
                                   value={prepCurrentData?.[index]?.ingredientName || ""}
-                                  onChangeText={(value) => changeName(index, value)}
+                                  onChangeText={(value) => changeName(index, value.replaceAll('\'', '’'))}
                                   multiline={true}
                                   blurOnSubmit={true}
                                   onFocus={() => setKeyboardType("grid")}
@@ -1451,7 +1454,7 @@ const MealDetailsModal = ({
                                 placeholder="unit(s)"
                                 placeholderTextColor={colors.zinc450}
                                 value={prepCurrentData?.[index]?.ingredientData[prepCurrentData?.[index]?.ingredientStore]?.unit || ""}
-                                onChangeText={(value) => changeUnit(index, value)}
+                                onChangeText={(value) => changeUnit(index, value.replaceAll('\'', '’'))}
                                 blurOnSubmit={true}
                                 onFocus={() => {
                                   setKeyboardType("grid")
@@ -1633,7 +1636,7 @@ const MealDetailsModal = ({
                     <TextInput
                       className="w-full mb-1 text-left text-[14px] leading-[17px]"
                       value={searchQuery}
-                      onChangeText={setSearchQuery}
+                      onChangeText={(value) => setSearchQuery(value.replaceAll('\'', '’'))}
                       placeholder="search for ingredient"
                       placeholderTextColor={colors.zinc400}
                       multiline={true}
@@ -1772,22 +1775,32 @@ const MealDetailsModal = ({
                           {/* cal */}
                           <View className="flex flex-row">
                             <Text className="text-[11px] text-theme700 pl-1">
-                              {`${(isFinite(new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator) && isFinite(new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)) ?
-                                ((new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)
-                                / (new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator)
-                                * selectedIngredient?.ingredientData?.[selectedStore]?.calServing).toFixed(0)
-                                : "0"
-                              } cal`}
+                              {`${
+                                  isFraction(selectedIngredientAmount) &&
+                                  isFraction(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize) &&
+                                  new Fraction(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).valueOf() !== 0 &&
+                                  isFraction(selectedIngredient?.ingredientData?.[selectedStore]?.calServing)
+                                    ? new Fraction(selectedIngredientAmount.trim())
+                                        .div(new Fraction(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize))
+                                        .mul(new Fraction(selectedIngredient?.ingredientData?.[selectedStore]?.calServing))
+                                        .valueOf().toFixed(0)
+                                    : "0"
+                                } cal`}
                             </Text>
                           </View>
                           {/* price */}
                           <View className="flex flex-row">
                             <Text className="text-[11px] text-theme700">
-                              {`$${(isFinite(new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator) && isFinite(new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)) ?
-                                ((new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)
-                                / (new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator)
-                                * selectedIngredient?.ingredientData?.[selectedStore]?.priceServing).toFixed(2)
-                                : "0.00"
+                              {`$${
+                                isFraction(selectedIngredientAmount) &&
+                                isFraction(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize) &&
+                                new Fraction(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).valueOf() !== 0 &&
+                                isFraction(selectedIngredient?.ingredientData?.[selectedStore]?.priceServing)
+                                  ? new Fraction(selectedIngredientAmount.trim())
+                                      .div(new Fraction(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize))
+                                      .mul(new Fraction(selectedIngredient?.ingredientData?.[selectedStore]?.priceServing))
+                                      .valueOf().toFixed(2)
+                                  : "0.00"
                               }`}
                             </Text>
                           </View>
@@ -1795,8 +1808,11 @@ const MealDetailsModal = ({
                       </View>
 
                       {/* SUBMIT */}
-                      {(isFinite(new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).numerator / new Fractional(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).denominator) && isFinite(new Fractional(selectedIngredientAmount).numerator / new Fractional(selectedIngredientAmount).denominator)) && (
-                        <TouchableOpacity 
+                      {(isFraction(selectedIngredientAmount) &&
+                        isFraction(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize) &&
+                        new Fraction(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).valueOf() !== 0
+                      ) && (
+                          <TouchableOpacity 
                           className="w-[30px] bg-zinc200 justify-center items-center z-50"
                           onPress={() => useIngredient()}
                         >
@@ -1922,7 +1938,7 @@ const MealDetailsModal = ({
                       {/* text input */}
                       <TextInput
                         value={prepKeywordQuery}
-                        onChangeText={(value) => filterPreps(keywordType, value, prepTypeFilter, prepRestaurantFilter)}
+                        onChangeText={(value) => filterPreps(keywordType, value.replaceAll('\'', '’'), prepTypeFilter, prepRestaurantFilter)}
                         placeholder={`${keywordType} keyword(s)`}
                         placeholderTextColor={colors.zinc400}
                         className={`flex-1 w-5/6 bg-white ${(prepTypeFilter === "simple") ? "rounded-md" : "rounded-r-md"} border-[1px] border-zinc300 pl-2.5 pr-10 py-1.5 text-[14px] leading-[17px]`}

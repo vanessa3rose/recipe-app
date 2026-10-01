@@ -3,6 +3,9 @@
 // fractions
 import Fraction from 'fraction.js';
 
+// validation
+import isFraction from '../../components/Validation/isFraction';
+
 // initialize firebase app
 import { getFirestore, doc, deleteDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { app } from '../../firebase.config';
@@ -84,11 +87,10 @@ export async function ingredientDelete(ingredientId) {
           }
 
           // sets the calculated data
-          recipeData.recipeCal = ((new Fraction(totalCal.toString())) * 1).toFixed(0);
-          recipeData.recipePrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
-          recipeData.recipeServing = ((new Fraction(totalServing.toString())) * 1).toFixed(2);
+          recipeData.recipeCal = isFraction(totalCal) ? new Fraction(totalCal).valueOf().toFixed(0) : "0";
+          recipeData.recipePrice = isFraction(totalPrice) ? new Fraction(totalPrice).valueOf().toFixed(2) : "0.00";
+          recipeData.recipeServing = isFraction(totalServing) ? new Fraction(totalServing).valueOf().toFixed(2) : "0.00";
           
-
           // add the update operation to the batch
           recipeBatch.update(doc(db, 'RECIPES', recipeDoc.id), recipeData);
         }
@@ -157,10 +159,9 @@ export async function ingredientDelete(ingredientId) {
           }
 
           // sets the calculated data
-          spotlightData.spotlightCal = ((new Fraction(totalCal.toString())) * 1).toFixed(0);
-          spotlightData.spotlightPrice = ((new Fraction(totalPrice.toString())) * 1).toFixed(2);
-          spotlightData.spotlightServing = ((new Fraction(totalServing.toString())) * 1).toFixed(2);
-
+          spotlightData.spotlightCal = isFraction(totalCal) ? new Fraction(totalCal).valueOf().toFixed(0) : "0";
+          spotlightData.spotlightPrice = isFraction(totalPrice) ? new Fraction(totalPrice).valueOf().toFixed(2) : "0.00";
+          spotlightData.spotlightServing = isFraction(totalServing) ? new Fraction(totalServing).valueOf().toFixed(2) : "0.00";
 
           // add the update operation to the batch
           spotlightBatch.update(doc(db, 'SPOTLIGHTS', spotlightDoc.id), spotlightData);

@@ -708,7 +708,7 @@ useEffect(() => {
                   {/* text input */} 
                   <TextInput
                     value={prepKeywordQuery}
-                    onChangeText={(value) => filterPreps(keywordType, value, prepTypeFilter, prepRestaurantFilter, uniquePrepNames, uniquePrepIds, uniquePrepData, uniquePrepDates, uniquePrepMeals)}
+                    onChangeText={(value) => filterPreps(keywordType, value.replaceAll('\'', '’'), prepTypeFilter, prepRestaurantFilter, uniquePrepNames, uniquePrepIds, uniquePrepData, uniquePrepDates, uniquePrepMeals)}
                     placeholder={`${keywordType} keyword(s)`}
                     placeholderTextColor={colors.zinc400}
                     className={`flex-1 w-5/6 bg-white ${(prepTypeFilter === "simple") ? "rounded-md" : "rounded-r-md"} border-[1px] border-zinc300 pl-2.5 pr-10 py-1.5 text-[14px] leading-[17px]`}
@@ -806,7 +806,7 @@ useEffect(() => {
                           <View className="flex flex-row justify-between space-x-2 ">
                             <TextInput
                               value={editedName}
-                              onChangeText={setEditedName}
+                              onChangeText={(value) => setEditedName(value.replaceAll('\'', '’'))}
                               placeholder={filteredPrepNames[index]}
                               placeholderTextColor={colors.zinc500}
                               className="flex-1 text-left text-[13px] italic bg-zinc200 ml-[-5px] pl-[5px] pr-1 py-0.5 border border-zinc300 rounded-md"
@@ -1241,7 +1241,7 @@ useEffect(() => {
                           onChangeText={(value) => {
                             setEditedVariant((prev) => {
                               const updated = { ...prev }; 
-                              updated["prepName"] = value;
+                              updated["prepName"] = value.replaceAll('\'', '’');
                               return updated;
                             })
                           }}
@@ -1319,7 +1319,7 @@ useEffect(() => {
                         onChangeText={(value) => {
                           setEditedVariant((prev) => {
                             const updated = { ...prev }; 
-                            updated["prepNote"] = value;
+                            updated["prepNote"] = value.replaceAll('\'', '’');
                             return updated;
                           })
                         }}
@@ -1377,7 +1377,7 @@ useEffect(() => {
                           onChangeText={(value) => {
                             setEditedVariant((prev) => {
                               const updated = { ...prev }; 
-                              updated["prepName"] = value;
+                              updated["prepName"] = value.replaceAll('\'', '’');
                               return updated;
                             })
                           }}
@@ -1461,7 +1461,7 @@ useEffect(() => {
                                         const currentData = [ ...updated.currentData ];
                                         currentData[index] = {
                                           ...currentData[index],
-                                          ingredientName: value,
+                                          ingredientName: value.replaceAll('\'', '’'),
                                         };
                                         updated["currentData"] = currentData;
                                         return updated;
@@ -1513,7 +1513,7 @@ useEffect(() => {
                                           ...currentData[index].ingredientData,
                                           [currentData[index]?.ingredientStore]: {
                                             ...currentData[index].ingredientData?.[currentData[index]?.ingredientStore],
-                                            unit: value,
+                                            unit: value.replaceAll('\'', '’'),
                                           },
                                         },
                                       };

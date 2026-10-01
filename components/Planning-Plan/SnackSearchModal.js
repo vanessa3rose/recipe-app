@@ -11,7 +11,11 @@ import { Picker } from '@react-native-picker/picker';
 import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
+// fractions
+import Fraction from 'fraction.js';
+
 // validation
+import isFraction from '../Validation/isFraction';
 import { deepSnackEqual, deepSnackIndexOf } from '../Validation/deepSnackSearch';
 import extractUnit from '../../components/Validation/extractUnit';
 import validateFractionInput from '../Validation/validateFractionInput';
@@ -810,9 +814,9 @@ const SnackSearchModal = ({
                         value={snackKeywordQuery}
                         onChangeText={(value) => {
                           if (keywordType === "snack") {
-                            filterSnacks(value, "snack", uniqueSnackNames, uniqueSnackData, uniqueSnackDates);
+                            filterSnacks(value.replaceAll('\'', '’'), "snack", uniqueSnackNames, uniqueSnackData, uniqueSnackDates);
                           } else if (keywordType === "snack title") {
-                            filterSnacks(value, "snack title", uniqueTitleNames, uniqueTitleData, uniqueTitleDates);
+                            filterSnacks(value.replaceAll('\'', '’'), "snack title", uniqueTitleNames, uniqueTitleData, uniqueTitleDates);
                           }
                         }}
                         placeholder={`${keywordType} keyword(s)`}
@@ -893,7 +897,7 @@ const SnackSearchModal = ({
                               <View className="flex flex-row justify-between space-x-2 ">
                                 <TextInput
                                   value={editedName}
-                                  onChangeText={setEditedName}
+                                  onChangeText={(value) => setEditedName(value.replaceAll('\'', '’'))}
                                   placeholder={filteredNames[index]}
                                   placeholderTextColor={colors.zinc500}
                                   className="flex-1 text-left text-[13px] italic bg-zinc200 ml-[-5px] pl-[5px] pr-1 py-0.5 border border-zinc300 rounded-md"
@@ -1144,7 +1148,7 @@ const SnackSearchModal = ({
                                         onChangeText={(value) => {
                                           setEditedVariant((prev) => {
                                             const updated = { ...prev }; 
-                                            updated["unit"] = extractUnit(value, editedVariant?.amount);
+                                            updated["unit"] = extractUnit(value.replaceAll('\'', '’'), editedVariant?.amount);
                                             return updated;
                                           })
                                         }}
@@ -1345,7 +1349,7 @@ const SnackSearchModal = ({
                         onChangeText={(value) => {
                           setEditedVariant((prev) => {
                             const updated = { ...prev }; 
-                            updated["snackTitle"] = value;
+                            updated["snackTitle"] = value.replaceAll('\'', '’');
                             return updated;
                           })
                         }}
@@ -1404,7 +1408,7 @@ const SnackSearchModal = ({
                                     setEditedVariant((prev) => ({
                                       ...prev,
                                       snackData: prev.snackData.map((snack, idx) =>
-                                        index === idx ? { ...snack, name: value } : snack
+                                        index === idx ? { ...snack, name: value.replaceAll('\'', '’') } : snack
                                       ),
                                     }));
                                   }}
@@ -1445,7 +1449,7 @@ const SnackSearchModal = ({
                                   setEditedVariant((prev) => ({
                                     ...prev,
                                     snackData: prev.snackData.map((snack, idx) =>
-                                      index === idx ? { ...snack, unit: value } : snack
+                                      index === idx ? { ...snack, unit: value.replaceAll('\'', '’') } : snack
                                     ),
                                   }));
                                 }}
@@ -1628,7 +1632,7 @@ const SnackSearchModal = ({
                             setInventoryList(prevList =>
                               prevList.map((item) =>
                                 item.id === selectedCollection
-                                  ? { ...item, data: { ...item.data, collectionName: value } } 
+                                  ? { ...item, data: { ...item.data, collectionName: value.replaceAll('\'', '’') } } 
                                   : item
                               )
                             );
@@ -1710,7 +1714,9 @@ const SnackSearchModal = ({
                         <View key={idx} className="relative w-full flex flex-row bg-white border-b border-b-zinc400">
 
                           {/* Name */}
-                          <View className={`w-[32.5%] justify-center items-center bg-theme200 py-3 px-2 ${(snack?.totalAmount === "" || new Fraction(snack?.totalAmount).numerator / new Fraction(snack?.totalAmount).denominator > 0) ? "bg-theme200" : "bg-mauve100"}`}>
+                          <View className={`w-[32.5%] justify-center items-center py-3 px-2 ${
+                            (isFraction(snack?.totalAmount) && new Fraction(snack?.totalAmount.trim()).valueOf() > 0) ? "bg-theme200" : "bg-mauve100"
+                          }`}>
                             <TextInput
                               className={`text-[12px] text-center pb-0.5 font-medium ${(snack?.name === "" && "italic")}`}
                               placeholder="snack name"
@@ -1722,7 +1728,7 @@ const SnackSearchModal = ({
                                     item.id === selectedCollection
                                       ? {...item, data: {
                                             ...item.data,
-                                            collectionSnacks: item.data.collectionSnacks.map((snack, j) => j === idx ? { ...snack, name: value } : snack ),
+                                            collectionSnacks: item.data.collectionSnacks.map((snack, j) => j === idx ? { ...snack, name: value.replaceAll('\'', '’') } : snack ),
                                           },
                                         }
                                       : item
@@ -1780,7 +1786,7 @@ const SnackSearchModal = ({
                                         ? {...item, data: {
                                               ...item.data,
                                               collectionSnacks: item.data.collectionSnacks.map((snack, j) => j === idx 
-                                                ? { ...snack, unit: value } 
+                                                ? { ...snack, unit: value.replaceAll('\'', '’') } 
                                                 : snack 
                                               ),
                                             },

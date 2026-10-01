@@ -11,10 +11,10 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import colors from '../../assets/colors';
 
 // fractions
-var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
 // validation
+import isFraction from '../Validation/isFraction';
 import validateDecimalInput from '../Validation/validateDecimalInput';
 import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
 import validateFractionInput from '../Validation/validateFractionInput';
@@ -45,50 +45,72 @@ const CalcIngredientModal = ({
   // populates data on open
   useEffect(() => {
     if (modalVisible) {
-
+      
       // set initial amounts
       setGoalCals(initialCals);
       setGoalPrice(initialPrice);
       setCalcAmount(initialAmount || 0);
 
+      // helper checks for amountContainer
+      const validContainer = isFraction(amountContainer) && new Fraction(amountContainer).valueOf() > 0;
+      const parsedContainer = validContainer ? new Fraction(amountContainer) : new Fraction(0);
+      const parsedUsed = isFraction(totalAmountUsed) ? new Fraction(totalAmountUsed) : new Fraction(0);
+      
       // if the type is recipe
       if (type === "recipe") {
-        setTotalYield(amountContainer === 0 ? 0 : new Fractional(new Fraction(amountContainer).simplify(1 / 1000).toFraction()).toString());
-        setGoalServings(initialServings);
+        setTotalYield(validContainer ? parsedContainer.simplify(0.001).toFraction(true) : "0");
+        setGoalServings(initialServings || "0.00");
         
       // otherwise, find the initial data that will make remaining nonnegative
       } else {
         let count = 0;
-        let remaining = 0;
+        let remaining = new Fraction(0);
         
-        while (amountContainer !== 0 && new Fraction(remaining) * 1 <= 0) {
+        while (parsedContainer.valueOf() > 0 && remaining.valueOf() <= 0) {
           count = count + 1;
-          remaining = ((new Fractional(count)).multiply(new Fractional(amountContainer)).subtract(new Fractional(isNaN(totalAmountUsed) ? 0 : totalAmountUsed))).toString();
+          remaining = new Fraction(count).mul(parsedContainer).sub(parsedUsed);
         }  
         
+        const validInitialAmt = isFraction(initialAmount) && new Fraction(initialAmount).valueOf() > 0;
         setNumContainers(count);
-        setTotalYield(amountContainer === 0 ? 0 : new Fractional(new Fraction(remaining).simplify(1 / 1000).toFraction()).toString());
-        setGoalServings(initialAmount === "" ? "0.00" : (((new Fractional(remaining)).divide(new Fractional(initialAmount))).numerator / ((new Fractional(remaining)).divide(new Fractional(initialAmount))).denominator).toFixed(2));
+        setTotalYield(validContainer ? remaining.simplify(0.001).toFraction(true) : "0");
+        setGoalServings(validInitialAmt ? remaining.div(new Fraction(initialAmount)).valueOf().toFixed(2) : "0.00");
       }
 
-
+      // extracts the store object
+      const data = (initialServings !== null) ? ingredientData : ingredientData?.ingredientData;
+      const storeObj = data?.[ingredientStore] || data?.["-"] || data || {};
+      
       // stores the calculation data (not meal prep)
       if (initialServings !== null) {
         
         // closes modal immediately if invalid data
-        if (ingredientData[ingredientStore].brand === "" || ingredientData[ingredientStore].unit === ""
-            || (ingredientData[ingredientStore].calContainer === "" && ingredientData[ingredientStore].priceContainer === "" && ingredientData[ingredientStore].totalYield === "") ) {
+        const isBrandEmpty = !storeObj.brand || storeObj.brand === "";
+        const isUnitEmpty = !storeObj.unit || storeObj.unit === "";
+        const areCalPriceYieldEmpty = storeObj.calContainer === "" && storeObj.priceContainer === "" && storeObj.totalYield === "";
+        if (isBrandEmpty || isUnitEmpty || areCalPriceYieldEmpty) {
           setModalVisible(false);
-        
+        // valid data
         } else {
-          setCalContainer(ingredientData[ingredientStore].calContainer === "" ? 0 : new Fraction(ingredientData[ingredientStore].calContainer) * 1);
-          setPriceContainer(ingredientData[ingredientStore].priceContainer === "" ? 0 : new Fraction (ingredientData[ingredientStore].priceContainer) * 1); 
+          setCalContainer(isFraction(storeObj.calContainer) ? new Fraction(storeObj.calContainer).valueOf() : 0);
+          setPriceContainer(isFraction(storeObj.priceContainer) ? new Fraction(storeObj.priceContainer).valueOf() : 0); 
         }
 
       // stores the calculation data (meal prep)
       } else {
-        setCalContainer(new Fraction (ingredientData.ingredientData[ingredientStore].calServing) * (amountContainer === 0 ? 1 : amountContainer) / servingSize);
-        setPriceContainer(new Fraction (ingredientData.unitPrice) * (amountContainer === 0 ? 1 : amountContainer));
+        const hasValidServing = isFraction(servingSize) && new Fraction(servingSize).valueOf() !== 0;
+        const hasValidCalServing = isFraction(storeObj.calServing);
+        
+        // gets the valid fraction value of amountContainer
+        const validAmount = (isFraction(amountContainer) && new Fraction(amountContainer).valueOf() !== 0) ? new Fraction(amountContainer) : new Fraction(1);
+
+        // calculate calories
+        if (hasValidServing && hasValidCalServing) { setCalContainer((new Fraction(storeObj.calServing).mul(validAmount).div(new Fraction(servingSize))).valueOf()); } 
+        else { setCalContainer(0); }
+
+        // calculate price
+        if (isFraction(data?.unitPrice)) { setPriceContainer(new Fraction(data?.unitPrice).mul(validAmount).valueOf()); } 
+        else { setPriceContainer(0); }
       }
     }
   }, [modalVisible])
@@ -122,9 +144,11 @@ const CalcIngredientModal = ({
 
       // gets the totals for each
       altPrepVariants.forEach(({ amount, mult, variant }) => {
-        amounts[variant - 1] = ((new Fractional(amount)).multiply(new Fractional(mult))).toString();
+        if (variant > 0 && isFraction(amount) && isFraction(mult)) {
+          amounts[variant - 1] = new Fraction(amount).mul(new Fraction(mult)).toFraction(true);
+        }
       });
-
+      
       // stores data locally
       setAltAmountsUsed(amounts);
       setIsAltCounted(Array(amounts.length).fill(false).map((alt, index) => amounts[index] !== "0" ? true : false));
@@ -133,32 +157,32 @@ const CalcIngredientModal = ({
 
   // when toggling an other's or an alt variant's checkbox
   useEffect(() => {
-    if (isOtherCounted) {
-      let total = 0;
-      let totalOther = 0;
-      let totalAlt = 0;
-
+    if (Array.isArray(isOtherCounted)) {
+      let total = new Fraction(0);
+      let totalOther = new Fraction(0);
+      let totalAlt = new Fraction(0);
+      
       // resums total - others
       isOtherCounted.forEach((counted, index) => { 
         if (counted) { 
-          total = (new Fractional(total).add(isNaN(amountsUsed[index]) ? 0 : amountsUsed[index])).toString() 
-          totalOther = (new Fractional(totalOther).add(isNaN(amountsUsed[index]) ? 0 : amountsUsed[index])).toString() 
+          total = total.add(isFraction(amountsUsed[index]) ? new Fraction(amountsUsed[index]) : new Fraction(0));
+          totalOther = totalOther.add(isFraction(amountsUsed[index]) ? new Fraction(amountsUsed[index]) : new Fraction(0));
         }
       })
 
       // resums total - alt
-      if (altAmountsUsed !== null) {
+      if (altAmountsUsed !== null && Array.isArray(isAltCounted)) {
         isAltCounted.forEach((counted, index) => {
           if (counted) { 
-            total = (new Fractional(total).add(isNaN(altAmountsUsed[index]) ? 0 : altAmountsUsed[index])).toString()
-            totalAlt = (new Fractional(totalAlt).add(isNaN(altAmountsUsed[index]) ? 0 : altAmountsUsed[index])).toString() 
+            total = total.add(isFraction(altAmountsUsed[index]) ? new Fraction(altAmountsUsed[index]) : new Fraction(0));
+            totalAlt = totalAlt.add(isFraction(altAmountsUsed[index]) ? new Fraction(altAmountsUsed[index]) : new Fraction(0));
           }
         })
       }
-
-      setTotalAmount(total);
-      setTotalOtherAmount(totalOther);
-      setTotalAltAmount(totalAlt);
+      
+      setTotalAmount(total.toFraction(true));
+      setTotalOtherAmount(totalOther.toFraction(true));
+      setTotalAltAmount(totalAlt.toFraction(true));
     }
   }, [isOtherCounted, isAltCounted])
 
@@ -172,18 +196,17 @@ const CalcIngredientModal = ({
 
   // changing the total yield used in calculations
   const updateTotalYield = (total) => {
-    if (total !== "") {
-      
-      // stores the total yield
-      setTotalYield(total);
+    if (isFraction(total)) {
 
+      // stores the total yield
+      setTotalYield(new Fraction(total).simplify(0.001).toFraction(true));
+      
       // if yield is valid, update the servings
-      if (!isNaN(new Fractional(total).denominator) && !isNaN(new Fractional(total).numerator)) {
-        const frac = new Fractional(total).numerator / new Fractional(total).denominator;
-        
-        if (frac / (new Fraction(calcAmount) * 1)) { 
-          setGoalServings((frac / (new Fraction(calcAmount) * 1)) === Infinity ? "" : (frac / (new Fraction(calcAmount) * 1)).toFixed(2)); 
-        } 
+      if (isFraction(calcAmount) && new Fraction(calcAmount).valueOf() !== 0) {
+        const servings = new Fraction(total).div(new Fraction(calcAmount)).valueOf();
+        setGoalServings(isFinite(servings) ? servings.toFixed(2) : "");
+      } else {
+        setGoalServings("");
       }
 
     // storing default values if empty
@@ -199,36 +222,43 @@ const CalcIngredientModal = ({
 
   // general function to calculate the amount (in fraction form with a denominator <= 100)
   const calcAmountFraction = (frac) => {
-    if (totalYield !== 0 && frac !== 0) {
-      const total = new Fractional(totalYield).numerator / new Fractional(totalYield).denominator;
-      const improper = new Fraction(total / frac).simplify(1 / 1000);   
-      const mixed = new Fractional(improper.toFraction()).toString();
-      setCalcAmount(mixed);
-    } else if ((totalYield === 0 && amountContainer === 0) && frac !== 0) {
-      const improper = new Fraction(frac).simplify(1 / 1000);   
-      const mixed = new Fractional(improper.toFraction()).toString();
-      setCalcAmount(mixed);
-    } 
-  }
+    const hasValidYield = isFraction(totalYield) && new Fraction(totalYield).valueOf() !== 0;
+    const hasValidFrac = isFraction(frac) && new Fraction(frac).valueOf() !== 0;
 
+    if (hasValidYield && hasValidFrac) {
+      setCalcAmount(new Fraction(totalYield).div(new Fraction(frac)).simplify(0.001).toFraction(true));
+    } else if (!hasValidYield && (amountContainer === 0 || (isFraction(amountContainer) && new Fraction(amountContainer).valueOf() === 0)) && hasValidFrac) {
+      setCalcAmount(new Fraction(frac).simplify(0.001).toFraction(true));
+    }
+  }
 
   // when the cal textinput is changed
   const updateGoalCals = (cals) => {
-    if (cals !== "") {
-      
-      // stores the calories and calculates the # servings
+    if (isFraction(cals) && new Fraction(cals).valueOf() !== 0) {
       setGoalCals(cals);
-      const frac = calContainer / (new Fraction(cals) * 1);
-      const fracAlt = amountContainer === 0 
-        ? (new Fractional(cals).divide(calContainer)).numerator / (new Fractional(cals).divide(calContainer)).denominator
-        : (new Fractional(calContainer).divide(new Fractional(cals))).multiply(new Fractional(totalYield).divide(new Fractional(amountContainer))).numerator
-          / (new Fractional(calContainer).divide(new Fractional(cals))).multiply(new Fractional(totalYield).divide(new Fractional(amountContainer))).denominator;
+      
+      // calculates the # servings
+      const validCalContainer = isFraction(calContainer) && new Fraction(calContainer).valueOf() > 0;
+      const frac = validCalContainer ? new Fraction(calContainer).div(new Fraction(cals)).valueOf() : 0;
+      
+      let fracAlt = 0;
+      if (validCalContainer) {
+        if (amountContainer === 0 || (isFraction(amountContainer) && new Fraction(amountContainer).valueOf() === 0)) {
+          fracAlt = new Fraction(cals).div(new Fraction(calContainer)).valueOf();
+        } else if (isFraction(totalYield) && isFraction(amountContainer) && new Fraction(amountContainer).valueOf() !== 0) {
+          fracAlt = new Fraction(calContainer).div(new Fraction(cals)).mul(new Fraction(totalYield).div(new Fraction(amountContainer))).valueOf();
+        }
+      }
 
       // if # servings is valid, calculate other 3 data points
-      if (!isNaN(frac)) {
-        calcAmountFraction(isNaN(type === "recipe" ? frac : fracAlt) ? 0 : (type === "recipe" ? frac : fracAlt));
-        setGoalPrice((priceContainer / frac).toFixed(2));
-        setGoalServings(isNaN(type === "recipe" ? frac : fracAlt) ? "0.00" : (type === "recipe" ? frac : fracAlt).toFixed(2));
+      const selectedFrac = (type === "recipe") ? frac : fracAlt;
+      if (typeof selectedFrac === "number" && isFinite(selectedFrac) && selectedFrac !== 0) {
+        calcAmountFraction(selectedFrac);
+        setGoalPrice((isFraction(priceContainer) && frac !== 0) ? new Fraction(priceContainer).div(new Fraction(frac)).valueOf().toFixed(2) : "0.00");
+        setGoalServings(selectedFrac.toFixed(2));
+      } else {
+        setGoalPrice("0.00");
+        setGoalServings("0.00");
       }
 
     // storing default values if empty
@@ -243,25 +273,34 @@ const CalcIngredientModal = ({
 
   // when the price textinput is changed
   const updateGoalPrice = (price) => {
-    if (price !== "") {
-
-      // stores the calories and calculates the # servings
+    if (isFraction(price) && new Fraction(price).valueOf() !== 0) {
       setGoalPrice(price);
-      
-      const frac = priceContainer / (new Fraction(price) * 1);
-      const fracAlt = amountContainer === 0 
-        ? (new Fractional(price).divide(priceContainer)).numerator / (new Fractional(price).divide(priceContainer)).denominator
-        : (new Fractional(priceContainer).divide(new Fractional(price))).multiply(new Fractional(totalYield).divide(new Fractional(amountContainer))).numerator
-          / (new Fractional(priceContainer).divide(new Fractional(price))).multiply(new Fractional(totalYield).divide(new Fractional(amountContainer))).denominator;
 
+      // calculates the # servings
+      const validPriceContainer = isFraction(priceContainer) && new Fraction(priceContainer).valueOf() > 0;
+      const frac = validPriceContainer ? new Fraction(priceContainer).div(new Fraction(price)).valueOf() : 0;
+
+      let fracAlt = 0;
+      if (validPriceContainer) {
+        if (amountContainer === 0 || new Fraction(amountContainer).valueOf() === 0) {
+          fracAlt = new Fraction(price).div(new Fraction(priceContainer)).valueOf();
+        } else if (isFraction(totalYield) && isFraction(amountContainer) && new Fraction(amountContainer).valueOf() !== 0) {
+          fracAlt = new Fraction(priceContainer).div(new Fraction(price)).mul(new Fraction(totalYield).div(new Fraction(amountContainer))).valueOf();
+        }
+      }
+      
       // if # servings is valid, calculate other 3 data points
-      if (!isNaN(frac)) {
-        calcAmountFraction(isNaN(type === "recipe" ? frac : fracAlt) ? 0 : (type === "recipe" ? frac : fracAlt));
-        setGoalCals((calContainer / frac).toFixed(0));
-        setGoalServings(isNaN(type === "recipe" ? frac : fracAlt) ? "0.00" : (type === "recipe" ? frac : fracAlt).toFixed(2));
+      const selectedFrac = (type === "recipe") ? frac : fracAlt;
+      if (typeof selectedFrac === "number" && isFinite(selectedFrac) && selectedFrac !== 0) {
+        calcAmountFraction(selectedFrac);
+        setGoalCals((isFraction(calContainer) && frac !== 0) ? new Fraction(calContainer).div(new Fraction(frac)).valueOf().toFixed(0) : "0");
+        setGoalServings(selectedFrac.toFixed(2));
+      } else {
+        setGoalCals("0");
+        setGoalServings("0.00");
       }
 
-    // storing default values if empty
+  // storing default values if empty
     } else {
       setCalcAmount(0);
       setGoalCals("");
@@ -273,19 +312,23 @@ const CalcIngredientModal = ({
 
   // when the goal textinput is changed
   const updateGoalServings = (serving) => {
-    if (serving !== "") {
-
-      // stores the calories and calculates the # servings
+    if (isFraction(serving) && new Fraction(serving).valueOf() !== 0) {
       setGoalServings(serving);
       
-      const frac = (new Fraction(serving) * 1);
-      const ratio = amountContainer === 0 ? 0 : (new Fractional(totalYield)).divide(new Fractional(amountContainer)).numerator / (new Fractional(totalYield)).divide(new Fractional(amountContainer)).denominator;
+      const frac = new Fraction(serving).valueOf();
+
+      // calculate yield-to-amount
+      const hasValidAmountContainer = isFraction(amountContainer) && new Fraction(amountContainer).valueOf() !== 0;
+      const ratio = (amountContainer === 0 || !hasValidAmountContainer) ? 1 : (isFraction(totalYield) ? new Fraction(totalYield).div(new Fraction(amountContainer)).valueOf() : 0);
       
       // if # servings is valid, calculate other 3 data points
-      if (!isNaN(frac)) {
+      if (typeof frac === "number" && isFinite(frac) && frac !== 0) {
         calcAmountFraction(frac);
-        setGoalCals(((calContainer / frac) * ratio).toFixed(0));
-        setGoalPrice(((priceContainer / frac) * ratio).toFixed(2));
+        setGoalCals((isFraction(calContainer) && frac !== 0) ? new Fraction(calContainer).div(new Fraction(frac)).mul(new Fraction(ratio)).valueOf().toFixed(0) : "0");
+        setGoalPrice((isFraction(priceContainer) && frac !== 0) ? new Fraction(priceContainer).div(new Fraction(frac)).mul(new Fraction(ratio)).valueOf().toFixed(2) : "0.00");
+      } else {
+        setGoalCals("0");
+        setGoalPrice("0.00");
       }
 
     // storing default values if empty
@@ -398,7 +441,7 @@ const CalcIngredientModal = ({
 
               {/* Calories - IF CONTAINER CAL ISN'T 0 */}
               {(calContainer !== 0) && (
-                <View className={`flex flex-col ${priceContainer === 0 ? "w-1/2" : "w-1/3"} justify-center items-center space-y-1`}>
+                <View className={`flex flex-col ${(priceContainer === 0 && amountContainer === 0) ? "w-full" : (priceContainer === 0) ? "w-1/2" : "w-1/3"} justify-center items-center space-y-1`}>
                   {/* label */}
                   <Text className="text-[14px] text-theme700 font-semibold">
                     CALORIES
@@ -418,7 +461,7 @@ const CalcIngredientModal = ({
               
               {/* Cost - IF CONTAINER COST ISN'T 0 */}
               {(priceContainer !== 0) && (
-                <View className={`flex flex-col ${calContainer === 0 ? "w-1/2" : "w-1/3"} justify-center items-center space-y-1`}>
+                <View className={`flex flex-col ${(calContainer === 0 && amountContainer === 0) ? "w-full" : (calContainer === 0) ? "w-1/2" : "w-1/3"} justify-center items-center space-y-1`}>
                   {/* label */}
                   <Text className="text-[14px] text-theme700 font-semibold">
                     COST
@@ -441,7 +484,7 @@ const CalcIngredientModal = ({
 
               {/* Servings */}
               {(amountContainer !== 0) && (
-                <View className={`flex flex-col ${(calContainer === 0 && priceContainer === 0) ? "w-full" : calContainer === 0 || priceContainer === 0 ? "w-1/2" : "w-1/3"} justify-center items-center space-y-1`}>
+                <View className={`flex flex-col ${(calContainer === 0 && priceContainer === 0) ? "w-full" : (calContainer === 0 || priceContainer === 0) ? "w-1/2" : "w-1/3"} justify-center items-center space-y-1`}>
                   {/* label */}
                   <Text className="text-[14px] text-theme700 font-semibold">
                     SERVINGS
@@ -479,7 +522,9 @@ const CalcIngredientModal = ({
                     </Text>
                     {/* amount */}
                     <Text className="font-medium text-theme700 bg-zinc100 py-1 px-2 text-center text-[12px]">
-                      {amountContainer === 0 ? "0" : new Fractional((new Fraction(amountContainer).simplify(1 / 1000)).toFraction()).toString()}
+                      {(isFraction(amountContainer) && new Fraction(amountContainer).valueOf() !== 0)
+                        ? new Fraction(amountContainer).simplify(0.001).toFraction(true)
+                        : "0"}
                     </Text>
                   </View>
                 )}
@@ -527,7 +572,7 @@ const CalcIngredientModal = ({
                             </Text>
                             {/* amount */}
                             <Text className="font-medium text-zinc600 italic px-2 py-1 text-center text-[11px]">
-                              {`${isNaN(amountsUsed[index]) ? 0 : amountsUsed[index]}`}
+                              {`${isFraction(amountsUsed[index]) ? amountsUsed[index] : 0}`}
                             </Text>
                           </View>
                         </View>
@@ -587,7 +632,7 @@ const CalcIngredientModal = ({
                                 </Text>
                                 {/* amount */}
                                 <Text className="font-medium text-zinc600 italic px-2 py-1 text-center text-[11px]">
-                                  {`${isNaN(altAmountsUsed[index]) ? 0 : altAmountsUsed[index]}`}
+                                  {`${isFraction(altAmountsUsed[index]) ? altAmountsUsed[index] : 0}`}
                                 </Text>
                               </View>
                             </View>
@@ -651,7 +696,13 @@ const CalcIngredientModal = ({
                       {/* arrow */}
                       <TouchableOpacity 
                         className="h-full absolute right-[-30px] bottom-1.5 flex flex-row -rotate-90"
-                        onPress={() => updateTotalYield(((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(new Fractional(totalAmount))).toString())}
+                        onPress={() => {
+                          updateTotalYield(
+                            (isFraction(numContainers) ? new Fraction(numContainers) : new Fraction(0))
+                              .mul(isFraction(amountContainer) ? new Fraction(amountContainer) : new Fraction(0))
+                              .sub(isFraction(totalAmount) ? new Fraction(totalAmount) : new Fraction(0))
+                              .simplify(0.001).toFraction(true))
+                        }}
                       >
                         <Icon
                           name="return-down-forward"
@@ -663,16 +714,14 @@ const CalcIngredientModal = ({
                       <View className="flex flex-col justify-center items-center px-2 py-1">
                         {/* overall */}
                         <Text className="text-[13px] text-zinc800">
-                          {amountContainer === 0 ? "0" : new Fractional((
-                            new Fraction((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).numerator / (new Fractional(numContainers)).multiply(new Fractional(amountContainer)).denominator)
-                          .simplify(1 / 1000)).toFraction()).toString()}
+                          {(amountContainer === 0 || !isFraction(amountContainer) || !isFraction(numContainers)) ? "0" 
+                            : new Fraction(numContainers).mul(new Fraction(amountContainer)).simplify(0.001).toFraction(true)}
                         </Text>
                         {/* remaining */}
                         {(type !== "recipe") && (
                           <Text className="text-[13px] text-zinc800">
-                            {amountContainer === 0 ? "0" : new Fractional((
-                              new Fraction((new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(isNaN(totalAmount) ? 0 : totalAmount).numerator / (new Fractional(numContainers)).multiply(new Fractional(amountContainer)).subtract(isNaN(totalAmount) ? 0 : totalAmount).denominator)
-                            .simplify(1 / 1000)).toFraction()).toString()}
+                            {(amountContainer === 0 || !isFraction(amountContainer) || !isFraction(numContainers)) ? "0" 
+                              : new Fraction(numContainers).mul(new Fraction(amountContainer)).sub(isFraction(totalAmount) ? new Fraction(totalAmount) : new Fraction(0)).simplify(0.001).toFraction(true)}
                           </Text>
                         )}
                       </View>

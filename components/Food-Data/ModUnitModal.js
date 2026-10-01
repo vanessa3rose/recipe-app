@@ -296,7 +296,7 @@ const ModUnitModal = ({
                 <View className={`flex w-full justify-center items-center`}>
                   <TextInput
                     value={oldUnit}
-                    onChangeText={(value) => filterUnitList(value)}
+                    onChangeText={(value) => filterUnitList(value.replaceAll('\'', '’'))}
                     placeholder="unit"
                     placeholderTextColor={colors.zinc500}
                     className="flex w-full p-2 pl-1 pr-6 text-[14px] text-center leading-[17px]"
@@ -365,7 +365,7 @@ const ModUnitModal = ({
                   <View className={`flex flex-row w-1/3 h-full justify-center items-center bg-theme200 border-[1px] border-zinc400 ${unitDropdownOpen === "-" ? "rounded-t-lg" : "rounded-lg"}`}>
                     <TextInput
                       value={newUnit}
-                      onChangeText={setNewUnit}
+                      onChangeText={(value) => setNewUnit(value.replaceAll('\'', '’'))}
                       placeholder="unit"
                       placeholderTextColor={colors.zinc500}
                       className="flex w-full p-2 text-[14px] text-center leading-[17px]"

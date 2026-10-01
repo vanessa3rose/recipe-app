@@ -75,6 +75,9 @@ export default function Details ({ isSelectedTab }) {
     setShowUnfinished(unfinished);
     const completed = (prep.data().preps.map(p => p.completed) ?? []).reduce((acc, obj) => ({ ...acc, ...obj }), {} );
     setPrepsCompleted(completed);
+    const starred = (prep.data().preps.map(p => p.starred) ?? []).reduce((acc, obj) => ({ ...acc, ...obj }), {} );
+    setPrepsStarred(starred);
+    setGlobalPreps(prep.data().preps);
 
     
     // to calculate the amounts
@@ -204,6 +207,32 @@ export default function Details ({ isSelectedTab }) {
   }
   
 
+  ///////////////////////////////// STARRED /////////////////////////////////
+
+  const [globalPreps, setGlobalPreps] = useState(null);
+  const [prepsStarred, setPrepsStarred] = useState(null);
+
+  // to change the starred status (overall) in global
+  const changeStarred = async (prep) => {
+    const prepId = prep?.id;
+    const variantId = prep?.variantData?.variantId;
+    const bool = !prepsStarred[variantId];
+
+    // updates local star state
+    setPrepsStarred(prev => ({ ...prev, [variantId]: bool, }));
+
+    // creates updated global array
+    const newGlobalPreps = globalPreps.map(p => {
+      if (p.id !== prepId) return p;
+      return { ...p, starred: { ...(p.starred || {}), [variantId]: bool, }, };
+    });
+
+    // updates global array (local and global)
+    setGlobalPreps(newGlobalPreps);
+    await updateDoc(doc(db, 'GLOBALS', 'prep'), { 'preps': newGlobalPreps });
+  }
+  
+
   ///////////////////////////////// DETAILS /////////////////////////////////
 
   const [showDetails, setShowDetails] = useState(false);
@@ -219,11 +248,13 @@ export default function Details ({ isSelectedTab }) {
     <View className="flex-1 items-center justify-center bg-zinc100 border-0.5 space-y-7">  
 
       {/* Sort */}
-      <View className="flex flex-row w-[70%] justify-center rounded-md mt-3 -mb-3 items-center bg-zinc200 border-2 border-zinc300">
+      <View className="flex flex-row w-[77.5%] justify-center rounded-md mt-3 -mb-3 items-center bg-zinc200 border-2 border-zinc300">
         <Text className="font-bold px-3 py-1 border-r-2 border-zinc300 text-theme700">
           SORT BY
         </Text>
-        <View className="px-3 py-1.5 flex flex-1 flex-row justify-around items-center">
+
+        {/* text options */}
+        <View className="pl-3 py-1.5 flex flex-1 flex-row justify-around items-center">
           {["calories", "price"].map(type => (
             <TouchableOpacity 
               key={type} 
@@ -236,6 +267,18 @@ export default function Details ({ isSelectedTab }) {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* star option */}
+        <View className="pl-2 pr-3">
+          <Icon
+            name={"star" === sortType ? "star" : "star-outline"}
+            size={20}
+            color={colors.theme500}
+            onPress={() => setSortType("star" === sortType ? "" : "star")}
+          />
+        </View>
+
+        {/* order */}
         <TouchableOpacity 
           className="font-semibold px-2 py-1 border-l-2 border-zinc300 text-theme800"
           onPress={() => setSortOrder(sortOrder * -1)}
@@ -249,7 +292,7 @@ export default function Details ({ isSelectedTab }) {
       </View>
       
       {/* Grid */}
-      <View className="flex flex-col h-5/6 w-11/12 bg-zinc700 border-2 border-black">
+      <View className="flex flex-col h-5/6 w-11/12 bg-zinc700 border-2 border-black z-50">
 
         {/* HEADER */}
         <View className="flex flex-row justify-center items-center bg-theme900 w-full h-[50px] border-b-2">
@@ -307,11 +350,29 @@ export default function Details ({ isSelectedTab }) {
               {(() => {
                 const sorted = prepData
                   .filter(prep => showUnfinished || prepsCompleted[prep.variantData.variantId])
-                  .sort((a,b) => ((sortType === "") ? a : (sortType === "calories") ? a.variantData.prepCal.localeCompare(b.variantData.prepCal) : a.variantData.prepPrice.localeCompare(b.variantData.prepPrice)));
+                  .sort((a, b) => {
+                    if (sortType === "") return 0;
+                    if (sortType === "calories") return a.variantData.prepCal.localeCompare(b.variantData.prepCal);
+                    if (sortType === "price") return a.variantData.prepPrice.localeCompare(b.variantData.prepPrice);
+                    // starred
+                    const aStarred = Boolean(prepsStarred[a.variantData?.variantId]);
+                    const bStarred = Boolean(prepsStarred[b.variantData?.variantId]);
+                    return bStarred - aStarred; 
+                  });
                 if (sortOrder === -1) sorted.reverse();
                 return sorted.map((prep, index) => (
                   <View key={index} className="overflow-visible flex flex-row justify-center w-full border-b-[1px] min-h-[70px] border-black">
-                    
+
+                    {/* Starred Preps */}
+                    <View className="absolute right-0 top-0 z-50 rotate-45 bg-zinc400 rounded-t-full">
+                      <Icon
+                        name={prepsStarred[prep.variantData?.variantId] ? "star" : "star-outline"}
+                        color={prepsStarred[prep.variantData?.variantId] ? colors.theme700 : colors.zinc500}
+                        size={18}
+                        onPress={() => changeStarred(prep)}
+                      />
+                    </View>           
+
                     {/* Meal Prep Name & Modal */}
                     <TouchableOpacity
                       onPress={() => displayMeal(prep)}

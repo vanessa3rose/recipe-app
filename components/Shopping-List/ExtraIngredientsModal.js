@@ -18,18 +18,18 @@ import storeLabels from '../../assets/storeLabels';
 import storeImages from '../../assets/storeImages';
 
 // fractions
-var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
 // validation
+import isFraction from '../../components/Validation/isFraction';
 import extractUnit from '../../components/Validation/extractUnit';
+import validateFractionInput from '../Validation/validateFractionInput';
+import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
+import validateDecimalInput from '../Validation/validateDecimalInput';
 
 // initialize firebase app
 import { getFirestore, doc, collection, getDocs } from 'firebase/firestore';
 import { app } from '../../firebase.config';
-import validateFractionInput from '../Validation/validateFractionInput';
-import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
-import validateDecimalInput from '../Validation/validateDecimalInput';
 const db = getFirestore(app);
 
 
@@ -190,22 +190,37 @@ const ExtraIngredientsModal = ({
   const populateExtras = async () => {
     setExtraIngredients(extras);
   }
-
+  
   // for clicking the add button
   const addIngredient = () => {
-    let ingredientData = selectedIngredientData;
+    let ingredientData = selectedIngredientData ? { ...selectedIngredientData } : {};
+
     if (selectedIngredientId === "") {
+      const storeData = ingredientData?.[currIngredientStore] || {};
       
       // values
-      const servingSize = ingredientData[currIngredientStore].servingSize; 
-      const servingContainer = ingredientData[currIngredientStore].servingContainer; 
-      const calServing = ingredientData[currIngredientStore].calServing; 
-      const priceContainer = ingredientData[currIngredientStore].priceContainer; 
+      const servingSize = storeData.servingSize; 
+      const servingContainer = storeData.servingContainer; 
+      const calServing = storeData.calServing; 
+      const priceContainer = storeData.priceContainer; 
+
+      const isContainerValid = isFraction(servingContainer) && new Fraction(servingContainer).valueOf() !== 0;
   
       // calculations
-      ingredientData[currIngredientStore].totalYield = (servingSize === "" || servingContainer === "") ? "" : `${(new Fractional(servingSize)).multiply(new Fractional(servingContainer)).toString()}`;
-      ingredientData[currIngredientStore].calContainer = (calServing === "" || servingContainer === "") ? "" : `${((new Fraction((new Fractional(calServing)).multiply(new Fractional(servingContainer)).toString())) * 1).toFixed(0)}`;
-      ingredientData[currIngredientStore].priceServing = (priceContainer === "" || servingContainer === "") ? "" : `${((new Fraction((new Fractional(priceContainer)).divide(new Fractional(servingContainer)).toString())) * 1).toFixed(2)}`;
+      const totalYield = (!isFraction(servingSize) || !isFraction(servingContainer)) ? "" : new Fraction(servingSize).mul(new Fraction(servingContainer)).simplify(0.001).toFraction(true);
+      const calContainer = (!isFraction(calServing) || !isFraction(servingContainer)) ? "" : new Fraction(calServing).mul(new Fraction(servingContainer)).valueOf().toFixed(0);
+      const priceServing = (!isFraction(priceContainer) || !isContainerValid) ? "" : new Fraction(priceContainer).div(new Fraction(servingContainer)).valueOf().toFixed(2);
+    
+      // reassign calculated fields
+      ingredientData = {
+        ...ingredientData,
+        [currIngredientStore]: {
+          ...storeData,
+          totalYield,
+          calContainer,
+          priceServing
+        }
+      };
     }
 
     // stores new ingredient
@@ -638,7 +653,7 @@ const ExtraIngredientsModal = ({
                       </TouchableOpacity>
                         
                       {/* ingredient names */}
-                      <View className={`flex p-1 items-center justify-center w-[37.5%] border-y-[1px] border-y-zinc700 border-l-zinc700 border-r-0.5 border-r-theme900 z-20 ${(newIngredient === ingredient?.ingredientName) ? " bg-zinc500" : " bg-theme600"}`}>
+                      <View className={`flex p-1 items-center justify-center w-[35%] border-y-[1px] border-y-zinc700 border-l-zinc700 border-r-0.5 border-r-theme900 z-20 ${(newIngredient === ingredient?.ingredientName) ? " bg-zinc500" : " bg-theme600"}`}>
                         <Text 
                           className={`text-white text-center text-[10px] font-semibold ${ingredient?.ingredientData?.[ingredient?.ingredientStore]?.link ? 'underline' : 'none'}`}
                           onPress={ingredient?.ingredientData?.[ingredient?.ingredientStore]?.link ? () => Linking.openURL(ingredient?.ingredientData?.[ingredient?.ingredientStore]?.link) : undefined }
@@ -660,7 +675,7 @@ const ExtraIngredientsModal = ({
                       </View>
 
                       {/* servings possible */}
-                      <View className="flex flex-row w-[12.5%] px-1 bg-white border-y-[1px] border-y-zinc700 border-r-0.5 border-r-zinc400 h-full justify-center items-center z-20 space-x-0.5">
+                      <View className="flex flex-row w-[15%] px-1 bg-white border-y-[1px] border-y-zinc700 border-r-0.5 border-r-zinc400 h-full justify-center items-center z-20 space-x-0.5">
                         <Text className="text-[10px]">x</Text>
                         <TextInput
                           key={index}
@@ -671,7 +686,7 @@ const ExtraIngredientsModal = ({
                           onChangeText={(value) => {
                             setExtraIngredients((prev) =>
                               prev.map((item, i) =>
-                                i === index ? { ...item, ingredientServings: value } : item
+                                i === index ? { ...item, ingredientServings: validateFractionInput(value) } : item
                               )
                             )
                           }}
@@ -800,7 +815,7 @@ const ExtraIngredientsModal = ({
                 {/* Filter TextInput */}
                 <TextInput
                   value={searchIngredientQuery}
-                  onChangeText={(value) => filterIngredientData(value, sortType, sortAsc)}
+                  onChangeText={(value) => filterIngredientData(value.replaceAll('\'', '’'), sortType, sortAsc)}
                   placeholder="search for ingredient"
                   placeholderTextColor={colors.zinc400}
                   className="flex h-[40px] px-[10px] text-[14px] leading-[17px] z-10"
@@ -1015,7 +1030,7 @@ const ExtraIngredientsModal = ({
                             onChangeText={(value) => {
                               setSelectedIngredientData((prev) => {
                                 const updated = { ...prev }; 
-                                updated[currIngredientStore]["link"] = value.slice(value.lastIndexOf(" ") + 1);
+                                updated[currIngredientStore]["link"] = value.replaceAll('\'', '’').slice(value.lastIndexOf(" ") + 1);
                                 return updated;
                               })
                             }}
@@ -1032,7 +1047,7 @@ const ExtraIngredientsModal = ({
                         <View className="flex flex-row">
                           <TextInput
                             value={selectedIngredientData[currIngredientStore]?.["brand"]}
-                            onChangeText={(value) => filterBrandList(currIngredientStore, value, brandLists)}
+                            onChangeText={(value) => filterBrandList(currIngredientStore, value.replaceAll('\'', '’'), brandLists)}
                             placeholder="brand"
                             placeholderTextColor={colors.zinc500}
                             className={`flex w-full bg-theme200 border-[1px] border-zinc400 text-[14px] text-center leading-[17px] ${filteredBrandLists?.[currIngredientStore]?.map(brand => brand.value).includes(selectedIngredientData[currIngredientStore]?.["brand"]) ? "text-mauve800" : "text-black"} ${(selectedIngredientData[currIngredientStore]?.["brand"] === "") && "italic"} ${(selectedIngredientId !== "") ? "rounded-[5px]" : brandDropdownOpen  ? "rounded-t-[5px] border-b-0" : "rounded-[5px]"}`}
@@ -1150,7 +1165,7 @@ const ExtraIngredientsModal = ({
                               placeholder="unit(s)"
                               placeholderTextColor={colors.zinc400}
                               value={selectedIngredientData[currIngredientStore]?.["unit"]}
-                              onChangeText={(value) => filterUnits(value)}
+                              onChangeText={(value) => filterUnits(value.replaceAll('\'', '’'))}
                               onFocus={() => setKeyboardType("details")}
                               onBlur={() => setKeyboardType("")}
                               editable={selectedIngredientId === ""}

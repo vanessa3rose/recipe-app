@@ -17,11 +17,11 @@ import storeKeys from '../../assets/storeKeys';
 import storeLabels from '../../assets/storeLabels';
 
 // fractions
-var Fractional = require('fractional').Fraction;
 import Fraction from 'fraction.js';
 
 // validation
 import extractUnit from '../../components/Validation/extractUnit';
+import isFraction from '../../components/Validation/isFraction';
 
 // modals
 import RecipeListModal from '../../components/Shopping-List/RecipeListModal';
@@ -212,8 +212,10 @@ export default function ShoppingList ({ isSelectedTab }) {
                 linkList.push(ingredient[storeKey].link);
                 brandList.push(ingredient[storeKey].brand);
                 unitList.push(ingredient[storeKey].unit);
-                const amt = new Fractional(data.ingredientAmounts[index]).multiply(new Fractional(data.spotlightMult));
-                yieldNeededList.push(amt === 0 || isNaN(amt.numerator / amt.denominator) ? "0" : amt.toString())
+                const amt = (isFraction(data.ingredientAmounts[index]) && isFraction(data.spotlightMult)) 
+                  ? new Fraction(data.ingredientAmounts[index]).mul(new Fraction(data.spotlightMult)).toFraction(true) 
+                  : "0";
+                yieldNeededList.push(amt);
                 costUnitList.push(ingredient[storeKey].priceContainer);
                 totalYieldList.push(ingredient[storeKey].totalYield);
                 extraList.push(false);
@@ -238,14 +240,16 @@ export default function ShoppingList ({ isSelectedTab }) {
           const ingredientStore = doc.ingredientStore;
           
           // adds its data to the empty arrays
-          if (doc.ingredientData !== null && ingredientStore === storeKey && doc.ingredientServings > 0 && doc.ingredientServings !== "") {
+          if (doc.ingredientData !== null && ingredientStore === storeKey && isFraction(doc.ingredientServings) && new Fraction(doc.ingredientServings).valueOf() > 0) {
             newIdList.push(doc.ingredientId);
             nameList.push(doc.ingredientName);
             linkList.push(doc.ingredientData[ingredientStore].link);
             brandList.push(doc.ingredientData[ingredientStore].brand);
             unitList.push(doc.ingredientData[ingredientStore].unit);
-            const amt = new Fractional(doc.ingredientData[ingredientStore].totalYield).multiply(new Fractional(doc.ingredientServings));
-            yieldNeededList.push(amt === 0 || isNaN(amt.numerator / amt.denominator) ? "0" : amt.toString())
+            const amt = (isFraction(doc.ingredientData[ingredientStore]?.totalYield) && isFraction(doc.ingredientServings)) 
+              ? new Fraction(doc.ingredientData[ingredientStore]?.totalYield).mul(new Fraction(doc.ingredientServings)).toFraction(true) 
+              : "0";
+            yieldNeededList.push(amt);
             costUnitList.push(doc.ingredientData[ingredientStore].priceContainer);
             totalYieldList.push(doc.ingredientData[ingredientStore].totalYield);
             extraList.push(true);
@@ -272,34 +276,25 @@ export default function ShoppingList ({ isSelectedTab }) {
           const data = dataList[matchingIndices[0]];
           
           // add together all yields needed to get the total needed
-          let yieldNeeded = 0;
+          let yieldNeeded = new Fraction(0);
           matchingIndices.forEach((index) => {
-            if (yieldNeededList[index] !== "" && yieldNeededList[index] !== "0") {
-              yieldNeeded = new Fractional(yieldNeeded).add(new Fractional(yieldNeededList[index])).toString();
+            if (isFraction(yieldNeededList[index])) {
+              yieldNeeded = yieldNeeded.add(new Fraction(yieldNeededList[index]));
             }
-          }) 
-          yieldNeeded = yieldNeeded.toString();
+          });
+          yieldNeeded = yieldNeeded.toFraction(true);
 
-          let amountNeeded = (new Fractional(0)) * 1;
-          let costTotal = (new Fractional(0)) * 1; 
+          let amountNeeded = 0;
+          let costTotal = 0; 
 
           // calculate the total amount needed
-          if (totalYield !== "" && !isNaN((new Fraction(totalYield.toString())) * 1)) {
-            amountNeeded = Math.ceil(
-              (new Fraction(
-                (new Fractional(yieldNeeded))
-                  .divide(new Fractional(totalYield))
-                  .toString())
-              ) * 1);
+          if (isFraction(yieldNeeded) && isFraction(totalYield) && new Fraction(totalYield).valueOf() !== 0) {
+            amountNeeded = Math.ceil(new Fraction(yieldNeeded).div(new Fraction(totalYield)).valueOf());
           }
           
           // calculate the total cost needed
-          if (costUnit !== "" && !isNaN((new Fraction(costUnit.toString())) * 1)) {
-            costTotal = (new Fraction(
-              ((new Fractional(amountNeeded))
-                .multiply(new Fractional(costUnit)))
-                .toString()
-            ) * 1);
+          if (isFraction(amountNeeded) && isFraction(costUnit)) {
+            costTotal = new Fraction(amountNeeded).mul(new Fraction(costUnit)).valueOf();
           }
           
           // returns the unique list
@@ -924,8 +919,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                     <ScrollView>
                       {allStoreLists[selectedStore].map((store, index) => (
                         <View key={`data-${index}`}>
-
-                          {(store.yieldNeeded !== 0 && (new Fractional(store.yieldNeeded.toString()).numerator !== undefined)) && (
+                          {(isFraction(store.yieldNeeded) && new Fraction(store.yieldNeeded).valueOf() !== 0) && (
                             <View>
                               { // IF THE INGREDIENT IS EXTRA
                               store.extra
@@ -987,7 +981,11 @@ export default function ShoppingList ({ isSelectedTab }) {
                                           {/* brand, unit yield, and unit cost */}
                                           {store.brand ? 
                                             <Text className="w-[85%] text-left text-[12px]">
-                                              {store.brand} {"—"} {store.totalYield} {extractUnit(store.unit, store.totalYield)}{" for $"}{((new Fraction(store.costUnit)) * 1)}
+                                              {store?.brand} — {store?.totalYield} {extractUnit(store?.unit, store?.totalYield)} for ${
+                                                isFraction(store?.costUnit) 
+                                                  ? new Fraction(store.costUnit).valueOf().toFixed(2) 
+                                                  : "0.00"
+                                              }
                                             </Text>
                                           : 
                                             <Text className="w-[85%] text-left text-[12px]">
@@ -1112,7 +1110,11 @@ export default function ShoppingList ({ isSelectedTab }) {
                                           {/* brand, unit yield, and unit cost */}
                                           {store.brand ? 
                                             <Text className="w-[85%] text-left text-[12px]">
-                                              {store.brand} {"—"} {store.totalYield} {extractUnit(store.unit, store.totalYield)}{" for $"}{((new Fraction(store.costUnit)) * 1)}
+                                              {store?.brand} — {store?.totalYield} {extractUnit(store?.unit, store?.totalYield)} for ${
+                                                isFraction(store?.costUnit)
+                                                  ? new Fraction(store.costUnit).valueOf().toFixed(2)
+                                                  : "0.00"
+                                              }
                                             </Text>
                                           : 
                                             <Text className="w-[85%] text-left text-[12px]">
@@ -1459,7 +1461,11 @@ export default function ShoppingList ({ isSelectedTab }) {
                   {/* brand, unit yield, and unit cost */}
                   {allStoreLists[selectedStore][keyboardIndex].brand ? 
                     <Text className="w-4/5 text-left text-[12px]">
-                      {allStoreLists[selectedStore][keyboardIndex].brand} {"—"} {allStoreLists[selectedStore][keyboardIndex].totalYield} {extractUnit(allStoreLists[selectedStore][keyboardIndex].unit, allStoreLists[selectedStore][keyboardIndex].totalYield)}{" for $"}{((new Fraction(allStoreLists[selectedStore][keyboardIndex].costUnit)) * 1)}
+                      {allStoreLists?.[selectedStore]?.[keyboardIndex]?.brand} — {allStoreLists?.[selectedStore]?.[keyboardIndex]?.totalYield} {extractUnit(allStoreLists?.[selectedStore]?.[keyboardIndex]?.unit, allStoreLists?.[selectedStore]?.[keyboardIndex]?.totalYield)} for ${
+                        isFraction(allStoreLists?.[selectedStore]?.[keyboardIndex]?.costUnit)
+                          ? new Fraction(allStoreLists[selectedStore][keyboardIndex].costUnit).valueOf().toFixed(2)
+                          : "0.00"
+                      }
                     </Text>
                   : 
                     <Text className="w-4/5 text-left text-[12px]">
@@ -1499,7 +1505,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                         setKeyboardType("individual notes");
                         setKeyboardIndex(keyboardIndex);
                       }}
-                      onChangeText={(text) => updateIndivNotes(keyboardIndex, text)}
+                      onChangeText={(text) => updateIndivNotes(keyboardIndex, text.replaceAll('\'', '’'))}
                       placeholder={(Array.isArray(allStoreNotes[selectedStore]) && allStoreNotes[selectedStore][keyboardIndex]) ? allStoreNotes[selectedStore][keyboardIndex] : ""}
                       placeholderTextColor={colors.zinc400}
                       className="flex-1 text-[12px] leading-[15px] bg-zinc300 rounded-[5px] px-[5px]"
@@ -1525,7 +1531,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                       : value[value.length - 1] === "\n" ? (value + "- ")
                       : value[value.length - 1] === "-" ? value.substring(0, value.length - 2)
                       : value.replace("\n\n", "\n- \n").replace("\n-\n", "\n")
-                    setCurrNote(newVal);
+                    setCurrNote(newVal.replaceAll('\'', '’'));
                   }}
                   multiline={true}
                   placeholder="notes"
