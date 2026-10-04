@@ -353,13 +353,23 @@ const ModUnitModal = ({
               {(oldUnit !== "" && !unitDropdownOpen) && (
                 <>
                   {/* Change Button */}
-                  <View className="justify-center items-center px-2">
-                    <Icon
-                      name="shuffle"
-                      size={20}
-                      onPress={() => changeUnit()}
-                    />
-                  </View>
+                  {(newUnit !== "") ? (
+                    <View className="justify-center items-center px-2">
+                      <Icon
+                        name="shuffle"
+                        size={20}
+                        onPress={() => changeUnit()}
+                      />
+                    </View>
+                    ) : (
+                      <View className="justify-center items-center px-2">
+                        <Icon
+                          name="shuffle"
+                          size={20}
+                          color={colors.zinc400}
+                        />
+                      </View>
+                    )}
 
                   {/* New Input */}
                   <View className={`flex flex-row w-1/3 h-full justify-center items-center bg-theme200 border-[1px] border-zinc400 ${unitDropdownOpen === "-" ? "rounded-t-lg" : "rounded-lg"}`}>

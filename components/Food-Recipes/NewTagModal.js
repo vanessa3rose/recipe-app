@@ -21,25 +21,7 @@ const NewTagModal = ({
 
   ///////////////////////////////// VARIABLES /////////////////////////////////
   
-  const [newTag, setNewTag] = useState("");             // the new tag's name
-  const [isNameValid, setNameValid] = useState(true);   // for submission
-
-
-  ///////////////////////////////// FUNCTIONS /////////////////////////////////
-
-  // to submit the modal
-  const submitModal = () => {
-
-    // not a valid submission if the new tag name is blank
-    if (newTag === "") {
-      setNameValid(false);
-
-    // otherwise, submit the new tag and close the modal
-    } else {
-      setNameValid(true);
-      closeModal(newTag);
-    }
-  };
+  const [newTag, setNewTag] = useState("");
 
 
   ///////////////////////////////// HTML /////////////////////////////////
@@ -72,12 +54,14 @@ const NewTagModal = ({
             <View className="flex flex-row items-center justify-center">
 
               {/* Check */}
-              <Icon
-                size={24}
-                color="black"
-                name="checkmark"
-                onPress={submitModal}
-              />
+              {(newTag !== "") && (
+                <Icon
+                  size={24}
+                  color="black"
+                  name="checkmark"
+                  onPress={() => closeModal(newTag)}
+                />
+              )}
 
               {/* X */}
               <Icon
@@ -111,21 +95,6 @@ const NewTagModal = ({
               }}
             />
           </View>
-          
-          
-          {/* warning if there is no new tag name */}
-          {!isNameValid && (
-            <View className="flex flex-col items-center justify-center">
-            
-              {/* divider */}
-              <View className="h-[1px] bg-zinc400 mt-2 mb-4 w-full"/>
-            
-              {/* warning */}
-              <Text className="text-mauve600 italic">
-                tag name is required
-              </Text>
-            </View>
-          )}
         </View>
       </View>
     </Modal>

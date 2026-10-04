@@ -73,7 +73,7 @@ const DeleteCurrentModal = ({
                 preps including this ingredient:
               </Text>
 
-              <ScrollView className="flex flex-col px-10 max-h-[180px]">
+              <ScrollView className="flex flex-col pl-4 pr-10 max-h-[180px]">
                 {/* maps the recipe list */}
                 {prepList?.sort((a,b) => a.localeCompare(b)).map((prep, index) => 
                   <View className="flex flex-row space-x-2" key={index}>

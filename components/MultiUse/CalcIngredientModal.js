@@ -58,7 +58,7 @@ const CalcIngredientModal = ({
       
       // if the type is recipe
       if (type === "recipe") {
-        setTotalYield(validContainer ? parsedContainer.simplify(0.001).toFraction(true) : "0");
+        setTotalYield(validContainer ? parsedContainer.toFraction(true) : "0");
         setGoalServings(initialServings || "0.00");
         
       // otherwise, find the initial data that will make remaining nonnegative

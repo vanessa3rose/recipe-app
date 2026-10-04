@@ -14,6 +14,7 @@ import colors from '../../assets/colors';
 import storeKeys from '../../assets/storeKeys';
 
 // validation
+import isFraction from '../Validation/isFraction';
 import validateFractionInput from '../Validation/validateFractionInput';
 import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
 
@@ -38,47 +39,36 @@ const ModCurrentModal = ({
 
 
   ///////////////////////////////// MODAL FUNCTIONS /////////////////////////////////
-    
-  // if the submission is valid
-  const [isNameValid, setNameValid] = useState(true);
 
   // to submit the modal
   const submitModal = async () => {
-
-    // if the name is empty
-    if (ingredientName === "") { setNameValid(false);  }
-
-    // if the name has been filled in 
-    else {
-      setNameValid(true);
       
-        // collects the ingredient's data
-        let current = { ...initialData }
-        current.ingredientData["-"] = { calServing, servingSize: servingSize.trim(), unit };
+    // collects the ingredient's data
+    let current = { ...initialData }
+    current.ingredientData["-"] = { calServing, servingSize: servingSize.trim(), unit };
 
-        try {  
-          // updates the ingredient
-          currentEdit({
-            editingId: editingId,
-            amountLeft: current.amountLeft, 
-            amountTotal: current.amountTotal, 
-            archive: current.archive,
-            check: current.check, 
-            containerPrice: current.containerPrice, 
-            ingredientData: current.ingredientData, 
-            ingredientId: "", 
-            ingredientName: ingredientName,
-            ingredientStore: "-",
-            ingredientTypes: current.ingredientTypes,
-            unitPrice: current.unitPrice, 
-          });
-            
-          // closes the modal
-          exitModal(); 
-            
-        } catch (error) {
-            console.error('Error updating ingredient:', error);
-        }
+    try {  
+      // updates the ingredient
+      currentEdit({
+        editingId: editingId,
+        amountLeft: current.amountLeft, 
+        amountTotal: current.amountTotal, 
+        archive: current.archive,
+        check: current.check, 
+        containerPrice: current.containerPrice, 
+        ingredientData: current.ingredientData, 
+        ingredientId: "", 
+        ingredientName: ingredientName,
+        ingredientStore: "-",
+        ingredientTypes: current.ingredientTypes,
+        unitPrice: current.unitPrice, 
+      });
+        
+      // closes the modal
+      exitModal(); 
+        
+    } catch (error) {
+        console.error('Error updating ingredient:', error);
     }
   };
 
@@ -271,24 +261,24 @@ const ModCurrentModal = ({
             
           {/* BOTTOM ROW */}
           <View className="flex flex-row items-center justify-between">
-            
-            {/* Warning if no name is given */}
-            {isNameValid ? "" : 
-              <Text className="text-mauve600 italic">
-                ingredient name is required
-              </Text>
-            }
 
             {/* BUTTONS */}
             <View className="flex flex-row justify-center items-center ml-auto">
 
               {/* Check */}
-              <Icon 
-                size={24}
-                color="black"
-                name="checkmark"
-                onPress={submitModal}
-              />
+              {(
+                ingredientName !== ""
+                && isFraction(servingSize)
+                && unit !== ""
+                && isFraction(calServing)
+              ) && (
+                <Icon 
+                  size={24}
+                  color="black"
+                  name="checkmark"
+                  onPress={submitModal}
+                />
+              )}
 
               {/* X */}
               <Icon 

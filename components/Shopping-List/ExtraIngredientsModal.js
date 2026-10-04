@@ -199,11 +199,10 @@ const ExtraIngredientsModal = ({
       const storeData = ingredientData?.[currIngredientStore] || {};
       
       // values
-      const servingSize = storeData.servingSize; 
-      const servingContainer = storeData.servingContainer; 
+      const servingSize = storeData.servingSize.trim(); 
+      const servingContainer = storeData.servingContainer.trim(); 
       const calServing = storeData.calServing; 
-      const priceContainer = storeData.priceContainer; 
-
+      const priceContainer = new Fraction(storeData.priceContainer).valueOf().toFixed(2); 
       const isContainerValid = isFraction(servingContainer) && new Fraction(servingContainer).valueOf() !== 0;
   
       // calculations
@@ -216,6 +215,10 @@ const ExtraIngredientsModal = ({
         ...ingredientData,
         [currIngredientStore]: {
           ...storeData,
+          servingSize,
+          servingContainer,
+          calServing,
+          priceContainer,
           totalYield,
           calContainer,
           priceServing
@@ -602,12 +605,21 @@ const ExtraIngredientsModal = ({
             {/* BUTTONS */}
             <View className="flex flex-row items-center justify-center">
               {/* Check */}
-              <Icon 
-                size={24}
-                color="black"
-                name="checkmark"
-                onPress={() => closeModal(extraIngredients)}
-              />
+              {!(extraIngredients.filter(ingredient => ingredient?.ingredientServings === "" || !isFraction(ingredient?.ingredientServings)).length > 0) && (
+                <Icon 
+                  size={24}
+                  color="black"
+                  name="checkmark"
+                  onPress={() => closeModal(
+                    extraIngredients.map((ingredient) => ({
+                      ...ingredient,
+                      ingredientServings: typeof ingredient.ingredientServings === 'string'
+                        ? ingredient.ingredientServings.trim()
+                        : String(ingredient.ingredientServings || "").trim()
+                    })
+                  ))}
+                />
+              )}
               {/* X */}
               <Icon 
                 size={24}
@@ -798,13 +810,23 @@ const ExtraIngredientsModal = ({
                     onPress={() => setAddingIngredient(false)}
                   />
 
-                  {/* submit */}
-                  <Icon
-                    name="add-circle"
-                    size={20}
-                    color={colors.zinc700}
-                    onPress={() => addIngredient()}
-                  />
+                  {/* submit if entries are valid */}
+                  {(searchIngredientQuery !== "" 
+                    && selectedIngredientData[currIngredientStore]?.["brand"] !== ""
+                    && isFraction(selectedIngredientData[currIngredientStore]?.["servingSize"])
+                    && selectedIngredientData[currIngredientStore]?.["unit"] !== ""
+                    && isFraction(selectedIngredientData[currIngredientStore]?.["servingContainer"])
+                    && isFraction(selectedIngredientData[currIngredientStore]?.["calServing"])
+                    && isFraction(selectedIngredientData[currIngredientStore]?.["priceContainer"])
+                  ) 
+                  && (
+                    <Icon
+                      name="add-circle"
+                      size={20}
+                      color={colors.zinc700}
+                      onPress={() => addIngredient()}
+                    />
+                  )}
                 </View>
               </View>
 
@@ -978,7 +1000,7 @@ const ExtraIngredientsModal = ({
 
                         {/* STORE ICON */}
                         <TouchableOpacity 
-                          onPress={() => changeStore()} 
+                          onPress={() => { currIngredientStore === "-" ? null : changeStore() }} 
                           className="flex items-center justify-center max-h-[30px] p-[3px]"
                         >
                           {(currIngredientStore === "-") ? (

@@ -41,6 +41,7 @@ const ModMealModal = ({
   ///////////////////////////////// ON OPEN /////////////////////////////////  
   
   const [mealName, setMealName] = useState("");
+  const [variantsEdited, setVariantsEdited] = useState(false);
 
   // if editing a meal, set the name
   useEffect(() => {
@@ -88,61 +89,52 @@ const ModMealModal = ({
 
   ///////////////////////////////// SUBMITTING MODAL /////////////////////////////////
 
-  const [isNameValid, setNameValid] = useState(true);
-
   // to submit the modal
   const submitModal = async () => {
+    
+    // if editing a meal, stores the meal data
+    if (editingId !== null) {
+      try {  
 
-    // if the name is empty
-    if (mealName === "") { setNameValid(false); }
+        let newData = { ...editingData };
+        newData[`${type}Name`] = mealName;
 
-    // if the name has been filled in 
-    else {
-      setNameValid(true);
-      
-      // if editing a meal, stores the meal data
-      if (editingId !== null) {
-        try {  
-
-          let newData = { ...editingData };
-          newData[`${type}Name`] = mealName;
-
-          // fixes variants
-          if (type === "prep") {
-            newData = {
-              ...newData,
-              variants: variants.map(v => ({ ...v, prepName: mealName, prepId: editingId }))
-            };
-          }
-
-          setEditingData(newData);
-
-          // if a snapshot is being edited, determines whether the new name is different from the recipe's
-          if (type === "spotlight" && newData.recipeId !== null) {
-            const docSnap = await getDoc(doc(db, 'RECIPES', newData.recipeId)); 
-            if (docSnap.exists()) { newData.spotlightNameEdited = docSnap.data().recipeName !== mealName; }
-          }
-
-          updateDoc(doc(db, type.toUpperCase() + "S", editingId), newData);  
-          
-          // closes the modal for editing
-          exitModal("edit"); 
-
-        } catch (error) {
-          console.error('Error updating meal:', error);
-        }
-      
-      // if adding a recipe
-      } else if (type === "recipe") {
-        try {
-          recipeAdd({ recipeName: mealName, setRecipeId: setEditingId });
-        } catch(e) {
-          console.error('Error adding recipe:', e);
+        // fixes variants
+        if (type === "prep") {
+          newData = {
+            ...newData,
+            variants: variants.map(v => ({ ...v, prepName: mealName, prepId: editingId }))
+          };
         }
 
-        // closes the modal for adding recipes
-        exitModal("add");
+        setEditingData(newData);
+
+        // if a snapshot is being edited, determines whether the new name is different from the recipe's
+        if (type === "spotlight" && newData.recipeId !== null) {
+          const docSnap = await getDoc(doc(db, 'RECIPES', newData.recipeId)); 
+          if (docSnap.exists()) { newData.spotlightNameEdited = docSnap.data().recipeName !== mealName; }
+        }
+
+        updateDoc(doc(db, type.toUpperCase() + "S", editingId), newData);  
+        
+        // closes the modal for editing
+        const editType = "edit" + (variantsEdited ? " variants" : "");
+        exitModal(editType); 
+
+      } catch (error) {
+        console.error('Error updating meal:', error);
       }
+    
+    // if adding a recipe
+    } else if (type === "recipe") {
+      try {
+        recipeAdd({ recipeName: mealName, setRecipeId: setEditingId });
+      } catch(e) {
+        console.error('Error adding recipe:', e);
+      }
+
+      // closes the modal for adding recipes
+      exitModal("add");
     }
   };
 
@@ -201,12 +193,14 @@ const ModMealModal = ({
             <View className="flex flex-row items-center justify-center">
               
               {/* Check */}
-              <Icon 
-                size={24}
-                color="black"
-                name="checkmark"
-                onPress={submitModal}
-              />
+              {(mealName !== "") && (
+                <Icon 
+                  size={24}
+                  color="black"
+                  name="checkmark"
+                  onPress={submitModal}
+                />
+              )}
 
               {/* X */}
               <Icon 
@@ -295,7 +289,10 @@ const ModMealModal = ({
                       name="close"
                       size={18}
                       color="black"
-                      onPress={() => deleteVariant()}
+                      onPress={() => {
+                        setVariantsEdited(true);
+                        deleteVariant();
+                      }}
                     />
                   </View>
                 )}
@@ -305,7 +302,10 @@ const ModMealModal = ({
                   <Icon
                     name="duplicate"
                     size={18}
-                    onPress={() => addVariant()}
+                    onPress={() => {
+                      setVariantsEdited(true);
+                      addVariant();
+                    }}
                     color={colors.zinc800}
                   />
                 </View>
@@ -369,21 +369,6 @@ const ModMealModal = ({
                   </View>
                 </View>
               )}
-            </View>
-          )}
-
-                                
-          {/* warning that appears if no name is given */}
-          {!isNameValid && (
-            <View className="flex flex-col items-center justify-center">
-
-              {/* divider */}
-              <View className="h-[1px] bg-zinc400 mt-2 mb-4 w-full"/>
-
-              {/* warning */}
-              <Text className="text-mauve600 italic">
-                {type === "prep" ? "meal " : ""}{type}{" name is required"}
-              </Text>
             </View>
           )}
         </View>

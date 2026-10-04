@@ -186,25 +186,27 @@ const ViewIngredientModal = ({
           ) : (
             <View>
               {/* HEADER */}
-              <View className="flex flex-row justify-center items-center mb-4 mr-2 space-x-2">
-                {/* Store Name */}
-                <Text className="text-[18px] font-semibold text-zinc600 flex text-center">
-                  {nameList[storeKeys.indexOf(ingredientStore)]}
-                </Text>
+              {(ingredientStore !== "-") && (
+                <View className="flex flex-row justify-center items-center mb-4 mr-2 space-x-2">
+                  {/* Store Name */}
+                  <Text className="text-[18px] font-semibold text-zinc600 flex text-center">
+                    {nameList[storeKeys.indexOf(ingredientStore)]}
+                  </Text>
 
-                {/* Link if Valid */}
-                {ingredient.ingredientData[ingredientStore]?.link && (
-                  <Icon
-                    name="link"
-                    color={colors.theme600}
-                    size={20}
-                    onPress={ingredient.ingredientData[ingredientStore]?.link ? () => Linking.openURL(ingredient.ingredientData[ingredientStore].link) : undefined}
-                  />
-                )}
-              </View>
+                  {/* Link if Valid */}
+                  {(ingredient.ingredientData[ingredientStore]?.link !== "") && (
+                    <Icon
+                      name="link"
+                      color={colors.theme600}
+                      size={20}
+                      onPress={ingredient.ingredientData[ingredientStore]?.link ? () => Linking.openURL(ingredient.ingredientData[ingredientStore].link) : undefined}
+                    />
+                  )}
+                </View>
+              )}
 
               {/* DETAILS */}
-              <View className="flex z-40 justify-center items-center space-y-4">
+              <View className={`flex z-40 justify-center items-center space-y-4 ${(ingredientStore === "-") && "mt-4"}`}>
                 {/* Brand */}
                 <Text className="w-4/5 bg-zinc300 border-[1px] border-zinc350 py-1 text-theme700 text-center">
                     {ingredient.ingredientData[ingredientStore]?.brand}

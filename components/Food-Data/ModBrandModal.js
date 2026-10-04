@@ -511,13 +511,23 @@ const ModBrandModal = ({
               {(brand["-"] !== "" && brandDropdownOpen !== "-") && (
                 <>
                   {/* Change Button */}
-                  <View className="justify-center items-center px-2">
-                    <Icon
-                      name="shuffle"
-                      size={20}
-                      onPress={() => changeBrands()}
-                    />
-                  </View>
+                  {(newBrand["-"] !== "") ? (
+                    <View className="justify-center items-center px-2">
+                      <Icon
+                        name="shuffle"
+                        size={20}
+                        onPress={() => changeBrands()}
+                      />
+                    </View>
+                  ) : (
+                    <View className="justify-center items-center px-2">
+                      <Icon
+                        name="shuffle"
+                        size={20}
+                        color={colors.theme400}
+                      />
+                    </View>
+                  )}
 
                   {/* New Input */}
                   <View className={`flex flex-row w-1/3 h-full justify-center items-center bg-zinc350 border-[1px] border-zinc400 ${brandDropdownOpen === "-" ? "rounded-t-lg" : "rounded-lg"}`}>
@@ -633,13 +643,23 @@ const ModBrandModal = ({
                 {(brand[store] !== "" && brandDropdownOpen !== store) && (
                   <>
                     {/* Change Button */}
-                    <View className="justify-center items-center px-2">
-                      <Icon
-                        name="shuffle"
-                        size={20}
-                        onPress={() => changeBrand(store)}
-                      />
-                    </View>
+                    {(newBrand[store] !== "") ? (
+                      <View className="justify-center items-center px-2">
+                        <Icon
+                          name="shuffle"
+                          size={20}
+                          onPress={() => changeBrand(store)}
+                        />
+                      </View>
+                    ) : (
+                      <View className="justify-center items-center px-2">
+                        <Icon
+                          name="shuffle"
+                          size={20}
+                          color={colors.zinc400}
+                        />
+                      </View>
+                    )}
 
                     {/* New Input */}
                     <View className={`flex flex-row w-1/3 h-full justify-center items-center bg-theme200 border-[1px] border-zinc400 ${brandDropdownOpen === store ? "rounded-t-lg" : "rounded-lg"}`}>

@@ -234,7 +234,7 @@ export default function ShoppingList ({ isSelectedTab }) {
 
         // updates the extras
         setShoppingExtras(extras);
-
+        
         // loops over the extras to populate their details
         extras.forEach((doc) => {
           const ingredientStore = doc.ingredientStore;
@@ -341,14 +341,13 @@ export default function ShoppingList ({ isSelectedTab }) {
 
             miscStoreKeys.map((currStore) => {
               if (currStore !== storeKey) {
-
+                
                 // current list data
                 const currSnap = snapshots[currStore];
                 const currIdList = currSnap.data().id;
                 const currCheckList = currSnap.data().check;
                 const currIncludedList = combinedExtraList[idx] ? true : currSnap.data().included;
                 const currNotesList = currSnap.data().notes;
-
                 const currIndex = currIdList.indexOf(id);
                 
                 // if it was found in this list, add that data
@@ -380,7 +379,8 @@ export default function ShoppingList ({ isSelectedTab }) {
         if (ingredientIdList !== null && ingredientIncludedList !== null) {
           // loops over the list of ids
           combinedIdList.forEach((id, index) => {
-            const idIndex = ingredientIdList[storeKey].indexOf(id)
+            const idIndex = storeKey === "-" ? -1 : ingredientIdList[storeKey].indexOf(id)
+            
             // if the id is found, update the inclusion to match the modal results
             if (idIndex !== -1) { combinedIncludedList[index] = ingredientIncludedList[storeKey][idIndex]; }
           })
@@ -735,14 +735,17 @@ export default function ShoppingList ({ isSelectedTab }) {
 
   // before opening the modal that displays the recipe lists of the current ingredient
   const displayRecipes = async (index) => {
-    
     let recipeList = [];
     let amountList = [];
     let unitList = [];
     let multList = [];
     let otherStores = [];
     
-    // loops through the recipes and adds all data
+    // validation
+    const id = allStoreLists[selectedStore][index].id;
+    const name = allStoreLists[selectedStore][index].name;
+
+    // SPOTLIGHTS
     spotlightsSnapshot.forEach((doc) => {
 
       // only adds the data of the selected spotlights
@@ -752,14 +755,14 @@ export default function ShoppingList ({ isSelectedTab }) {
         for (let i = 0; i < 12; i++) {
 
           // if the spotlight's ingredient matches the current store 
-          if (allStoreLists[selectedStore][index].id === doc.data().ingredientIds[i] && doc.data().ingredientStores[i] === selectedStore) {
+          if (id === doc.data().ingredientIds[i] && doc.data().ingredientStores[i] === selectedStore) {
             recipeList.push(doc.data().spotlightName);
             amountList.push(doc.data().ingredientAmounts[i]);
             unitList.push(doc.data().ingredientData[i][doc.data().ingredientStores[i]].unit);
             multList.push(doc.data().spotlightMult);
           
           // if it doesn't
-          } else if (allStoreLists[selectedStore][index].id === doc.data().ingredientIds[i] && doc.data().ingredientStores[i] !== selectedStore) {
+          } else if (id === doc.data().ingredientIds[i] && doc.data().ingredientStores[i] !== selectedStore) {
             otherStores.push({ 
               ingredientStore: storeLabels[storeKeys.indexOf(doc.data().ingredientStores[i])] || "",
               spotlightName: doc.data().spotlightName,
@@ -768,6 +771,34 @@ export default function ShoppingList ({ isSelectedTab }) {
         }
       }
     });
+
+    // EXTRAS
+    shoppingExtras.forEach((extra) => {
+
+      // if the extra matches the current id & store 
+      if (
+        (id === extra.ingredientId && selectedStore === extra.ingredientStore) 
+        || (name === extra.ingredientName && selectedStore === "-" && extra.ingredientStore === "-")
+      ) {
+        recipeList.push(null);
+        amountList.push(extra.ingredientData[extra.ingredientStore].totalYield);
+        unitList.push(extra.ingredientData[extra.ingredientStore].unit);
+        multList.push(extra.ingredientServings);
+      
+      // if it doesn't
+      } else if (
+        (id === extra.ingredientId && selectedStore !== extra.ingredientStore) 
+        || (name === extra.ingredientName && selectedStore !== "-" && extra.ingredientStore === "-")
+        || (name === extra.ingredientName && selectedStore === "-" && extra.ingredientStore !== "-")
+      ) {
+        otherStores.push({ 
+          ingredientStore: extra.ingredientStore || "",
+          spotlightName: null,
+        })
+      }
+    })
+    
+    // stores data
     setCurrIngredient(allStoreLists[selectedStore][index]);
     setCurrRecipeList(recipeList);
     setCurrAmountList(amountList);
@@ -867,14 +898,16 @@ export default function ShoppingList ({ isSelectedTab }) {
           <View className="flex flex-row w-11/12 justify-evenly items-center h-[30px] border-[1px] border-black bg-zinc700">
                     
             {/* Store Swap */}
-            <View className="w-[20px] ml-[-25px]">
-              <Icon
-                name="sync-circle"
-                size={20}
-                color={colors.zinc200}
-                onPress={() => setSwapModalVisible(true)}
-              />
-            </View>
+            {(storeKeys.flatMap(store => allStoreLists[store].length).reduce((sum, total) => sum + total) > 0) && (
+              <View className="w-[20px] ml-[-25px]">
+                <Icon
+                  name="sync-circle"
+                  size={20}
+                  color={colors.zinc200}
+                  onPress={() => setSwapModalVisible(true)}
+                />
+              </View>
+            )}
 
             {/* Selection */}
             <View className="w-[45%] ml-[-25px] h-[30px] z-0 overflow-hidden">
@@ -941,9 +974,12 @@ export default function ShoppingList ({ isSelectedTab }) {
                                     </View>
                                     
                                     {/* Amount Needed */}
-                                    <View className="flex flex-col w-full justify-center items-center">
+                                    <TouchableOpacity 
+                                      className="flex flex-col w-full justify-center items-center"
+                                      onPress={() => displayRecipes(index)}
+                                    >
                                       <Text className="text-white text-[12px]">{store.amountNeeded}</Text>
-                                    </View>
+                                    </TouchableOpacity>
                                   </View>
                                   
                                   {/* INGREDIENT NAME */}
@@ -972,7 +1008,10 @@ export default function ShoppingList ({ isSelectedTab }) {
                                     <View className={`flex border-b-[1px] h-[60px] space-y-1 ${(index % 2 === 0) ? ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc400" : "bg-mauve300") : ((Array.isArray(allStoreChecks[selectedStore]) && allStoreChecks[selectedStore][index]) ? "bg-zinc450" : "bg-mauve400") } items-center justify-center`} key={`middle${index}`}>
                                       
                                       {/* to open the detailed recipe list */}
-                                      <View className="w-full space-y-1">
+                                      <TouchableOpacity 
+                                        className="w-full space-y-1"
+                                        onPress={() => displayRecipes(index)}
+                                      >
                                         {/* List of details */}
                                         <View className="flex flex-row">
                                           <Text className="w-[15%] text-right pr-2 font-bold text-[12px]">
@@ -1010,7 +1049,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                                             </Text>
                                           }
                                         </View>
-                                      </View>
+                                      </TouchableOpacity>
                                     
                                       {/* Notes input */}
                                       <View className="flex flex-row">
@@ -1303,7 +1342,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                     />
                     {/* Store label and cost */}
                     <Text className="text-[13px]">
-                      {miscStoreLabels[index].toUpperCase() + ": $"}{storeListCosts[storeKey].toFixed(2)}
+                      {miscStoreLabels[index].replace("Miscelaneous", "Misc").toUpperCase() + ": $"}{storeListCosts[storeKey].toFixed(2)}
                     </Text>
                   </View>
                 )}

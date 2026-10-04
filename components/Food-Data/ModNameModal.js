@@ -371,7 +371,7 @@ const ModNameModal = ({
 
 
           {/* FILTERING SECTION */}
-          <View className="flex flex-row h-[12%] px-5 space-x-2 justify-center items-center">
+          <View className={`flex flex-row px-5 space-x-2 justify-center items-center ${(filteredData.length > 0) ? "h-[12%]" : "h-[100px]"}`}>
           
             {/* Ingredient Filtering */}
             <View className="flex flex-row w-[45%] h-full items-center">
@@ -544,98 +544,108 @@ const ModNameModal = ({
 
 
           {/* MAP OF INGREDIENTS */}
-          <ScrollView
-            vertical
-            ref={verticalScrollRef}
-            scrollEventThrottle={16}
-            contentContainerStyle={{ flexDirection: 'column' }}
-            className="flex border-4 border-zinc300 bg-zinc300 mx-4 mb-2 h-1/2"
-          >
-            {filteredData.map((ingredient, index) => (
-              <View key={index} className="flex flex-col">
-                <View className={`flex flex-row w-full mb-2 min-h-[35px] ${editingId === ingredient.id ? "bg-zinc500" : index % 2 === 0 ? (changedIds?.includes(ingredient.id) ? "bg-mauve400 border-b-zinc600" : "bg-theme300 border-b-zinc600") : (changedIds?.includes(ingredient.id) ? "bg-mauve300 border-b-zinc600" : "bg-theme400 border-b-zinc700")}`}>
-                    
-                  {/* current */}
-                  <View className="flex-1 py-1 px-2 justify-center">
-                    {editingId === ingredient.id 
-                    ? // editing
-                      <TextInput
-                        value={editingValue}
-                        onChangeText={(value) => setEditingValue(value.replaceAll('\'', '’'))}
-                        className="text-left text-[12.5px] leading-[14px] font-medium text-white italic"
-                        multiline={true}
-                        blurOnSubmit={true}
-                      />
-                    : // viewing
-                      <Text className="text-left text-[12.5px] font-medium text-black">
-                        {ingredient.ingredientName}
+          {(filteredData.length > 0) 
+          ? (
+            <ScrollView
+              vertical
+              ref={verticalScrollRef}
+              scrollEventThrottle={16}
+              contentContainerStyle={{ flexDirection: 'column' }}
+              className="flex border-4 border-zinc300 bg-zinc300 mx-4 mb-2 h-1/2"
+            >
+              {filteredData.map((ingredient, index) => (
+                <View key={index} className="flex flex-col">
+                  <View className={`flex flex-row w-full mb-2 min-h-[35px] ${editingId === ingredient.id ? "bg-zinc500" : index % 2 === 0 ? (changedIds?.includes(ingredient.id) ? "bg-mauve400 border-b-zinc600" : "bg-theme300 border-b-zinc600") : (changedIds?.includes(ingredient.id) ? "bg-mauve300 border-b-zinc600" : "bg-theme400 border-b-zinc700")}`}>
+                      
+                    {/* current */}
+                    <View className="flex-1 py-1 px-2 justify-center">
+                      {editingId === ingredient.id 
+                      ? // editing
+                        <TextInput
+                          value={editingValue}
+                          onChangeText={(value) => setEditingValue(value.replaceAll('\'', '’'))}
+                          className="text-left text-[12.5px] leading-[14px] font-medium text-white italic"
+                          multiline={true}
+                          blurOnSubmit={true}
+                        />
+                      : // viewing
+                        <Text className="text-left text-[12.5px] font-medium text-black">
+                          {ingredient.ingredientName}
+                        </Text>
+                      }
+                    </View>
+
+                    {/* BUTTONS */}
+                    <View className={`flex flex-row py-2 px-2 space-x-1 justify-center items-center ${index % 2 === 0 ? "bg-zinc400 border-b-zinc600" : "bg-zinc450 border-b-zinc700"}`}>
+
+                      {/* apply above change */}
+                      {((oldValue !== "" && ingredient.ingredientName.includes(oldValue)) && editingId === null) && (
+                        <Icon
+                          name="shuffle"
+                          color={colors.zinc900}
+                          size={18}
+                          onPress={() => swapOne(ingredient.id)}
+                        />
+                      )}
+
+                      {/* edit name change */}
+                      { (editingId === null)
+                      ? // if no ingredient is selected
+                        <Icon
+                          name="pencil"
+                          color={colors.zinc800}
+                          size={16}
+                          onPress={() => {setEditingId(ingredient.id); setEditingValue(ingredient.ingredientName)}}
+                        />
+                      : // if ingredient is selected 
+                        (editingId === ingredient.id) && (
+                          <View className="flex flex-row space-x-1 justify-center items-center">
+                            {/* submit */}
+                            <Icon
+                              name="checkmark-done"
+                              color={colors.zinc900}
+                              size={20}
+                              onPress={() => submitEdit()}
+                            />
+                            {/* close */}
+                            <Icon
+                              name="chevron-collapse-outline"
+                              color={colors.zinc900}
+                              size={20}
+                              onPress={() => {setEditingId(null); setEditingValue("")}}
+                            />
+                          </View>
+                        )
+                      }
+                    </View>
+                  </View>
+                  
+                  {(showModOnly || editingId === ingredient.id)
+                  ? // when showing the modified version 
+                    <View className={`flex flex-row mt-[-8px] mb-[12px] py-1 px-2 ${editingId === ingredient.id ? "bg-mauve800" : index % 2 === 0 ? "bg-zinc450" : "bg-zinc500"}`}>
+                      <Text className="text-[11px] text-white italic font-semibold">
+                        {oldIngredients.find(old => old.id === ingredient.id)?.ingredientName}
                       </Text>
-                    }
-                  </View>
-
-                  {/* BUTTONS */}
-                  <View className={`flex flex-row py-2 px-2 space-x-1 justify-center items-center ${index % 2 === 0 ? "bg-zinc400 border-b-zinc600" : "bg-zinc450 border-b-zinc700"}`}>
-
-                    {/* apply above change */}
-                    {((oldValue !== "" && ingredient.ingredientName.includes(oldValue)) && editingId === null) && (
-                      <Icon
-                        name="shuffle"
-                        color={colors.zinc900}
-                        size={18}
-                        onPress={() => swapOne(ingredient.id)}
-                      />
-                    )}
-
-                    {/* edit name change */}
-                    { (editingId === null)
-                    ? // if no ingredient is selected
-                      <Icon
-                        name="pencil"
-                        color={colors.zinc800}
-                        size={16}
-                        onPress={() => {setEditingId(ingredient.id); setEditingValue(ingredient.ingredientName)}}
-                      />
-                    : // if ingredient is selected 
-                      (editingId === ingredient.id) && (
-                        <View className="flex flex-row space-x-1 justify-center items-center">
-                          {/* submit */}
-                          <Icon
-                            name="checkmark-done"
-                            color={colors.zinc900}
-                            size={20}
-                            onPress={() => submitEdit()}
-                          />
-                          {/* close */}
-                          <Icon
-                            name="chevron-collapse-outline"
-                            color={colors.zinc900}
-                            size={20}
-                            onPress={() => {setEditingId(null); setEditingValue("")}}
-                          />
-                        </View>
-                      )
-                    }
-                  </View>
+                    </View>
+                  : (ingredient.ingredientName.includes(oldValue) && oldValue !== "") && (
+                    // when showing what oldValue would replace to
+                    <View className={`flex flex-row mt-[-8px] mb-[12px] py-1 px-2 ${index % 2 === 0 ? "bg-zinc450" : "bg-zinc500"}`}>
+                      <Text className="text-[11px] text-white italic font-semibold">
+                        {ingredient.ingredientName.replace(new RegExp(oldValue, 'g'), newValue)}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-                
-                {(showModOnly || editingId === ingredient.id)
-                ? // when showing the modified version 
-                  <View className={`flex flex-row mt-[-8px] mb-[12px] py-1 px-2 ${editingId === ingredient.id ? "bg-mauve800" : index % 2 === 0 ? "bg-zinc450" : "bg-zinc500"}`}>
-                    <Text className="text-[11px] text-white italic font-semibold">
-                      {oldIngredients.find(old => old.id === ingredient.id)?.ingredientName}
-                    </Text>
-                  </View>
-                : (ingredient.ingredientName.includes(oldValue) && oldValue !== "") && (
-                  // when showing what oldValue would replace to
-                  <View className={`flex flex-row mt-[-8px] mb-[12px] py-1 px-2 ${index % 2 === 0 ? "bg-zinc450" : "bg-zinc500"}`}>
-                    <Text className="text-[11px] text-white italic font-semibold">
-                      {ingredient.ingredientName.replace(new RegExp(oldValue, 'g'), newValue)}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            ))}
-          </ScrollView>
+              ))}
+            </ScrollView>
+          // no filter matches
+          ) : (
+            <View className="flex flex-1 justify-center items-center border-4 border-zinc300 bg-zinc300 mx-4 mb-2 min-h-[100px]">
+              <Text className="italic text-theme700 font-medium">
+                no ingredients match the current filters
+              </Text>
+            </View>
+          )}
 
 
           {/* TO VIEW CHANGED INGREDIENTS */}

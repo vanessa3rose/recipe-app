@@ -14,6 +14,7 @@ import colors from '../../assets/colors';
 import storeKeys from '../../assets/storeKeys';
 
 // validation
+import isFraction from '../Validation/isFraction';
 import extractUnit from '../../components/Validation/extractUnit';
 import { deepPrepEqual, deepPrepIndexOf } from '../Validation/deepPrepSearch';
 import validateFractionInput from '../Validation/validateFractionInput';
@@ -23,6 +24,7 @@ import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
 // initialize firebase app
 import { getFirestore, doc, writeBatch, collection } from 'firebase/firestore';
 import { app } from '../../firebase.config';
+import Fraction from 'fraction.js';
 const db = getFirestore(app);
 
 
@@ -396,7 +398,7 @@ useEffect(() => {
     let fixedEditedVariant = {
       ...editedVariant,
       currentData: indexes.map(i => editedVariant.currentData[i]),
-      currentAmounts: indexes.map(i => editedVariant.currentAmounts[i]),
+      currentAmounts: indexes.map(i => isFraction(editedVariant.currentAmounts[i]) ? new Fraction(editedVariant.currentAmounts[i].trim()).toFraction(true) : ""),
       currentCals: indexes.map(i => editedVariant.currentCals[i]),
       currentIds: indexes.map(i => editedVariant.currentIds[i]),
       currentIncluded: indexes.map(i => editedVariant.currentIncluded[i]),
@@ -661,12 +663,23 @@ useEffect(() => {
 
                 <View className="flex flex-row">
                   {/* change */}
-                  <Icon
-                    name="checkmark-circle"
-                    size={20}
-                    color={colors.zinc800}
-                    onPress={() => changeVariant()}
-                  />
+                  {(editedVariant?.prepName !== "" &&
+                    isFraction(editedVariant?.prepPrice) &&
+                    ( ( editedVariantType === "simple" &&
+                        isFraction(editedVariant?.prepCal)
+                      ) || (
+                        editedVariantType === "complex" &&
+                        editedVariant?.currentData?.filter(curr => curr?.ingredientName === "")?.length === 0 &&
+                        editedVariant?.currentAmounts?.filter(amt => amt !== "" && (!isFraction(amt) || amt.trim() !== amt))?.length === 0
+                    ) )
+                  ) && (
+                    <Icon
+                      name="checkmark-circle"
+                      size={20}
+                      color={colors.zinc800}
+                      onPress={() => changeVariant()}
+                    />
+                  )}
                   {/* close */}
                   <Icon
                     name="close-circle"
@@ -803,7 +816,7 @@ useEffect(() => {
                               {filteredPrepNames[index]}
                             </Text>
                           : // editing
-                          <View className="flex flex-row justify-between space-x-2 ">
+                          <View className="flex flex-row justify-between space-x-2">
                             <TextInput
                               value={editedName}
                               onChangeText={(value) => setEditedName(value.replaceAll('\'', '’'))}
@@ -817,12 +830,14 @@ useEffect(() => {
                             {/* BUTTONS */}
                             <View className="flex flex-row justify-center items-center mr-[-5px]">
                               {/* Submit */}
-                              <Icon
-                                name="checkmark"
-                                size={20}
-                                color="black"
-                                onPress={() => changeName()}
-                              />
+                              {(editedName !== "") && (
+                                <Icon
+                                  name="checkmark"
+                                  size={20}
+                                  color="black"
+                                  onPress={() => changeName()}
+                                />
+                              )}
                               {/* Close */}
                               <Icon
                                 name="close-outline"
@@ -1632,7 +1647,7 @@ useEffect(() => {
           )}
                                             
                     
-          {(isEditing && editVariantIndices.prep === -1) && (
+          {(isEditing && (editNameIndex === -1) && (editVariantIndices.prep === -1)) && (
             <>
               {/* Divider */}
               <View className="h-[1px] bg-zinc400 w-full my-2"/>

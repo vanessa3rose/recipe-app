@@ -99,23 +99,12 @@ const ModPriceModal = ({
 
   ///////////////////////////////// ON CLOSE /////////////////////////////////
 
-  const [containerCostValid, setContainerCostValid] = useState(true);
-  const [amountValid, setAmountValid] = useState(true);
-
 
   // to submit the modal
   const submitModal = async () => {
-    
-    // for the modals
-    setContainerCostValid(isFraction(containerCost));
-    setAmountValid(isFraction(amount));
-    
-    // if valid
-    if (isFraction(containerCost) && isFraction(amount)) {
-      // chop of last two digits if 00
-      closeModal(unitPrice.replace(/(\.\d{2})00$/, "$1"), new Fraction(containerCost).valueOf().toFixed(2));
-      exitModal();
-    }
+    // chop of last two digits if 00
+    closeModal(unitPrice.replace(/(\.\d{2})00$/, "$1"), new Fraction(containerCost).valueOf().toFixed(2));
+    exitModal();
   };
 
 
@@ -124,8 +113,6 @@ const ModPriceModal = ({
     setModalVisible(false);
 
     // restore states
-    setContainerCostValid(true);
-    setAmountValid(true);
     setContainerCost("");
     setAmount("");
     setUnitPrice("0.00");
@@ -225,20 +212,6 @@ const ModPriceModal = ({
             
           {/* BOTTOM ROW */}
           <View className="flex flex-row items-center justify-between">
-            
-            {/* Warnings */}
-            <View className="flex flex-col">
-              {!containerCostValid && (
-                <Text className="text-mauve600 italic">
-                  container cost is required
-                </Text>
-              )}
-              {!amountValid && (
-                <Text className="text-mauve600 italic">
-                  container amount is required
-                </Text>
-              )}
-            </View>
 
             {/* BUTTONS */}
             <View className="flex flex-row w-full justify-between items-center">
@@ -257,12 +230,14 @@ const ModPriceModal = ({
 
               <View className="flex flex-row justify-center items-center ml-auto">
                 {/* Check */}
-                <Icon 
-                  size={24}
-                  color="black"
-                  name="checkmark"
-                  onPress={submitModal}
-                />
+                {(isFraction(containerCost) && isFraction(amount)) && (
+                  <Icon 
+                    size={24}
+                    color="black"
+                    name="checkmark"
+                    onPress={submitModal}
+                  />
+                )}
                 {/* X */}
                 <Icon 
                   size={24}

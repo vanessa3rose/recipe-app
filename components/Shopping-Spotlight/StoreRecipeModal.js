@@ -66,7 +66,7 @@ const StoreRecipeModal = ({
             How would you like to proceed?
           </Text>
         </View>
-
+        
 
         {/* BUTTONS */}
         <View className="flex flex-col space-y-2 pt-6 justify-center items-center">

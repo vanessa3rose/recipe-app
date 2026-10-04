@@ -324,14 +324,44 @@ const SnackSearchModal = ({
 
   // changing a collection name
   const updateCollection = async () => {
-    // updates the db
-    await updateDoc(doc(db, 'SNACKS', selectedCollection), inventoryList.find(c => c.id === selectedCollection).data);
 
-    // refreshes
-    await loadInventory();
+    // gets the collection's data
+    const collection = inventoryList.find((c) => c?.id === selectedCollection);
+    // if it exists
+    if (collection?.data?.collectionSnacks) {
+      const updatedSnacks = collection.data.collectionSnacks.map((snack) => {
 
-    // removes keyboard padding
-    setKeyboardType("");
+        // gets the current string values
+        const rawCal = (snack?.calServing || "").toString().trim();
+        const rawPrice = (snack?.priceServing || "").toString().trim();
+        const rawServing = (snack?.servingSize || "").toString().trim();
+        const rawAmount = (snack?.totalAmount || "").toString().trim();
+
+        // updates the string values
+        return {
+          ...snack,
+          calServing: isFraction(rawCal) ? new Fraction(rawCal).valueOf().toFixed(0) : "",
+          priceServing: isFraction(rawPrice) ? new Fraction(rawPrice).valueOf().toFixed(2) : "",
+          servingSize: isFraction(rawServing) ? new Fraction(rawServing).toFraction(true) : "",
+          totalAmount: isFraction(rawAmount) ? new Fraction(rawAmount).toFraction(true) : "",
+        };
+      });
+
+      // stores the updated collection data
+      const updatedData = {
+        ...collection.data,
+        collectionSnacks: updatedSnacks,
+      };
+
+      // updates the db
+      await updateDoc(doc(db, 'SNACKS', selectedCollection), updatedData);
+
+      // refreshes
+      await loadInventory();
+
+      // removes keyboard padding
+      setKeyboardType("");
+    }
   }
 
   // calendar modal
@@ -716,8 +746,24 @@ const SnackSearchModal = ({
       <View className={`flex-1 justify-center items-center ${(isKeyboardOpen && keyboardType === "inventory") && "mb-[200px]"}`}>
 
         {/* Background Overlay - only accessible when not editing */}
-        <TouchableOpacity onPress={() => {!isEditing && setModalVisible(false)}} activeOpacity={isEditing && 0.5} className="absolute bg-black opacity-50 w-full h-full"/>
-        
+        <TouchableOpacity 
+          activeOpacity={(
+            !isEditing 
+            && inventoryList?.flatMap(c => c?.data?.collectionSnacks || []).filter(s => s?.name === "").length === 0
+            && inventoryList?.flatMap(c => c?.data?.collectionSnacks || []).filter(s => s?.unit === "").length === 0
+            && inventoryList?.flatMap(c => c?.data?.collectionSnacks || []).filter(s => !isFraction(s?.servingSize) || s?.servingSize !== s?.servingSize?.trim()).length === 0
+            && inventoryList?.flatMap(c => c?.data?.collectionSnacks || []).filter(s => !isFraction(s?.totalAmount) || s?.totalAmount !== s?.totalAmount?.trim()).length === 0
+          ) ? 0 : 0.5} 
+          className="absolute bg-black opacity-50 w-full h-full"
+          onPress={() => {(
+            !isEditing 
+            && inventoryList.flatMap(c => c?.data?.collectionSnacks || []).filter(s => s?.name === "").length === 0
+            && inventoryList.flatMap(c => c?.data?.collectionSnacks || []).filter(s => s?.unit === "").length === 0
+            && inventoryList.flatMap(c => c?.data?.collectionSnacks || []).filter(s => !isFraction(s?.servingSize) || s?.servingSize !== s?.servingSize?.trim()).length === 0
+            && inventoryList.flatMap(c => c?.data?.collectionSnacks || []).filter(s => !isFraction(s?.totalAmount) || s?.totalAmount !== s?.totalAmount?.trim()).length === 0
+          ) && setModalVisible(false) }} 
+        />
+
         {/* Modal Content */}
         <View className="flex w-5/6 py-5 px-5 bg-zinc200 rounded-2xl z-50">
 
@@ -759,12 +805,19 @@ const SnackSearchModal = ({
               // dealing with editing title variants
               <View className="flex flex-row">
                 {/* change */}
-                <Icon
-                  name="checkmark-circle"
-                  size={20}
-                  color={colors.zinc800}
-                  onPress={() => changeSnackTitleData()}
-                />
+                {(editedVariant?.snackTitle !== ""
+                  && editedVariant?.snackData?.filter(snack => snack.name === "").length === 0
+                  && editedVariant?.snackData?.filter(snack => snack.amount !== "").filter(snack => !isFraction(snack.amount) || snack.amount.trim() !== snack.amount).length === 0
+                  && editedVariant?.snackData?.filter(snack => !isFraction(snack.cal)).length === 0
+                  && editedVariant?.snackData?.filter(snack => (snack.amount === "" && snack.unit !== "") || (snack.amount !== "" && snack.unit === "")).length === 0
+                ) && (
+                  <Icon
+                    name="checkmark-circle"
+                    size={20}
+                    color={colors.zinc800}
+                    onPress={() => changeSnackTitleData()}
+                  />
+                )}
                 {/* close */}
                 <Icon
                   name="close-circle"
@@ -908,12 +961,14 @@ const SnackSearchModal = ({
                                 {/* BUTTONS */}
                                 <View className="flex flex-row justify-center items-center mr-[-5px]">
                                   {/* Submit */}
-                                  <Icon
-                                    name="checkmark"
-                                    size={20}
-                                    color="black"
-                                    onPress={() => {keywordType === "snack" ? changeSnackName() : keywordType === "snack title" && changeSnackTitle()}}
-                                  />
+                                  {(editedName !== "") && (
+                                    <Icon
+                                      name="checkmark"
+                                      size={20}
+                                      color="black"
+                                      onPress={() => {keywordType === "snack" ? changeSnackName() : keywordType === "snack title" && changeSnackTitle()}}
+                                    />
+                                  )}
                                   {/* Close */}
                                   <Icon
                                     name="close-outline"
@@ -1208,12 +1263,18 @@ const SnackSearchModal = ({
                                     {/* Buttons */}
                                     <View className="absolute flex flex-col right-[-30px]">
                                       {/* change */}
-                                      <Icon
-                                        name="checkmark-circle"
-                                        size={22}
-                                        color={colors.zinc800}
-                                        onPress={() => changeSnackNameData()}
-                                      />
+                                      {(editedVariant?.unit !== ""
+                                        && isFraction(editedVariant?.amount) && editedVariant?.amount === editedVariant?.amount.trim()
+                                        && isFraction(editedVariant?.cal)
+                                        && isFraction(editedVariant?.price)
+                                      ) && (
+                                        <Icon
+                                          name="checkmark-circle"
+                                          size={22}
+                                          color={colors.zinc800}
+                                          onPress={() => changeSnackNameData()}
+                                        />
+                                      )}
                                       {/* close */}
                                       <Icon
                                         name="close-circle"
@@ -1581,8 +1642,7 @@ const SnackSearchModal = ({
                 </View>
               )}
                                       
-              
-              {(isEditing && !(editVariantIndices.snack !== -1 && keywordType === "snack title")) && (
+              {(isEditing && (editNameIndex === -1) && !(editVariantIndices.snack !== -1 && keywordType === "snack title")) && (
                 <>
                   {/* Divider */}
                   <View className="h-[1px] bg-zinc400 w-full my-2"/>
@@ -1682,7 +1742,7 @@ const SnackSearchModal = ({
                             onPress={() => deleteCollection()}
                           />
                         </View>
-                      ) : (selectedCollection !== null) && (
+                      ) : (selectedCollection !== null && inventoryList.find(c => c.id === selectedCollection)?.data?.collectionName !== "") && (
                         <View className="absolute flex flex-col right-1">
                           {/* done */}
                           <Icon
@@ -1698,14 +1758,16 @@ const SnackSearchModal = ({
                       )}
 
                       {/* outer button - add */}
-                      <View className="absolute -right-[24px]">
-                        <Icon
-                          name="add-circle"
-                          color={colors.theme800}
-                          size={20}
-                          onPress={() => addCollection()}
-                        />
-                      </View>
+                      {!isEditingCollection && (
+                        <View className="absolute -right-[24px]">
+                          <Icon
+                            name="add-circle"
+                            color={colors.theme800}
+                            size={20}
+                            onPress={() => addCollection()}
+                          />
+                        </View>
+                      )}
                     </View>
                     
                     {/* SNACKS */}
@@ -1801,10 +1863,10 @@ const SnackSearchModal = ({
                             </View>
 
                             {/* per serving */}
-                            <View className="flex flex-row w-full justify-evenly items-center">
+                            <View className="flex flex-row w-full justify-between items-center">
                               {/* PER */}
                               <View className="flex flex-row">
-                                <Text className="text-[11px] text-theme700 font-semibold pr-1">PER</Text>
+                                <Text className="text-[11px] text-theme700 font-semibold">{"PER "}</Text>
                                 <TextInput
                                   className="text-[11px] text-theme700 font-semibold"
                                   placeholder="_"
@@ -1829,7 +1891,7 @@ const SnackSearchModal = ({
                                   onFocus={() => setKeyboardType("inventory")}
                                   onBlur={() => updateCollection()}
                                 />
-                                <Text className="text-[11px] text-theme700 font-semibold pr-1">:</Text>
+                                <Text className="text-[11px] text-theme700 font-semibold">:</Text>
                               </View>
                               {/* cal */}
                               <View className="flex flex-row">
@@ -1857,7 +1919,7 @@ const SnackSearchModal = ({
                                   onFocus={() => setKeyboardType("inventory")}
                                   onBlur={() => updateCollection()}
                                 />
-                                <Text className="text-[11px] text-theme700 pl-1">cal</Text>
+                                <Text className="text-[11px] text-theme700">{" cal"}</Text>
                               </View>
                               {/* price */}
                               <View className="flex flex-row">
@@ -1901,7 +1963,7 @@ const SnackSearchModal = ({
                             }}
                           >
                             {/* mm OR m / d */}
-                            {(snack?.expDate.toDate().toString().split(" ")[4] === "12:00:00") ? (
+                            {(snack?.expDate?.toDate().toString().split(" ")[4] === "12:00:00") ? (
                               <Text className="text-[12px] italic text-zinc700">
                                 {snack?.expDate?.toDate().toLocaleDateString('en-US', { month: 'short' }) || ""}
                               </Text>
@@ -1933,7 +1995,7 @@ const SnackSearchModal = ({
                   </View>
 
                   {/* Add Snack */}
-                  {(selectedCollection !== null) && (
+                  {(selectedCollection !== null && !isEditingCollection) && (
                     <View className="w-full pt-4">
                       <TouchableOpacity 
                         className="flex flex-row justify-center items-center py-1 border border-zinc450 bg-zinc-400"
@@ -1969,6 +2031,18 @@ const SnackSearchModal = ({
                 </View>
               )}
             </View>
+          )}
+
+
+          {/* WARNING */}
+          {(inventoryList?.flatMap(c => c?.data?.collectionSnacks || []).filter(s => s?.name === "").length !== 0
+            || inventoryList?.flatMap(c => c?.data?.collectionSnacks || []).filter(s => s?.unit === "").length !== 0
+            || inventoryList.flatMap(c => c?.data?.collectionSnacks || []).filter(s => !isFraction(s?.servingSize) || s?.servingSize !== s?.servingSize?.trim()).length !== 0
+            || inventoryList.flatMap(c => c?.data?.collectionSnacks || []).filter(s => !isFraction(s?.totalAmount) || s?.totalAmount !== s?.totalAmount?.trim()).length !== 0
+          ) && (
+            <Text className="mt-4 text-center text-[12.5px] text-mauve600 italic font-semibold">
+              {"before closing, ensure all inventory items \nhave names, units, and valid amounts"}
+            </Text>
           )}
         </View>
       </View>

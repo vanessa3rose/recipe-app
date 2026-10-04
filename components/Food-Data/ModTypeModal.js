@@ -489,7 +489,7 @@ const ModTypeModal = ({
 
 
           {/* FILTERING SECTION */}
-          <View className="flex flex-row h-[12%] px-5 space-x-2 justify-center items-center">
+          <View className={`flex flex-row px-5 space-x-2 justify-center items-center ${(filteredData.length > 0) ? "h-[12%]" : "h-[100px]"}`}>
           
             {/* Ingredient Filtering */}
             <View className="flex flex-row w-[45%] h-full items-center">
@@ -503,6 +503,10 @@ const ModTypeModal = ({
                   placeholder="search for ingredient"
                   placeholderTextColor={colors.zinc400}
                   multiline={true}
+                  onFocus={() => {
+                    setShowCustomType(false);
+                    setShowEditType(false);
+                  }}
                   blurOnSubmit={true}
                 />
               </View>
@@ -560,14 +564,26 @@ const ModTypeModal = ({
                     </View>
 
                     {/* submitting it with a + Button */}
-                    <View className="absolute right-1 flex h-full pt-0.5 justify-center items-center">
-                      <Icon
-                        size={18}
-                        name={'add'}
-                        color={colors.zinc700}
-                        onPress={addCustomType}
-                      />
-                    </View>
+                    {(!typeList.map(type => type.label.toLowerCase()).includes(customType.toLowerCase()) && customType !== "")
+                    ? (
+                      <View className="absolute right-1 flex h-full pt-0.5 justify-center items-center">
+                        <Icon
+                          size={18}
+                          name={'add'}
+                          color={colors.zinc700}
+                          onPress={addCustomType}
+                        />
+                      </View>
+                    // invalid input
+                    ) : (
+                      <View className="absolute right-1 flex h-full pt-0.5 justify-center items-center">
+                        <Icon
+                          size={18}
+                          name="remove"
+                          color={colors.zinc700}
+                        />
+                      </View>
+                    )}
                   </>
 
                 : showEditType
@@ -587,8 +603,8 @@ const ModTypeModal = ({
                     </View>
 
                     {/* submitting it with a check Button */}
-                    {editType !== "" 
-                    ? // if it is not empty, can submit
+                    {(editType !== "" && (editType !== filterType) && !typeList.filter(type => type.label !== filterType).map(type => type.label.toLowerCase()).includes(editType.toLowerCase()))
+                    ? (
                       <View className="absolute right-1 flex h-full pt-0.5 justify-center items-center">
                         <Icon
                           size={18}
@@ -597,7 +613,8 @@ const ModTypeModal = ({
                           onPress={editFilteredType}
                         />
                       </View>
-                    : // if it is empty, cannot
+                    // invalid input
+                    ) : ( 
                       <View className="absolute right-1 flex h-full pt-0.5 justify-center items-center">
                         <Icon
                           size={18}
@@ -605,7 +622,7 @@ const ModTypeModal = ({
                           color={colors.zinc700}
                         />
                       </View>
-                    }
+                    )}
                   </>
 
                 : // normal list (picker) of types 
@@ -736,7 +753,7 @@ const ModTypeModal = ({
               </Picker>
             </View>
           </View>
-
+          
           {/* TOGGLE ALL */}
           {(selectedType !== "") && (
             <View className="flex-row w-full pl-4 space-x-1 pr-5">
@@ -767,83 +784,93 @@ const ModTypeModal = ({
 
 
           {/* MAP OF INGREDIENTS */}
-          <ScrollView
-            vertical
-            scrollEventThrottle={16}
-            contentContainerStyle={{ flexDirection: 'column' }}
-            className="flex border-4 border-zinc300 bg-zinc300 mx-4 mb-2 h-1/2"
-          >
-            {filteredData.map((ingredient, index) => (
-              <View key={index} className="flex mb-2">
+          {(filteredData.length > 0) 
+          ? (
+            <ScrollView
+              vertical
+              scrollEventThrottle={16}
+              contentContainerStyle={{ flexDirection: 'column' }}
+              className="flex border-4 border-zinc300 bg-zinc300 mx-4 mb-2 h-1/2"
+            >
+              {filteredData.map((ingredient, index) => (
+                <View key={index} className="flex mb-2">
 
-                {/* ingredient name */}
-                <View className={`flex py-1 px-2 border-b-0.5 ${index % 2 === 0 ? "bg-theme300 border-b-zinc600" : "bg-theme400 border-b-zinc700"}`}>
-                  <Text className="text-[12.5px] text-black font-medium">
-                    {ingredient.ingredientName}
-                  </Text>
-                </View>
-
-                {/* ingredient types */}
-                <View className={`flex flex-row py-1 px-2 ${index % 2 === 0 ? "bg-zinc450" : "bg-zinc500"}`}>
-                  {!showModOnly 
-                  ?
-                    // if showing regular types
-                    <Text className="text-[9px] text-white italic font-semibold">
-                      {ingredient.ingredientTypes.sort((a, b) => a.localeCompare(b)).join(", ").toUpperCase()}
+                  {/* ingredient name */}
+                  <View className={`flex py-1 px-2 border-b-0.5 ${index % 2 === 0 ? "bg-theme300 border-b-zinc600" : "bg-theme400 border-b-zinc700"}`}>
+                    <Text className="text-[12.5px] text-black font-medium">
+                      {ingredient.ingredientName}
                     </Text>
-                  :
-                    // if showing modified types
-                    <View className="flex flex-row space-x-4">
-                      {[...new Set([...ingredient.ingredientTypes, ...(oldIngredients.find(old => old.id === ingredient.id)?.ingredientTypes || [])
-                        ])].sort((a, b) => a.localeCompare(b)).filter(type => type !== "")
-                      .map((type, idx) => (
-                        <View key={idx}>
-                          <Text 
-                            className={`text-[9px] ${
-                              // kept the same - white
-                              ingredient.ingredientTypes.includes(type) && oldIngredients.find(old => old.id === ingredient.id)?.ingredientTypes?.includes(type) ? "font-semibold text-white" 
-                              // added - white bg with teal letters
-                              : ingredient.ingredientTypes.includes(type) ? "bg-white text-theme900 px-2 font-bold rounded-lg" 
-                              // removed - white bg with pink letters & strikethrough
-                              : oldIngredients.find(old => old.id === ingredient.id)?.ingredientTypes?.includes(type) ? "px-2 bg-white text-mauve700 line-through decoration-mauve900 font-bold rounded-lg" : ""
-                            }`}
-                          >
-                            {type.toUpperCase()}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  }
+                  </View>
 
-                  {/* BUTTONS */}
-                  {(selectedType !== "" && selectedType !== "CUSTOM") && (
-                    <View className="flex flex-row absolute right-0.5 py-0.5">
+                  {/* ingredient types */}
+                  <View className={`flex flex-row py-1 px-2 ${index % 2 === 0 ? "bg-zinc450" : "bg-zinc500"}`}>
+                    {!showModOnly 
+                    ?
+                      // if showing regular types
+                      <Text className="text-[9px] text-white italic font-semibold">
+                        {ingredient.ingredientTypes.sort((a, b) => a.localeCompare(b)).join(", ").toUpperCase()}
+                      </Text>
+                    :
+                      // if showing modified types
+                      <View className="flex flex-row space-x-4">
+                        {[...new Set([...ingredient.ingredientTypes, ...(oldIngredients.find(old => old.id === ingredient.id)?.ingredientTypes || [])
+                          ])].sort((a, b) => a.localeCompare(b)).filter(type => type !== "")
+                        .map((type, idx) => (
+                          <View key={idx}>
+                            <Text 
+                              className={`text-[9px] ${
+                                // kept the same - white
+                                ingredient.ingredientTypes.includes(type) && oldIngredients.find(old => old.id === ingredient.id)?.ingredientTypes?.includes(type) ? "font-semibold text-white" 
+                                // added - white bg with teal letters
+                                : ingredient.ingredientTypes.includes(type) ? "bg-white text-theme900 px-2 font-bold rounded-lg" 
+                                // removed - white bg with pink letters & strikethrough
+                                : oldIngredients.find(old => old.id === ingredient.id)?.ingredientTypes?.includes(type) ? "px-2 bg-white text-mauve700 line-through decoration-mauve900 font-bold rounded-lg" : ""
+                              }`}
+                            >
+                              {type.toUpperCase()}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    }
 
-                      {/* add (if not already included) */}
-                      {!ingredient.ingredientTypes.includes(selectedType) && (
-                        <Icon
-                          name="add"
-                          color="white"
-                          size={14}
-                          onPress={() => addIngredientType(ingredient.id)}
-                        />
-                      )}
+                    {/* BUTTONS */}
+                    {(selectedType !== "" && selectedType !== "CUSTOM") && (
+                      <View className="flex flex-row absolute right-0.5 py-0.5">
 
-                      {/* remove (if already included) */}
-                      {ingredient.ingredientTypes.includes(selectedType) && (
-                        <Icon
-                          name="close-outline"
-                          color="white"
-                          size={14}
-                          onPress={() => removeIngredientType(ingredient.id)}
-                        />
-                      )}
-                    </View>
-                  )}
+                        {/* add (if not already included) */}
+                        {!ingredient.ingredientTypes.includes(selectedType) && (
+                          <Icon
+                            name="add"
+                            color="white"
+                            size={14}
+                            onPress={() => addIngredientType(ingredient.id)}
+                          />
+                        )}
+
+                        {/* remove (if already included) */}
+                        {ingredient.ingredientTypes.includes(selectedType) && (
+                          <Icon
+                            name="close-outline"
+                            color="white"
+                            size={14}
+                            onPress={() => removeIngredientType(ingredient.id)}
+                          />
+                        )}
+                      </View>
+                    )}
+                  </View>
                 </View>
-              </View>
-            ))}
-          </ScrollView>
+              ))}
+            </ScrollView>
+          // no filter matches
+          ) : (
+            <View className="flex flex-1 justify-center items-center border-4 border-zinc300 bg-zinc300 mx-4 mb-2 min-h-[100px]">
+              <Text className="italic text-theme700 font-medium">
+                no ingredients match the current filters
+              </Text>
+            </View>
+          )}
 
 
           {/* TO VIEW CHANGED INGREDIENTS */}

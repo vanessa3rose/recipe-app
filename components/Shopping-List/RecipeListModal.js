@@ -13,6 +13,10 @@ import Fraction from 'fraction.js';
 import isFraction from '../Validation/isFraction';
 import extractUnit from '../Validation/extractUnit';
 
+// store lists
+import storeKeys from '../../assets/storeKeys';
+import storeLabels from '../../assets/storeLabels';
+
 
 ///////////////////////////////// SIGNATURE /////////////////////////////////
 
@@ -50,26 +54,54 @@ const RecipeListModal = ({
           
           {/* recipe list */}
           {recipeList.map((recipe, index) => (
-            <View className="flex flex-row justify-center items-center w-full px-4" key={index}>
-              <View className="flex flex-row border-0.5 bg-black">
+            <View key={index}>
+              {(recipe !== null) && (
+                <View className="flex flex-row justify-center items-center w-full px-4">
+                  <View className="flex flex-row border-0.5 bg-black">
 
-                {/* recipe name */}
-                <View className="py-3 px-2 w-3/5 items-center justify-center bg-zinc500">
-                  <Text className="text-white font-semibold text-center">
-                    {recipe}
-                  </Text>
+                    {/* recipe name */}
+                    <View className="py-3 px-2 w-3/5 items-center justify-center bg-zinc500">
+                      <Text className="text-white font-semibold text-center">
+                        {recipe}
+                      </Text>
+                    </View>
+                    
+                    {/* details */}
+                    <View className="flex py-3 px-2 w-2/5 items-center justify-center bg-zinc400">
+                      <Text>
+                        <Text className="text-center">{`${amountList[index] === "" ? 0 : amountList[index]} ${extractUnit(unitList[index], amountList[index])}`}</Text>
+                        <Text className="text-center">{`\u00A0x\u00A0${multList[index]}`}</Text>
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-                
-                {/* details */}
-                <View className="flex py-3 px-2 w-2/5 items-center justify-center bg-zinc400">
-                  <Text>
-                    <Text className="text-center">{`${amountList[index] === "" ? 0 : amountList[index]} ${extractUnit(unitList[index], amountList[index])}`}</Text>
-                    <Text className="text-center">{`\u00A0x\u00A0${multList[index]}`}</Text>
-                  </Text>
-                </View>
-              </View>
+              )}
             </View>
           ))}
+          
+          {/* custom list */}
+          {(recipeList.filter(recipe => recipe === null).length > 0) && (
+            <View className="flex flex-row w-full justify-center self-stretch px-4 mt-1.5">
+              {/* Left Column */}
+              <View className="flex justify-center p-2 bg-mauve300 border-0.5 border-zinc500">
+                <Text className="flex font-semibold italic text-[12px] text-white">
+                  EXTRAS
+                </Text>
+              </View>
+              {/* Details */}
+              <View className="flex flex-1 justify-center items-center border-0.5 space-y-0.5 bg-mauve100 border-mauve700">
+                {recipeList.map((recipe, index) => (
+                  <View key={index}>
+                    {(recipe === null) && (
+                      <Text className="px-3 py-2 text-center text-[13px]">
+                        {`${amountList[index] === "" ? 0 : amountList[index]} ${extractUnit(unitList[index], amountList[index])}\u00A0x\u00A0${multList[index]}`}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
 
           {/* amounts */}
           <View className="flex flex-row w-full justify-center items-center space-x-3 pt-5 px-10">
@@ -125,26 +157,50 @@ const RecipeListModal = ({
                 </View>
 
                 {/* Map of Ingredients */}
-                <View className="flex border-[1px] border-r-[1.5px] border-theme800">
-                  {otherList.map((ingredient, index) => (
-                    <View key={index} className="flex flex-row w-11/12 bg-black justify-center items-center">
-                      
-                      {/* Spotlight */}
-                      <View className={`w-7/12 py-1 px-2 bg-theme600 border-l-0.5 ${(index !== 0) && 'border-t-[1px] border-theme700'}`}>
-                        <Text className="text-[12.5px] text-left text-white">
-                          {ingredient.spotlightName}
+                {(otherList.filter(other => other.spotlightName !== null).length > 0) && (
+                  <View className="flex border-[1px] border-r-[1.5px] border-theme800">
+                    {otherList.map((ingredient, index) => (
+                      <View key={index} className="flex flex-row w-11/12 bg-black justify-center items-center">
+                        {(ingredient.spotlightName !== null) && (
+                          <>
+                            {/* Spotlight */}
+                            <View className={`w-7/12 py-1 px-2 bg-theme600 border-l-0.5 ${(index !== 0) && 'border-t-[1px] border-theme700'}`}>
+                              <Text className="text-[12.5px] text-left text-white">
+                                {ingredient.spotlightName}
+                              </Text>
+                            </View>
+                            {/* Store */}
+                            <View className={`w-5/12 py-1 bg-theme800 text-zinc100 ${(index !== 0) && 'border-t-[1px] border-theme900'}`}>
+                              <Text className="text-[12.5px] text-center text-white font-medium">
+                                {storeLabels.indexOf(ingredient.ingredientStore) === -1 ? "misc" : storeLabels[storeLabels.indexOf(ingredient.ingredientStore)].toLowerCase()}
+                              </Text>
+                            </View>
+                          </>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+          
+                {/* custom list */}
+                {(otherList.filter(other => other.spotlightName === null).length > 0) && (
+                  <View className="flex flex-row w-full justify-center">
+                    <View className="flex flex-row w-11/12">
+                      {/* Left Column */}
+                      <View className="flex justify-center px-2 py-1 bg-mauve300 border-0.5 border-zinc500">
+                        <Text className="flex font-semibold italic text-[11px] text-white">
+                          EXTRAS
                         </Text>
                       </View>
-
-                      {/* Store */}
-                      <View className={`w-5/12 py-1 bg-theme800 text-zinc100 ${(index !== 0) && 'border-t-[1px] border-theme900'}`}>
+                      {/* Details */}
+                      <View className="flex flex-1 justify-center items-center border-0.5 space-y-0.5 bg-mauve500 border-mauve700">
                         <Text className="text-[12.5px] text-center text-white font-medium">
-                          {ingredient.ingredientStore.toLowerCase()}
+                          {otherList.filter(other => other.spotlightName === null).map(other => storeKeys.indexOf(other.ingredientStore) === -1 ? "misc" : storeLabels[storeKeys.indexOf(other.ingredientStore)].toLowerCase()).join(", ")}
                         </Text>
                       </View>
                     </View>
-                  ))}
-                </View>
+                  </View>
+                )}
               </View>
             </>
           )}

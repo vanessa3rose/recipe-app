@@ -26,8 +26,7 @@ const ModTagModal = ({
 
   ///////////////////////////////// VARIABLES /////////////////////////////////
   
-  const [newTag, setNewTag] = useState("");             // the new tag's name
-  const [isNameValid, setNameValid] = useState(true);   // for submission
+  const [newTag, setNewTag] = useState("");
 
   // stores the OG name on open
   useEffect(() => {
@@ -43,62 +42,53 @@ const ModTagModal = ({
 
   // to submit the modal
   const editTag = async () => {
+    try {
 
-    // not a valid submission if the new tag name is blank
-    if (newTag === "") {
-        setNameValid(false);
+      // initializes a Firestore write batch
+      const recipeBatch = writeBatch(db);
+      
+      // gets all of the recipes
+      const recipesSnapshot = await getDocs(collection(db, 'RECIPES'));
 
-    // otherwise, submit the new tag and close the modal
-    } else {
-      setNameValid(true);
+      // stores the id of the global recipe
+      const globalId = await getDoc(doc(db, 'GLOBALS', 'recipe'));
 
-      try {
-        // initializes a Firestore write batch
-        const recipeBatch = writeBatch(db);
-        
-        // gets all of the recipes
-        const recipesSnapshot = await getDocs(collection(db, 'RECIPES'));
-
-        // stores the id of the global recipe
-        const globalId = await getDoc(doc(db, 'GLOBALS', 'recipe'));
-
-        // loops through the recipes and adds all found tags
-        recipesSnapshot.forEach((recipe) => {
-          const data = recipe.data();
-          const tags = data.recipeTags;
-          const tagList = [];
-        
-          tags.forEach((tag) => {
-              // adds the tag as normal if it is not the one being changed
-              if (tag !== currTag) { tagList.push(tag); }
-              // adds the updated tag if it is the one being changed
-              else { tagList.push(newTag); }
-          });
-
-          // removes duplicates and sorts alphabetically
-          const uniqueTags = [...new Set(tagList)]
-            .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-        
-          // stores the updated data
-          data.recipeTags = uniqueTags;
-
-          // only updates db if the tag list has changed
-          if (JSON.stringify(tags) !== JSON.stringify(tagList)) {
-            recipeBatch.update(doc(db, 'RECIPES', recipe.id), data);
-          }
-        
-          // finds the global recipe and stores the data globally
-          if (globalId && globalId.data().id === recipe.id) {
-            setCurrEditData(data);
-          }
+      // loops through the recipes and adds all found tags
+      recipesSnapshot.forEach((recipe) => {
+        const data = recipe.data();
+        const tags = data.recipeTags;
+        const tagList = [];
+      
+        tags.forEach((tag) => {
+            // adds the tag as normal if it is not the one being changed
+            if (tag !== currTag) { tagList.push(tag); }
+            // adds the updated tag if it is the one being changed
+            else { tagList.push(newTag); }
         });
 
-        // commit the recipe batch
-        await recipeBatch.commit();
-    
-      } catch (e) {
-        console.error("Error changing tags: ", e);
-      }
+        // removes duplicates and sorts alphabetically
+        const uniqueTags = [...new Set(tagList)]
+          .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      
+        // stores the updated data
+        data.recipeTags = uniqueTags;
+
+        // only updates db if the tag list has changed
+        if (JSON.stringify(tags) !== JSON.stringify(tagList)) {
+          recipeBatch.update(doc(db, 'RECIPES', recipe.id), data);
+        }
+      
+        // finds the global recipe and stores the data globally
+        if (globalId && globalId.data().id === recipe.id) {
+          setCurrEditData(data);
+        }
+      });
+
+      // commit the recipe batch
+      await recipeBatch.commit();
+  
+    } catch (e) {
+      console.error("Error changing tags: ", e);
     }
   };
 
@@ -194,12 +184,14 @@ const ModTagModal = ({
             <View className="flex flex-row items-center justify-center">
 
               {/* Check */}
-              <Icon
-                size={24}
-                color="black"
-                name="checkmark"
-                onPress={editTag}
-              />
+              {(newTag !== "") && (
+                <Icon
+                  size={24}
+                  color="black"
+                  name="checkmark"
+                  onPress={editTag}
+                />
+              )}
 
               {/* X */}
               <Icon
@@ -241,21 +233,6 @@ const ModTagModal = ({
               onPress={deleteTag}
             />
           </View>
-
-
-          {/* warning if there is no new tag name */}
-          {!isNameValid && (
-            <View className="flex flex-col items-center justify-center">
-
-              {/* divider */}
-              <View className="h-[1px] bg-zinc400 mt-2 mb-4 w-full"/>
-            
-              {/* warning */}
-              <Text className="text-mauve600 italic">
-                tag name is required
-              </Text>
-            </View>
-          )}
         </View>
       </View>
     </Modal>

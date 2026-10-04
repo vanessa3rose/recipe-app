@@ -1267,7 +1267,7 @@ const SnackListModal = ({
                     <View className="w-[50%] flex flex-row">
 
                       {/* SUBMIT */}
-                      {(!snack.used && snack.currAmount !== "" && isFraction(snack.currAmount)) && (
+                      {(!snack.used && isFraction(snack.currAmount) && snack.currAmount.trim() === snack.currAmount) && (
                         <TouchableOpacity 
                           className="w-[30px] bg-zinc200 justify-center items-center z-50"
                           onPress={() => useSnack(snack, idx)}
@@ -1290,7 +1290,7 @@ const SnackListModal = ({
                               placeholder="_"
                               placeholderTextColor={colors.zinc450}
                               value={snack?.currAmount || ""}
-                              onChangeText={(value) => updateCurrInventory(idx, snack, value)}
+                              onChangeText={(value) => updateCurrInventory(idx, snack, validateFractionInput(value))}
                               onFocus={() => setKeyboardType("inventory")}
                             />
                             {/* remaining */}
@@ -1359,12 +1359,17 @@ const SnackListModal = ({
             <View className="flex flex-row justify-center items-center space-x-[-2px] ml-auto">
 
               {/* submit */}
-              <Icon 
-                size={24}
-                color="black"
-                name="checkmark"
-                onPress={() => submitSnacks()}
-              />
+              {(snackData === null ||
+                ((((snackData ?? []).filter(snack => snack?.name === "").length === 0) || (snackData.length === 1 && Object.values(snackData?.[0] ?? {}).every(val => val === "")))
+                && ((snackData ?? []).filter(snack => isFraction(snack?.amount) || snack?.amount === "").length !== 0))
+              ) && (
+                <Icon 
+                  size={24}
+                  color="black"
+                  name="checkmark"
+                  onPress={() => submitSnacks()}
+                />
+              )}
 
               {/* Close */}
               <Icon

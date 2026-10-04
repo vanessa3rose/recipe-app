@@ -14,7 +14,11 @@ import colors from '../../assets/colors';
 import storeKeys from '../../assets/storeKeys';
 import storeLabels from '../../assets/storeLabels';
 
+// fractions
+import Fraction from 'fraction.js';
+
 // validation
+import isFraction from '../Validation/isFraction';
 import capitalizeInput from '../Validation/capitalizeInput';
 import validateFractionInput from '../Validation/validateFractionInput';
 import validateDecimalInput from '../Validation/validateDecimalInput';
@@ -432,11 +436,11 @@ const ModIngredientModal = ({
       for (let i = 0; i < ingredientStores.length; i++) {
         ingredientData[ingredientStores[i]] = {
           brand: brand[ingredientStores[i]] || "",
-          calServing: calServing?.[ingredientStores[i]] || "",
+          calServing: isFraction(calServing?.[ingredientStores[i]] || "") ? new Fraction(calServing?.[ingredientStores[i]] || "").valueOf().toFixed(0) : "",
           link: link?.[ingredientStores[i]] || "",
-          priceContainer: priceContainer?.[ingredientStores[i]] || "",
-          servingContainer: servingContainer?.[ingredientStores[i]] || "",
-          servingSize: servingSize?.[ingredientStores[i]] || "",
+          priceContainer: isFraction(priceContainer?.[ingredientStores[i]] || "") ? new Fraction(priceContainer?.[ingredientStores[i]] || "").valueOf().toFixed(2) : "",
+          servingContainer: isFraction(servingContainer?.[ingredientStores[i]] || "") ? new Fraction((servingContainer?.[ingredientStores[i]] || "").trim()).toFraction(true) : "",
+          servingSize: isFraction(servingSize?.[ingredientStores[i]] || "") ? new Fraction((servingSize?.[ingredientStores[i]] || "").trim()).toFraction(true) : "",
           unit: unit?.[ingredientStores[i]] || ""
         };
       }
@@ -968,13 +972,21 @@ const ModIngredientModal = ({
             {/* BUTTONS */}
             <View className="flex flex-row justify-center items-center ml-auto">
 
-              {/* Check */}
-              <Icon 
-                size={24}
-                color="black"
-                name="checkmark"
-                onPress={submitModal}
-              />
+              {/* Check - if the amounts are valid */}
+              {(
+                (storeKeys.filter(store => isFraction(servingSize[store])).length === storeKeys.filter(store => brand[store] !== "").length) 
+                && (storeKeys.filter(store => unit[store] !== "").length === storeKeys.filter(store => brand[store] !== "").length) 
+                && (storeKeys.filter(store => isFraction(servingContainer[store])).length === storeKeys.filter(store => brand[store] !== "").length) 
+                && (storeKeys.filter(store => isFraction(calServing[store])).length === storeKeys.filter(store => brand[store] !== "").length) 
+                && (storeKeys.filter(store => isFraction(priceContainer[store])).length === storeKeys.filter(store => brand[store] !== "").length) 
+              ) && (
+                <Icon 
+                  size={24}
+                  color="black"
+                  name="checkmark"
+                  onPress={submitModal}
+                />
+              )}
 
               {/* X */}
               <Icon 

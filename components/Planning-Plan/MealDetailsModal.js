@@ -1809,6 +1809,7 @@ const MealDetailsModal = ({
 
                       {/* SUBMIT */}
                       {(isFraction(selectedIngredientAmount) &&
+                        selectedIngredientAmount.trim() === selectedIngredientAmount && 
                         isFraction(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize) &&
                         new Fraction(selectedIngredient?.ingredientData?.[selectedStore]?.servingSize).valueOf() !== 0
                       ) && (
@@ -2280,7 +2281,17 @@ const MealDetailsModal = ({
                 <View className="flex flex-row justify-center items-center space-x-[-2px] ml-auto">
     
                   {/* Check */}
-                  {(option === "COPY" && copyData?.prepData?.prepName || option === "CREATE") && (
+                  {((option === "COPY" && copyData?.prepData?.prepName) 
+                    || (
+                      option === "CREATE" && createComplex
+                      && prepName !== "" && prepPrice !== ""
+                      && prepCurrentData?.filter(curr => curr === null).length === 0
+                      && prepCurrentData?.filter(curr => curr?.ingredientName === "").length === 0
+                      && prepCurrentAmounts?.filter(amt => amt !== "" && (!isFraction(amt) || amt.trim() !== amt))?.length === 0
+                    ) || (
+                      option === "CREATE" && !createComplex
+                      && prepName !== "" && prepCal !== "" && prepPrice !== ""
+                  )) && (
                     <Icon 
                       size={24}
                       color="black"

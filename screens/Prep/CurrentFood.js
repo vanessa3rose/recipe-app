@@ -1199,7 +1199,10 @@ export default function CurrentFood ({ isSelectedTab }) {
                                     placeholderTextColor="black"
                                     value={currAmountTotals[index]}
                                     onChangeText={(value) => updateTotals(validateFractionInput(value), index)}
-                                    onBlur={() => updateFilter(showArchive)}
+                                    onBlur={() => {
+                                      updateTotals(currAmountTotals[index] === "" ? "" : isFraction(currAmountTotals[index]) ? currAmountTotals[index].trim() : "", index)
+                                      updateFilter(showArchive)
+                                    }}
                                   />
 
                                   {/* Amount Left (CALCULATED) */}

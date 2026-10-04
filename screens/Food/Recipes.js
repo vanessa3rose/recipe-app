@@ -1554,6 +1554,7 @@ export default function Recipes ({ isSelectedTab }) {
                       placeholderTextColor="black"
                       value={currIngredientAmounts[index]}
                       onChangeText={(value) => setAmount(validateFractionInput(value), index)}
+                      onBlur={() => setAmount(currIngredientAmounts[index] === "" ? "" : isFraction(currIngredientAmounts[index]) ? currIngredientAmounts[index].trim() : "", index)}
                     />
                     {/* Unit */}
                     <Text className="text-[10px]">

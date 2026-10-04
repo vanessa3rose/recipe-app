@@ -196,7 +196,6 @@ const PrepToRecipeModal = ({
 
   // to change the edited ingredient's amount, which triggers the cal / $ / serving calculation
   const changeAmount = (value, index, ingredient, storeKey) => {
-    console.log(changeAmount)
     const storeData = ingredient?.[storeKey] || {};
     
     let cals = "";
@@ -638,7 +637,7 @@ const PrepToRecipeModal = ({
             <View className="flex-row items-center justify-evenly">
 
               {/* back button if editing */}
-              {(editIngredientIndex !== -1 || showFindRecipe) && (
+              {((editIngredientIndex !== -1 && isFraction(ingredientAmounts[editIngredientIndex]) && ingredientAmounts[editIngredientIndex] === ingredientAmounts[editIngredientIndex].trim()) || showFindRecipe) && (
                 <View className="flex absolute left-0 w-[30px]">
                   <Icon
                     name="arrow-back"
