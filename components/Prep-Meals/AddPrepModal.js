@@ -46,7 +46,7 @@ const AddPrepModal = ({
     // if the modal is opened
     if (modalVisible) {
       setPrepName("Meal Prep " + (numPreps + 1));
-      setSelectedCurrentIds(["", "", "", "", "", "", "", "", "", "", "", ""]);
+      setSelectedCurrentIds(new Array(12).fill(""));
       getSpotlights();
     }
   }, [modalVisible]);
@@ -104,7 +104,7 @@ const AddPrepModal = ({
 
   ///////////////////////////////// CURRENT PICKERS /////////////////////////////////
 
-  const [selectedCurrentIds, setSelectedCurrentIds] = useState(["", "", "", "", "", "", "", "", "", "", "", ""]);
+  const [selectedCurrentIds, setSelectedCurrentIds] = useState(new Array(12).fill(""));
   
   // to update the id of the current index
   const setCurrents = async (value, index) => {
@@ -243,7 +243,7 @@ const AddPrepModal = ({
   const exitModal = (type) => {
     setModalVisible(false);
     setPrepName("");
-    setSelectedCurrentIds(["", "", "", "", "", "", "", "", "", "", "", ""]);
+    setSelectedCurrentIds(new Array(12).fill(""));
   };
 
 
@@ -346,7 +346,7 @@ const AddPrepModal = ({
                 {/* Prep Name Input */}
                 <TextInput
                   className="w-full text-center mb-1 text-[14px] leading-[17px]"
-                  placeholder={prepName}
+                  placeholder="meal prep name"
                   placeholderTextColor={colors.zinc400}
                   multiline={true}
                   blurOnSubmit={true}

@@ -553,7 +553,7 @@ const ModTypeModal = ({
                     {/* inputting a new type */}
                     <View className="flex justify-center w-full h-[25px] mt-0.5 pl-2 pr-6 pb-1 bg-theme200 rounded-b-md">
                       <TextInput
-                        placeholder="Custom Type"
+                        placeholder="custom type"
                         placeholderTextColor={colors.zinc500}
                         className="w-full text-[12px] leading-[14px] text-center"
                         value={customType}
@@ -592,7 +592,7 @@ const ModTypeModal = ({
                     {/* inputting a change */}
                     <View className="flex justify-center w-full h-[25px] mt-0.5 pl-2 pr-6 pb-1 bg-theme200 rounded-b-md">
                       <TextInput
-                        placeholder="Edit Type"
+                        placeholder="edit type"
                         placeholderTextColor={colors.zinc500}
                         className="w-full text-[12px] leading-[14px] text-center"
                         value={editType}

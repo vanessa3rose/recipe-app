@@ -250,7 +250,7 @@ const PlanNoteModal = ({
                       <TextInput
                         className={`w-full bg-zinc100 border-2 border-theme200 rounded-md py-1 text-[12px] ${(keyboardType === index) ? "pl-2 pr-6 min-h-[50px]" : "px-2"}`}
                         placeholder="note"
-                        placeholderTextColor={colors.zinc350}
+                        placeholderTextColor={colors.zinc400}
                         value={note.details || ""}
                         onChangeText={(value) => updateNote("details", index, value.replaceAll('\'', '’'))}
                         multiline={true}

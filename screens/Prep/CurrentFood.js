@@ -20,6 +20,7 @@ import storeImages from '../../assets/storeImages';
 import Fraction from 'fraction.js';
 
 // validation
+import getInputWidth from '../../components/Validation/getInputWidth';
 import isFraction from '../../components/Validation/isFraction';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 import extractUnit from '../../components/Validation/extractUnit';
@@ -483,13 +484,11 @@ export default function CurrentFood ({ isSelectedTab }) {
     
     // stores the string verstion of the new total
     newValue = newValue.toString();
-    
-    // stores the value in the state
-    setCurrAmountTotals((prevState) => {
-      const updatedTotals = [...prevState];
-      updatedTotals[index] = newValue;
-      return updatedTotals;
-    });
+
+    // stores the value in the state & calculates the widths
+    const updatedTotals = [...currAmountTotals];
+    updatedTotals[index] = newValue;
+    setCurrAmountTotals(updatedTotals);
     
     // if the new value isn't empty and current amount totals is valid
     if (newValue !== "") {
@@ -723,11 +722,13 @@ export default function CurrentFood ({ isSelectedTab }) {
   }
 
   // when closing the mod modal to edit an already temp current
-  const closeModModal = async (newId) => {
+  const closeModModal = async (newId, isChanged) => {
 
-    // adds the new id (ingredientName) to the list of new ids
-    newIds.push(newId);
-    setNewIds(newIds);
+    // adds the new id (ingredientName) to the list of new ids if changed
+    if (isChanged) {
+      newIds.push(newId);
+      setNewIds(newIds);
+    }
     
     setCurrentModId(null);
     setCurrentModData(null);
@@ -1079,7 +1080,7 @@ export default function CurrentFood ({ isSelectedTab }) {
             onPress={() => importIngredients()}
           >
             {/* Text */}
-            <Text className="text-white text-xs font-bold">
+            <Text className="text-white text-[12px] font-bold">
               INGREDIENT
             </Text>
             {/* Import Icon - for Button */}
@@ -1092,14 +1093,14 @@ export default function CurrentFood ({ isSelectedTab }) {
 
           {/* amount header */}
           <View className="flex items-center justify-center w-[35%] border-r-0.5 bg-theme900 border-y-[1px] border-black">
-            <Text className="text-white text-xs font-bold">
+            <Text className="text-white text-[12px] font-bold">
               AMOUNT
             </Text>
           </View>
 
           {/* unit price header */}
           <View className="flex items-center justify-center w-1/6 bg-theme900 border-y-[1px] border-r-[1px] border-black">
-            <Text className="text-white text-xs font-bold">
+            <Text className="text-white text-[12px] font-bold">
               UNIT $
             </Text>
           </View>
@@ -1189,13 +1190,13 @@ export default function CurrentFood ({ isSelectedTab }) {
 
                               {/* Text */}
                               <View className="flex flex-col items-center justify-center w-full space-y-1 -ml-3">
-                                <View className="flex flex-row items-center justify-center space-x-2 mr-[20px]">
+                                <View className="flex flex-row items-center justify-center space-x-1 mr-[20px]">
 
                                   {/* Amount Total (INPUT) */}
                                   <TextInput
-                                    key={index}
-                                    className="text-[12px] leading-[15px] text-center"
-                                    placeholder={curr.amountTotal !== "" ? curr.amountTotal : "_"}
+                                    style={{ width: getInputWidth(currAmountTotals[index]) + 6 }}
+                                    className="py-[1px] text-[12px] leading-[15px] text-center pr-1"
+                                    placeholder="_"
                                     placeholderTextColor="black"
                                     value={currAmountTotals[index]}
                                     onChangeText={(value) => updateTotals(validateFractionInput(value), index)}
@@ -1206,7 +1207,7 @@ export default function CurrentFood ({ isSelectedTab }) {
                                   />
 
                                   {/* Amount Left (CALCULATED) */}
-                                  <Text className={`pl-2 border-l-[1px] border-l-zinc400 text-[12px] 
+                                  <Text className={`py-[2px] pl-2 border-l-[1px] border-l-zinc400 text-[12px] leading-[15px]
                                     ${(() => {
                                       if (!isFraction(curr.amountLeft)) return "text-zinc700";
                                       const val = new Fraction(curr.amountLeft).valueOf();

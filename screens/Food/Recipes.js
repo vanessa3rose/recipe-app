@@ -21,6 +21,7 @@ import storeImages from '../../assets/storeImages';
 import Fraction from 'fraction.js';
 
 // validation
+import getInputWidth from '../../components/Validation/getInputWidth';
 import isFraction from '../../components/Validation/isFraction';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 import extractUnit from '../../components/Validation/extractUnit';
@@ -383,6 +384,7 @@ export default function Recipes ({ isSelectedTab }) {
   
       // updates the selected recipe
       setSelectedRecipeData({ ...calcData });
+      setCurrIngredientAmounts(calcData.ingredientAmounts);
 
       // clears the search
       clearIngredientSearch();
@@ -498,9 +500,7 @@ export default function Recipes ({ isSelectedTab }) {
   
       // updates the selected recipe
       setSelectedRecipeData(calcData);
-
-      // clears the current storage of the amounts so the placeholders aren't janky
-      setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
+      setCurrIngredientAmounts(calcData.ingredientAmounts);
 
       // reload settings
       refreshRecipes(calcData);
@@ -525,9 +525,6 @@ export default function Recipes ({ isSelectedTab }) {
     selectedRecipeData.ingredientPrices[selectedIngredientIndex - 1] = "";
     selectedRecipeData.ingredientServings[selectedIngredientIndex - 1] = "";
 
-    // clears the current storage of the amounts so the placeholders aren't janky
-    setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
-
     // calculates the details and totals
     let calcData = calcAmounts(selectedRecipeData);
 
@@ -543,6 +540,7 @@ export default function Recipes ({ isSelectedTab }) {
 
     // updates the selected recipe
     setSelectedRecipeData(calcData);
+    setCurrIngredientAmounts(calcData.ingredientAmounts);
 
     // reload settings
     refreshRecipes(calcData);
@@ -552,7 +550,7 @@ export default function Recipes ({ isSelectedTab }) {
   ///////////////////////////////// INGREDIENT AMOUNT LOGIC /////////////////////////////////
 
   // for the placeholders of the amount textinputs
-  const [currIngredientAmounts, setCurrIngredientAmounts] = useState(["", "", "", "", "", "", "", "", "", "", "", ""]);
+  const [currIngredientAmounts, setCurrIngredientAmounts] = useState(new Array(12).fill(""));
 
   // to store the entered amount in the current ingredient's data if it is valid
   const setAmount = (value, index) => {
@@ -567,7 +565,7 @@ export default function Recipes ({ isSelectedTab }) {
     
       // checks if the brand is valid, meaning the ingredient has data
       if (ingredient && brandKey && brandKey !== "" && unitKey && unitKey !== "") {
-        
+                
         // updates the current ingredient amounts
         setCurrIngredientAmounts((prev) => {
           const updated = [...prev];
@@ -780,12 +778,14 @@ export default function Recipes ({ isSelectedTab }) {
     
         // updates the selected data
         setSelectedRecipeData({ ...calcData });
+        setCurrIngredientAmounts(calcData.ingredientAmounts);
       }
     
     // if a recipe is not selected, set default data
     } else {
       setSelectedIngredientIndex(1);
       setSelectedRecipeData(null);
+      setCurrIngredientAmounts(new Array(12).fill(""));
 
       // stores the recipe data in the firebase
       updateDoc(doc(db, 'GLOBALS', 'recipe'), { id: null });
@@ -812,6 +812,7 @@ export default function Recipes ({ isSelectedTab }) {
 
     setRecipeList(recipesArray);
     setSelectedRecipeData(recipeData);
+    setCurrIngredientAmounts(recipeData?.ingredientAmounts ?? new Array(12).fill(""));
 
     // adds "NEW TAG" and sorts alphabetically
     const tagsWithLabelsAndValues = [
@@ -909,7 +910,7 @@ export default function Recipes ({ isSelectedTab }) {
     setRecipeDropdownOpen(true);
 
     // resets ingredients
-    setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
+    setCurrIngredientAmounts(new Array(12).fill(""));
     setSelectedIngredientType("ALL TYPES");
     setIngredientDropdownOpen(false);
 
@@ -946,7 +947,7 @@ export default function Recipes ({ isSelectedTab }) {
       setRecipeDropdownOpen(true);
   
       // resets ingredients
-      setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
+      setCurrIngredientAmounts(new Array(12).fill(""));
       setSelectedIngredientType("ALL TYPES");
       setIngredientDropdownOpen(false);
       setSelectedIngredientIndex(1);
@@ -955,7 +956,7 @@ export default function Recipes ({ isSelectedTab }) {
       setSelectedRecipeData(null);
       setSelectedRecipeId(null);
 
-    // reload settings
+      // reload settings
       refreshRecipes(null);
     } else {
       refreshRecipes(selectedRecipeData);
@@ -1182,11 +1183,6 @@ export default function Recipes ({ isSelectedTab }) {
     const docSnap = await getDoc(doc(db, 'INGREDIENTS', id));
     if (docSnap.exists()) { setSelectedIngredient(docSnap.data()); }
   }
-    
-    
-  ///////////////////////////////// DYNAMIC WIDTHS /////////////////////////////////
-  
-  const [inputWidth, setInputWidth] = useState(new Array(12).fill(6));
 
   
   ///////////////////////////////// SCROLLING /////////////////////////////////
@@ -1442,21 +1438,21 @@ export default function Recipes ({ isSelectedTab }) {
 
               {/* ingredient header */}
               <View className="flex items-center justify-center w-[37.5%] border-r-0.5">
-                <Text className="text-white text-xs font-bold">
+                <Text className="text-white text-[12px] font-bold">
                   INGREDIENT
                 </Text>
               </View>
 
               {/* amount header */}
               <View className="flex items-center justify-center w-[30%] border-r-0.5">
-                <Text className="text-white text-xs font-bold">
+                <Text className="text-white text-[12px] font-bold">
                   AMOUNT
                 </Text>
               </View>
 
               {/* details */}
               <View className="flex items-center justify-center w-[25%]">
-                <Text className="text-white text-xs font-bold">
+                <Text className="text-white text-[12px] font-bold">
                   DETAILS
                 </Text>
               </View>
@@ -1538,28 +1534,21 @@ export default function Recipes ({ isSelectedTab }) {
                   <View className="flex flex-row space-x-[3px]">
                     {/* Input Amount */} 
                     <TextInput
-                      key={`${selectedRecipeId}-${index}`}
-                      onContentSizeChange={(e) => { 
-                        const width = e.nativeEvent.contentSize.width; 
-                        setInputWidth((prevWidths) => {
-                          if (prevWidths[index] === width) return prevWidths;
-                          const nextWidths = [...prevWidths];
-                          nextWidths[index] = width;
-                          return nextWidths;
-                        });
-                      }}
-                      style={{ minWidth: inputWidth[index] }}
-                      className="bg-zinc100 text-[10px] leading-[12px] text-center"
-                      placeholder={selectedRecipeData.ingredientAmounts[index] !== "" ? selectedRecipeData.ingredientAmounts[index] : "_"}
-                      placeholderTextColor="black"
+                      style={{ width: getInputWidth(currIngredientAmounts[index]) }}
+                      className="text-[10px] leading-[12px] text-center"
+                      placeholder="_"
+                      placeholderTextColor={colors.zinc450}
                       value={currIngredientAmounts[index]}
                       onChangeText={(value) => setAmount(validateFractionInput(value), index)}
                       onBlur={() => setAmount(currIngredientAmounts[index] === "" ? "" : isFraction(currIngredientAmounts[index]) ? currIngredientAmounts[index].trim() : "", index)}
                     />
-                    {/* Unit */}
-                    <Text className="text-[10px]">
-                      {` ${selectedRecipeData.ingredientData[index][selectedRecipeData.ingredientStores[index]].unit}` === undefined ? " unit(s)": ` ${extractUnit(selectedRecipeData.ingredientData[index][selectedRecipeData.ingredientStores[index]].unit, currIngredientAmounts[index])}`}
-                    </Text>
+                    {/* Dummy Unit */}
+                    <TextInput
+                      className="text-[10px] leading-[12px]"
+                      placeholder={` ${extractUnit(selectedRecipeData?.ingredientData?.[index]?.[selectedRecipeData?.ingredientStores?.[index]]?.unit || "unit(s)", currIngredientAmounts[index])}`}
+                      placeholderTextColor="black"
+                      editable={false}
+                    />
                   </View>
                 : null }
               </View>

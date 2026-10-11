@@ -231,6 +231,11 @@ const ModUnitModal = ({
     await batch.commit();
     closeModal();
   }
+  
+    
+  ///////////////////////////////// DYNAMIC HEIGHTS /////////////////////////////////
+
+  const [inputHeight, setInputHeight] = useState(32);
 
   
   ///////////////////////////////// HTML /////////////////////////////////
@@ -293,13 +298,18 @@ const ModUnitModal = ({
 
               {/* Old Input */}
               <View className={`flex justify-center items-center bg-theme200 border-[1px] border-zinc400 ${unitDropdownOpen ? "rounded-t-lg" : "rounded-lg"} ${(oldUnit !== "" && !unitDropdownOpen) ? "w-2/5" : "w-3/4"}`}>
-                <View className={`flex w-full justify-center items-center`}>
+                <View key={"oldUnit"} className={`flex w-full justify-center items-center`}>
                   <TextInput
                     value={oldUnit}
                     onChangeText={(value) => filterUnitList(value.replaceAll('\'', '’'))}
+                    onContentSizeChange={(e) => {
+                      const { width, height } = e.nativeEvent.contentSize;
+                      setInputHeight(height);
+                    }}
+                    style={{ height: Math.max(32, inputHeight) }}
                     placeholder="unit"
                     placeholderTextColor={colors.zinc500}
-                    className="flex w-full p-2 pl-1 pr-6 text-[14px] text-center leading-[17px]"
+                    className="flex w-full p-2 pl-1 pr-8 text-[14px] text-center leading-[17px]"
                     onFocus={() => filterUnitList(oldUnit)}
                     multiline={true}
                     blurOnSubmit={true}

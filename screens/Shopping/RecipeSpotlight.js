@@ -27,6 +27,7 @@ import StoreRecipeModal from '../../components/Shopping-Spotlight/StoreRecipeMod
 import Fraction from 'fraction.js';
 
 // validation
+import getInputWidth from '../../components/Validation/getInputWidth';
 import isFraction from '../../components/Validation/isFraction';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 import extractUnit from '../../components/Validation/extractUnit';
@@ -546,10 +547,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
       // updates the selected spotlight's data
       setSelectedSpotlightData(calcData);
-
-      // clears the current storage of the amounts so the placeholders aren't janky
-      setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
-      setCurrIngredientStores(newStoresArr);
+      setCurrIngredientStores(calcData.ingredientStores);
 
       // reload settings
       refreshSpotlights();
@@ -573,8 +571,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     selectedSpotlightData.ingredientPrices[selectedIngredientIndex - 1] = "";
     selectedSpotlightData.ingredientServings[selectedIngredientIndex - 1] = "";
 
-    // sets the current storage of the data so the placeholders aren't janky
-    setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
+    // sets the current stores
     setCurrIngredientStores((prev) => {
       const updated = [...prev]; 
       updated[selectedIngredientIndex - 1] = "";
@@ -599,7 +596,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
 
     // updates the selected spotlight's data
     setSelectedSpotlightData(calcData);
-
+    
     // reload settings
     refreshSpotlights();
   }
@@ -608,7 +605,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
   ///////////////////////////////// INGREDIENT AMOUNT LOGIC /////////////////////////////////
 
   // for the placeholders of the amount textinputs
-  const [currIngredientAmounts, setCurrIngredientAmounts] = useState(["", "", "", "", "", "", "", "", "", "", "", ""]);
+  const [currIngredientAmounts, setCurrIngredientAmounts] = useState(new Array(12).fill(""));
 
   // to store the entered amount in the current ingredient's data if it is valid
   const setAmount = (value, index) => {
@@ -740,6 +737,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     data.spotlightCal = totalCal.valueOf().toFixed(0);
     data.spotlightPrice = totalPrice.valueOf().toFixed(2);
     data.spotlightServing = totalServing.valueOf().toFixed(2);
+    
     return data;
   }
 
@@ -978,8 +976,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
       setSelectedSpotlightData(selectedSpotlightData);
 
       // change the data of the table
-      setCurrIngredientAmounts(selectedRecipeData ? selectedRecipeData.ingredientAmounts : ["", "", "", "", "", "", "", "", "", "", "", ""]);
-      setCurrIngredientStores(selectedRecipeData ? selectedRecipeData.ingredientStores : ["", "", "", "", "", "", "", "", "", "", "", ""]);
+      setCurrIngredientAmounts(selectedRecipeData ? selectedRecipeData.ingredientAmounts : new Array(12).fill(""));
+      setCurrIngredientStores(selectedRecipeData ? selectedRecipeData.ingredientStores : new Array(12).fill(""));
 
       // reload settings
       reloadSpotlight(selectedSpotlightId);
@@ -1184,8 +1182,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     } else {
       setSelectedSpotlightData(null);
       setSelectedIngredientIndex(1);
-      setCurrIngredientAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
-      setCurrIngredientStores(["", "", "", "", "", "", "", "", "", "", "", ""]);
+      setCurrIngredientAmounts(new Array(12).fill(""));
+      setCurrIngredientStores(new Array(12).fill(""));
       setCurrSpotlightMult(0);
 
       // stores the recipe data in the firebase
@@ -1476,11 +1474,6 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
     const docSnap = await getDoc(doc(db, 'INGREDIENTS', id));
     if (docSnap.exists()) { setSelectedIngredient(docSnap.data()); }
   }
-    
-    
-  ///////////////////////////////// DYNAMIC WIDTHS /////////////////////////////////
-  
-  const [inputWidth, setInputWidth] = useState(new Array(12).fill(6));
       
       
   ///////////////////////////////// SCROLLING /////////////////////////////////
@@ -1610,7 +1603,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                   value={recipeKeywordQuery}
                   onChangeText={(value) => filterRecipeList(value.replaceAll('\'', '’'), ingredientKeywordQuery, selectedRecipeTag)}
                   placeholder="recipe keyword(s)"
-                  placeholderTextColor={'white'}
+                  placeholderTextColor="white"
                   className={`flex-1 text-white text-[14px] leading-[17px] pl-2.5 pr-[20px] bg-zinc400 ${recipeDropdownOpen ? "rounded-t-[5px]" : "rounded-[5px]"}`}
                   onFocus={() => {
                     setIngredientDropdownOpen(false);
@@ -1840,8 +1833,8 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 <TextInput
                   value={String(currSpotlightMult)}
                   onChangeText={(text) => updateMult(text)}
-                  placeholder={selectedSpotlightData ? String(selectedSpotlightData.spotlightMult) : "0"}
-                  placeholderTextColor={'white'}
+                  placeholder="0"
+                  placeholderTextColor={colors.zinc300}
                   className="flex-1 text-[14px] leading-[17px] font-bold text-white text-center"
                 />
               )}
@@ -1902,21 +1895,21 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             <>
               {/* ingredient header */}
               <View className="flex items-center justify-center w-5/12 border-r-0.5">
-                <Text className="text-white text-xs font-bold">
+                <Text className="text-white text-[12px] font-bold">
                   INGREDIENT
                 </Text>
               </View>
 
               {/* amount header */}
               <View className="flex items-center justify-center w-1/3 border-r-0.5">
-                <Text className="text-white text-xs font-bold">
+                <Text className="text-white text-[12px] font-bold">
                   AMOUNT
                 </Text>
               </View>
 
               {/* details header */}
               <View className="flex items-center justify-center w-1/4">
-                <Text className="text-white text-xs font-bold">
+                <Text className="text-white text-[12px] font-bold">
                   DETAILS
                 </Text>
               </View>
@@ -1980,30 +1973,24 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 {/* amount and units */}
                 {selectedSpotlightData?.ingredientData?.[index] ?
                   <View className="flex flex-row space-x-[3px]">
+                    {console.log("0 0/0 unit(s)")}
                     {/* Input Amount */}
                     <TextInput
-                      key={`${selectedSpotlightId}-${index}`}
-                      onContentSizeChange={(e) => { 
-                        const width = e.nativeEvent.contentSize.width; 
-                        setInputWidth((prevWidths) => {
-                          if (prevWidths[index] === width) return prevWidths;
-                          const nextWidths = [...prevWidths];
-                          nextWidths[index] = width;
-                          return nextWidths;
-                        });
-                      }}
-                      style={{ minWidth: inputWidth[index] }}
+                      style={{ width: getInputWidth(currIngredientAmounts[index]) + 6 }}
                       className={`text-[10px] leading-[12px] px-0.5 text-center ${(selectedSpotlightData?.ingredientAmountEdited[index] && selectedSpotlightData?.recipeId !== null) ? "bg-zinc300" : (selectedSpotlightData?.recipeId !== null) ? "bg-theme100" : ""}`}
-                      placeholder={(selectedSpotlightData.ingredientAmounts[index] !== "") ? selectedSpotlightData.ingredientAmounts[index] : "_"}
+                      placeholder="_"
                       placeholderTextColor="black"
                       value={currIngredientAmounts[index]}
                       onChangeText={(value) => setAmount(validateFractionInput(value), index)}
                       onBlur={() => setAmount(currIngredientAmounts[index] === "" ? "" : isFraction(currIngredientAmounts[index]) ? currIngredientAmounts[index].trim() : "", index)}
                     />
-                    {/* Unit */}
-                    <Text className="text-[10px]">
-                      {` ${extractUnit(selectedSpotlightData.ingredientData[index][selectedSpotlightData.ingredientStores[index]].unit, currIngredientAmounts[index])}`}
-                    </Text>
+                    {/* Dummy Unit */}
+                    <TextInput
+                      className="text-[10px] leading-[12px]"
+                      placeholder={` ${extractUnit(selectedSpotlightData.ingredientData[index][selectedSpotlightData.ingredientStores[index]].unit, currIngredientAmounts[index])}`}
+                      placeholderTextColor="black"
+                      editable={false}
+                    />
                   </View>
                 : null }
               </View>
@@ -2138,7 +2125,7 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
             <View className="flex flex-row items-center justify-center w-full border-r-0.5 bg-theme800">
               
               <View className="flex w-1/5 items-center justify-center">
-                <Text className="text-white text-xs italic font-bold">
+                <Text className="text-white text-[12px] italic font-bold">
                   TOTALS
                 </Text>
               </View>
@@ -2149,11 +2136,11 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 {/* calories */}
                 <View>
                   {selectedSpotlightData?.spotlightCal ?
-                    <Text className="text-white text-xs italic">
+                    <Text className="text-white text-[12px] italic">
                       {selectedSpotlightData.spotlightCal} {"cal"}
                     </Text>
                   : 
-                    <Text className="text-white text-xs italic">
+                    <Text className="text-white text-[12px] italic">
                       {"0 cal"}
                     </Text> 
                   }
@@ -2162,11 +2149,11 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 {/* price */}
                 <View>
                   {selectedSpotlightData?.spotlightPrice ?
-                    <Text className="text-white text-xs italic">
+                    <Text className="text-white text-[12px] italic">
                       {"$"}{selectedSpotlightData.spotlightPrice}
                     </Text>
                   : 
-                    <Text className="text-white text-xs italic">
+                    <Text className="text-white text-[12px] italic">
                       {"$0.00"}
                     </Text> 
                   }
@@ -2175,11 +2162,11 @@ export default function RecipeSpotlight ({ isSelectedTab }) {
                 {/* servings possible */}
                 <View>
                   {selectedSpotlightData?.spotlightServing ?
-                    <Text className="text-white text-xs italic">
+                    <Text className="text-white text-[12px] italic">
                       {selectedSpotlightData.spotlightServing} {"servings"}
                     </Text>
                   : 
-                    <Text className="text-white text-xs italic">
+                    <Text className="text-white text-[12px] italic">
                       {"0.00 servings"}
                     </Text> 
                   }      

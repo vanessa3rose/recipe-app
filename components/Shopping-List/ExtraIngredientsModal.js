@@ -688,11 +688,18 @@ const ExtraIngredientsModal = ({
 
                       {/* servings possible */}
                       <View className="flex flex-row w-[15%] px-1 bg-white border-y-[1px] border-y-zinc700 border-r-0.5 border-r-zinc400 h-full justify-center items-center z-20 space-x-0.5">
-                        <Text className="text-[10px]">x</Text>
+                        {/* Dummy x */}
+                        <TextInput
+                          className="text-[10px] leading-[12px]"
+                          placeholder="x"
+                          placeholderTextColor="black"
+                          editable={false}
+                        />
+                        {/* User Input */}
                         <TextInput
                           key={index}
                           className="text-[10px] leading-[12px] text-center"
-                          placeholder={ingredient?.ingredientServings !== "" ? ingredient.ingredientServings : "_"}
+                          placeholder="_"
                           placeholderTextColor="black"
                           value={ingredient.ingredientServings}
                           onChangeText={(value) => {
@@ -1302,7 +1309,6 @@ const ExtraIngredientsModal = ({
 
                         {/* Input */}
                         <View className="flex-1 flex-row justify-center items-center border-0.5 border-zinc500 p-1 bg-theme100 px-2">
-
                           {/* Dummy $ */}
                           <TextInput
                             className="flex-auto text-right text-[12px] leading-[15px]"
@@ -1310,7 +1316,6 @@ const ExtraIngredientsModal = ({
                             placeholderTextColor={selectedIngredientData[currIngredientStore]?.["priceContainer"] ? "black" : colors.zinc400}
                             editable={false}
                           />
-
                           {/* User Input */}
                           <TextInput
                             className="flex-auto text-left text-[12px] leading-[15px]"

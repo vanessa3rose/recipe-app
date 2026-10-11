@@ -300,7 +300,14 @@ const CalcIngredientModal = ({
         setGoalServings("0.00");
       }
 
-  // storing default values if empty
+    // storing default values if 0
+    } else if (isFraction(price) && new Fraction(price).valueOf() === 0) {
+      setCalcAmount(0);
+      setGoalCals("0");
+      setGoalPrice(price);
+      setGoalServings("0");
+
+    // storing default values if empty
     } else {
       setCalcAmount(0);
       setGoalCals("");
@@ -385,7 +392,7 @@ const CalcIngredientModal = ({
                   <TextInput
                     className="w-full text-center text-[14px] leading-[17px]"
                     placeholder="0 0/0"
-                    placeholderTextColor={colors.zinc500}
+                    placeholderTextColor={colors.zinc450}
                     value={totalYield}
                     onChangeText={(value) => updateTotalYield(validateFractionInput(value))}
                   />
@@ -450,7 +457,7 @@ const CalcIngredientModal = ({
                   <View className="flex w-full p-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
                     <TextInput
                       className="w-full text-center text-[14px] leading-[17px]"
-                      placeholder="0"
+                      placeholder={initialCals || "0"}
                       placeholderTextColor={colors.zinc500}
                       value={goalCals}
                       onChangeText={(value) => updateGoalCals(validateWholeNumberInput(value))}
@@ -466,14 +473,19 @@ const CalcIngredientModal = ({
                   <Text className="text-[14px] text-theme700 font-semibold">
                     COST
                   </Text>
-                  {/* user input */}
+                  {/* amount */}
                   <View className="flex flex-row w-full px-2 py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
-                    <Text className={`flex-auto text-right ${goalPrice === 0 || goalPrice === "" ? "text-zinc500" : "text-black"} text-[14px] leading-[17px]`}>
-                      $
-                    </Text>
+                    {/* dummy $ */}
+                    <TextInput
+                      className="flex-auto text-right text-[14px] leading-[17px]"
+                      placeholder="$"
+                      placeholderTextColor={(goalPrice === 0 || goalPrice === "") ? colors.zinc500 : "black"}
+                      editable={false}
+                    />
+                    {/* user input */}
                     <TextInput
                       className="flex-auto text-left text-[14px] leading-[17px]"
-                      placeholder="0.00"
+                      placeholder={initialPrice || "0.00"}
                       placeholderTextColor={colors.zinc500}
                       value={goalPrice}
                       onChangeText={(value) => updateGoalPrice(validateDecimalInput(value))}
@@ -493,7 +505,7 @@ const CalcIngredientModal = ({
                   <View className="flex w-full py-1 justify-center items-center border-[1px] border-zinc400 bg-theme200">
                     <TextInput
                       className="flex w-full px-1 text-center text-[14px] leading-[17px]"
-                      placeholder="0.00"
+                      placeholder={initialServings || "0.00"}
                       placeholderTextColor={colors.zinc500}
                       value={goalServings}
                       onChangeText={(value) => updateGoalServings(validateDecimalInput(value))}

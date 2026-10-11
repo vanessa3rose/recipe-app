@@ -42,11 +42,14 @@ const ModIngredientModal = ({
   initialTypeList, initialBrandLists,
   snapshot
 }) => {
+  
 
   ///////////////////////////////// VARIABLES /////////////////////////////////
 
+  const [initialIngredient, setInitialIngredient] = useState("");
+
   // Ingredient Name
-  const [ingredientName, setIngredientName] = useState('');
+  const [ingredientName, setIngredientName] = useState("");
 
   // Data - set up like {storeKeys[0]: "", storeKeys[1]: "", ...}
   const [link, setLink] = useState(Object.fromEntries(storeKeys.map(storeKey => [storeKey, ""])));
@@ -326,6 +329,7 @@ const ModIngredientModal = ({
             const data = docSnap.data();
             
             // sets the ingredient data
+            setInitialIngredient(data);
             setIngredientName(data.ingredientName || '');
             setIngredientTypes(data.ingredientTypes || []);
             
@@ -528,7 +532,7 @@ const ModIngredientModal = ({
             <View className="flex bg-white w-5/12 border-0.5 border-zinc500 rounded-md p-2 justify-center items-center">
               <TextInput
                 className="w-full text-center pb-1 text-[14px] leading-[17px]"
-                placeholder="Ingredient Name"
+                placeholder={initialIngredient?.ingredientName ? initialIngredient.ingredientName : "Ingredient Name"}
                 placeholderTextColor={colors.zinc400}
                 multiline={true}
                 blurOnSubmit={true}
@@ -562,7 +566,7 @@ const ModIngredientModal = ({
                     {/* Inputing a new type */}
                     <View className="flex justify-center w-full pl-2 pr-6">
                       <TextInput
-                        placeholder="Custom Type"
+                        placeholder="custom type"
                         placeholderTextColor={colors.zinc500}
                         className="w-full text-[12px] leading-[14px] text-center pb-1"
                         value={customType}
@@ -699,8 +703,8 @@ const ModIngredientModal = ({
                         <TextInput
                           value={brand[store]}
                           onChangeText={(value) => filterBrandList(store, value.replaceAll('\'', '’'))}
-                          placeholder="brand"
-                          placeholderTextColor={colors.zinc500}
+                          placeholder={initialIngredient?.ingredientData?.[selectedStore]?.brand ? initialIngredient?.ingredientData?.[selectedStore]?.brand : "brand"}
+                          placeholderTextColor={colors.theme400}
                           className={`flex w-full h-[45px] bg-theme200 border-[1px] border-zinc400 text-[14px] text-center leading-[17px] ${filteredBrandLists[store].map(brand => brand.value).includes(brand[store]) ? "text-mauve800" : "text-black"} ${(brand[store] === "") && "italic"} ${brandDropdownOpen[store] ? "rounded-t-[5px] border-b-0" : "rounded-[5px]"}`}
                           onFocus={() => setBrandDropdownOpen((prev) => ({ ...prev, [store]: true }))}
                         />
@@ -778,7 +782,7 @@ const ModIngredientModal = ({
                           {/* Size */}
                           <TextInput
                             className="p-1 flex-auto text-right text-[14px] leading-[17px]"
-                            placeholder="0 0/0"
+                            placeholder={initialIngredient?.ingredientData?.[selectedStore]?.servingSize ? initialIngredient?.ingredientData?.[selectedStore]?.servingSize : "0 0/0"}
                             placeholderTextColor={colors.zinc400}
                             value={servingSize[store]}
                             onChangeText={(value) => {
@@ -794,7 +798,7 @@ const ModIngredientModal = ({
                           <View className="p-1 flex-auto relative mr-[-16.5px]">
                             <TextInput
                               className="text-left text-[14px] leading-[17px] mr-[16.5px]"
-                              placeholder="unit(s)"
+                              placeholder={initialIngredient?.ingredientData?.[selectedStore]?.unit ? initialIngredient?.ingredientData?.[selectedStore]?.unit : "unit(s)"}
                               placeholderTextColor={colors.zinc400}
                               value={unit[store]}
                               onChangeText={(value) => filterUnits(value.replaceAll('\'', '’'), store)}
@@ -856,7 +860,7 @@ const ModIngredientModal = ({
                         {/* Input */}
                         <TextInput
                           className="flex-1 bg-theme100 border-0.5 border-zinc500 p-1 text-center text-[14px] leading-[17px] px-2"
-                          placeholder="0 0/0"
+                          placeholder={initialIngredient?.ingredientData?.[selectedStore]?.servingContainer ? initialIngredient?.ingredientData?.[selectedStore]?.servingContainer : "0 0/0"}
                           placeholderTextColor={colors.zinc400}
                           value={servingContainer[store]}
                           onChangeText={(value) => {
@@ -880,7 +884,7 @@ const ModIngredientModal = ({
                         {/* Input */}
                         <TextInput
                           className="flex-1 bg-theme100 border-0.5 border-zinc500 p-1 text-center text-[14px] leading-[17px] px-2"
-                          placeholder="0"
+                          placeholder={initialIngredient?.ingredientData?.[selectedStore]?.calServing ? initialIngredient?.ingredientData?.[selectedStore]?.calServing : "0"}
                           placeholderTextColor={colors.zinc400}
                           value={calServing[store]}
                           onChangeText={(value) => {
@@ -915,7 +919,7 @@ const ModIngredientModal = ({
                           {/* User Input */}
                           <TextInput
                             className="flex-auto text-left text-[14px] leading-[17px]"
-                            placeholder="0.00"
+                            placeholder={initialIngredient?.ingredientData?.[selectedStore]?.priceContainer ? initialIngredient?.ingredientData?.[selectedStore]?.priceContainer : "0.00"}
                             placeholderTextColor={colors.zinc400}
                             value={priceContainer[store]}
                             onChangeText={(value) => {

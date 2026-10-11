@@ -1,6 +1,9 @@
 ///////////////////////////////// EQUALITY /////////////////////////////////
 
 export function deepSnackEqual (a, b) {
+  const ignoredKeys = [
+    "id"
+  ];
 
   if (a === b) return true;
 
@@ -12,8 +15,8 @@ export function deepSnackEqual (a, b) {
   }
 
   if (typeof a === 'object') {
-    const aKeys = Object.keys(a);
-    const bKeys = Object.keys(b);
+    const aKeys = Object.keys(a).filter(key => !ignoredKeys.includes(key));
+    const bKeys = Object.keys(b).filter(key => !ignoredKeys.includes(key));
 
     if (aKeys.length !== bKeys.length) return false;
     return aKeys.every(key => deepSnackEqual(a[key], b[key]));

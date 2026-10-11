@@ -33,6 +33,7 @@ const ModPriceModal = ({
 
   const [containerCost, setContainerCost] = useState("");
   const [amount, setAmount] = useState("");
+  const [ogAmount, setOgAmount] = useState("");
   const [unitPrice, setUnitPrice] = useState("0.00");
 
   // to load in the data
@@ -59,13 +60,16 @@ const ModPriceModal = ({
 
         if (isPriceValid && isCostValid) {
           setAmount(new Fraction(rawContainerPrice).div(new Fraction(currentPrice)).toFraction(true));
+          setOgAmount(new Fraction(rawContainerPrice).div(new Fraction(currentPrice)).toFraction(true));
         } else {
           setAmount("0");
+          setOgAmount("0");
         }
 
       // if ingredient
       } else {
         setAmount(rawTotalYield || "0");
+        setOgAmount(rawTotalYield || "0");
 
         // validation
         const isYieldValid = isFraction(rawTotalYield) && new Fraction(rawTotalYield).valueOf() !== 0;
@@ -167,15 +171,18 @@ const ModPriceModal = ({
             </Text>
 
             <View className="flex-1 flex-row p-1 justify-center items-center border-[1px] border-zinc350 bg-theme100">
-              {/* Dollar Sign */}
-              <Text className={`flex-auto text-right ${containerCost === "" ? "text-zinc500" : "text-black"} text-[14px] leading-[17px]`}>
-                $
-              </Text>
+              {/* Dummy $ */}
+              <TextInput
+                className="flex-auto text-right text-[14px] leading-[17px]"
+                placeholder="$"
+                placeholderTextColor={(containerCost === "") ? colors.zinc400 : "black"}
+                editable={false}
+              />
               {/* Text Input */}
               <TextInput
                 className="flex-auto text-left text-[14px] leading-[17px]"
-                placeholder="0.00"
-                placeholderTextColor={colors.zinc500}
+                placeholder={currentData?.containerPrice || "0.00"}
+                placeholderTextColor={colors.zinc400}
                 value={containerCost}
                 onChangeText={(value) => setContainerCost(value)}
               />
@@ -193,16 +200,19 @@ const ModPriceModal = ({
             <View className="flex-1 flex-row p-1 space-x-1.5 justify-center items-center border-[1px] border-zinc350 bg-theme100">
               {/* Text Input */}
               <TextInput
-                className="flex-auto text-right bg-theme100 text-[14px] leading-[17px]"
-                placeholder="0 0/0"
-                placeholderTextColor={colors.zinc500}
+                className="flex-auto text-right text-[14px] leading-[17px]"
+                placeholder={ogAmount || "0 0/0"}
+                placeholderTextColor={colors.zinc400}
                 value={amount}
                 onChangeText={(value) => setAmount(validateFractionInput(value))}
               />
-              {/* Unit */}
-              <Text className={`flex-auto text-left w-fit ${amount === "" ? "text-zinc500" : "text-black"} text-[14px] leading-[17px]`}>
-                {extractUnit(unit, amount)}
-              </Text>
+              {/* Dummy Unit */}
+              <TextInput
+                className="flex-auto text-left w-fit text-[14px] leading-[17px]"
+                placeholder={extractUnit(unit, amount)}
+                placeholderTextColor="black"
+                editable={false}
+              />
             </View>
           </View>
 

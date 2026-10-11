@@ -65,7 +65,7 @@ const ModCurrentModal = ({
       });
         
       // closes the modal
-      exitModal(); 
+      exitModal(false); 
         
     } catch (error) {
         console.error('Error updating ingredient:', error);
@@ -91,8 +91,8 @@ const ModCurrentModal = ({
 
 
   // to close the modal
-  const exitModal = () => {
-    closeModal(ingredientName);
+  const exitModal = (isCancelled) => {
+    closeModal(isCancelled ? initialData.ingredientName : ingredientName, !isCancelled);
 
     // restore states
     setIngredientName("");
@@ -156,7 +156,7 @@ const ModCurrentModal = ({
           <View className="flex flex-row justify-center items-center content-center mb-4 h-[60px] border-0.5 border-zinc500 bg-white rounded-md p-2 mx-2.5">
             <TextInput
               className="w-full text-center pb-1 text-[14px] leading-[17px]"
-              placeholder="Custom Ingredient Name"
+              placeholder={initialData?.ingredientName || "Custom Ingredient Name"}
               placeholderTextColor={colors.zinc400}
               multiline={true}
               blurOnSubmit={true}
@@ -181,7 +181,7 @@ const ModCurrentModal = ({
               {/* Size */}
               <TextInput
                 className="p-1 flex-auto text-right text-[14px] leading-[17px]"
-                placeholder="0 0/0"
+                placeholder={initialData?.ingredientData?.[initialData?.ingredientStore]?.servingSize || "0 0/0"}
                 placeholderTextColor={colors.zinc400}
                 value={servingSize}
                 onChangeText={(value) => setServingSize(validateFractionInput(value))}
@@ -191,7 +191,7 @@ const ModCurrentModal = ({
               <View className="p-1 flex-auto relative mr-[-16.5px]">
                 <TextInput
                   className="text-left text-[14px] leading-[17px] mr-[16.5px]"
-                  placeholder="unit(s)"
+                  placeholder={initialData?.ingredientData?.[initialData?.ingredientStore]?.unit || "unit(s)"}
                   placeholderTextColor={colors.zinc400}
                   value={unit}
                   onChangeText={(value) => filterUnits(value.replaceAll('\'', '’'))}
@@ -248,7 +248,7 @@ const ModCurrentModal = ({
             {/* Input */}
             <TextInput
               className="w-full border-0.5 border-zinc500 bg-theme100 p-1 flex-1 text-center text-[14px] leading-[17px]"
-              placeholder="0"
+              placeholder={initialData?.ingredientData?.[initialData?.ingredientStore]?.calServing || "0"}
               placeholderTextColor={colors.zinc400}
               value={calServing}
               onChangeText={(value) => setCalServing(validateWholeNumberInput(value))}
@@ -285,7 +285,7 @@ const ModCurrentModal = ({
                 size={24}
                 color="black"
                 name="close-outline"
-                onPress={exitModal}
+                onPress={() => exitModal(true)}
               />
             </View>
           </View>

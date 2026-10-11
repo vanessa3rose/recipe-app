@@ -373,8 +373,8 @@ const PrepToRecipeModal = ({
 
   ///////////////////////////////// INGREDIENT PICKERS /////////////////////////////////
 
-  const [selectedIngredientIds, setSelectedIngredientIds] = useState(["", "", "", "", "", "", "", "", "", "", "", ""]);
-  const [selectedIngredient, setSelectedIngredient] = useState([null, null, null, null, null, null, null, null, null, null, null, null]);
+  const [selectedIngredientIds, setSelectedIngredientIds] = useState(new Array(12).fill(""));
+  const [selectedIngredient, setSelectedIngredient] = useState(new Array(12).fill(null));
   
   // to update the id of the current index
   const setIngredient = async (index, store) => {
@@ -921,16 +921,19 @@ const PrepToRecipeModal = ({
                         <TextInput
                           key={editIngredientIndex}
                           className="p-1 text-[12px] leading-[14px] text-center font-semibold bg-theme100"
-                          placeholder={ingredientAmounts[editIngredientIndex] !== "" ? ingredientAmounts[editIngredientIndex] : "_"}
-                          placeholderTextColor="black"
+                          placeholder="_"
+                          placeholderTextColor={colors.zinc500}
                           value={ingredientAmounts[editIngredientIndex]}
                           onChangeText={(value) => changeAmount(validateFractionInput(value), editIngredientIndex, selectedIngredient[editIngredientIndex].ingredientData, ingredientStores[editIngredientIndex])}
                         />
 
-                        {/* Unit */}
-                        <Text className="text-[12px] text-zinc800 font-medium">
-                          {` ${selectedIngredient[editIngredientIndex].ingredientData[ingredientStores[editIngredientIndex]].unit}` === " undefined" ? " unit(s)" : ` ${extractUnit(selectedIngredient[editIngredientIndex].ingredientData[ingredientStores[editIngredientIndex]].unit, ingredientAmounts[editIngredientIndex])}`}
-                        </Text>
+                        {/* Dummy Unit */}
+                        <TextInput
+                          className="text-[12px] leading-[14px] font-medium py-1"
+                          placeholder={` ${selectedIngredient[editIngredientIndex].ingredientData[ingredientStores[editIngredientIndex]].unit}` === " undefined" ? " unit(s)" : ` ${extractUnit(selectedIngredient[editIngredientIndex].ingredientData[ingredientStores  [editIngredientIndex]].unit, ingredientAmounts[editIngredientIndex])}`}
+                          placeholderTextColor={colors.zinc800}
+                          editable={false}
+                        />
 
                         {/* checkbox */}
                         <View className="absolute right-[-22px] w-[22px] pl-[1px] justify-center items-center h-full z-10">

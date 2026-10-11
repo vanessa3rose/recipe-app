@@ -41,12 +41,13 @@ const ModMealModal = ({
   ///////////////////////////////// ON OPEN /////////////////////////////////  
   
   const [mealName, setMealName] = useState("");
-  const [variantsEdited, setVariantsEdited] = useState(false);
+  const [ogMealName, setOgMealName] = useState("");
 
   // if editing a meal, set the name
   useEffect(() => {
     if (modalVisible) {
       setMealName(editingData ? editingData[`${type}Name`] : type === "recipe" ? "Recipe " + defaultName : "");
+      setOgMealName(editingData ? editingData[`${type}Name`] : type === "recipe" ? "Recipe " + defaultName : "");
       setVariants(editingData?.variants || []);
     }
   }, [modalVisible]);
@@ -64,12 +65,12 @@ const ModMealModal = ({
     setVariants([
       ...variants,
       {
-        currentAmounts: ["", "", "", "", "", "", "", "", "", "", "", ""], 
-        currentCals: ["", "", "", "", "", "", "", "", "", "", "", ""], 
-        currentData: [null, null, null, null, null, null, null, null, null, null, null, null], 
-        currentIds: ["", "", "", "", "", "", "", "", "", "", "", ""], 
-        currentPrices: ["", "", "", "", "", "", "", "", "", "", "", ""],
-        currentIncluded: ["", "", "", "", "", "", "", "", "", "", "", ""],
+        currentAmounts: new Array(12).fill(""), 
+        currentCals: new Array(12).fill(""), 
+        currentData: new Array(12).fill(null), 
+        currentIds: new Array(12).fill(""), 
+        currentPrices: new Array(12).fill(""),
+        currentIncluded: new Array(12).fill(""),
         prepCal: "0", 
         prepMult: 0,
         prepName: "",
@@ -118,8 +119,7 @@ const ModMealModal = ({
         updateDoc(doc(db, type.toUpperCase() + "S", editingId), newData);  
         
         // closes the modal for editing
-        const editType = "edit" + (variantsEdited ? " variants" : "");
-        exitModal(editType); 
+        exitModal("edit" + (type === "prep" ? " variant " + selectedVariant : "")); 
 
       } catch (error) {
         console.error('Error updating meal:', error);
@@ -152,7 +152,7 @@ const ModMealModal = ({
     else if (type === "prep") { prepDelete(editingId); }
 
     // closes the modal
-    exitModal("delete");
+    exitModal("delete" + (type === "prep" ? " variant " + selectedVariant : ""));
   }
 
   // to close the modal
@@ -224,7 +224,7 @@ const ModMealModal = ({
             <View className={`flex items-center justify-center border-0.5 border-zinc500 bg-white rounded-md px-2 ${editingId !== null || type !== "recipe" ? "w-[90%]" : "w-5/6"}`}>
               <TextInput
                 className="w-full text-center mb-1 text-[14px] leading-[17px]"
-                placeholder={(editingId || type !== "recipe") ? mealName : ("Recipe " + defaultName)}
+                placeholder={ogMealName}
                 placeholderTextColor={colors.zinc400}
                 multiline={true}
                 blurOnSubmit={true}
@@ -289,10 +289,7 @@ const ModMealModal = ({
                       name="close"
                       size={18}
                       color="black"
-                      onPress={() => {
-                        setVariantsEdited(true);
-                        deleteVariant();
-                      }}
+                      onPress={() => deleteVariant()}
                     />
                   </View>
                 )}
@@ -302,10 +299,7 @@ const ModMealModal = ({
                   <Icon
                     name="duplicate"
                     size={18}
-                    onPress={() => {
-                      setVariantsEdited(true);
-                      addVariant();
-                    }}
+                    onPress={() => addVariant()}
                     color={colors.zinc800}
                   />
                 </View>

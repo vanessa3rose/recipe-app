@@ -82,7 +82,7 @@ const NewTagModal = ({
           <View className="flex flex-row w-full justify-evenly items-center mb-2">
             <TextInput
               className="border-0.5 border-zinc500 bg-white rounded-md px-2 h-[30px] w-11/12 text-[14px] leading-[17px]"
-              placeholder={"Tag Name"}
+              placeholder="Tag Name"
               placeholderTextColor={colors.zinc400}
               blurOnSubmit={true}
               value={newTag}

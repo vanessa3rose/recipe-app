@@ -1545,7 +1545,7 @@ export default function ShoppingList ({ isSelectedTab }) {
                         setKeyboardIndex(keyboardIndex);
                       }}
                       onChangeText={(text) => updateIndivNotes(keyboardIndex, text.replaceAll('\'', '’'))}
-                      placeholder={(Array.isArray(allStoreNotes[selectedStore]) && allStoreNotes[selectedStore][keyboardIndex]) ? allStoreNotes[selectedStore][keyboardIndex] : ""}
+                      placeholder=""
                       placeholderTextColor={colors.zinc400}
                       className="flex-1 text-[12px] leading-[15px] bg-zinc300 rounded-[5px] px-[5px]"
                       onBlur={() => dbIndivNotes(allStoreNotes[selectedStore])}

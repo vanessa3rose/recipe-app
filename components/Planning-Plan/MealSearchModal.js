@@ -13,7 +13,11 @@ import colors from '../../assets/colors';
 // store lists
 import storeKeys from '../../assets/storeKeys';
 
+// fractions
+import Fraction from 'fraction.js';
+
 // validation
+import getInputWidth from '../Validation/getInputWidth';
 import isFraction from '../Validation/isFraction';
 import extractUnit from '../../components/Validation/extractUnit';
 import { deepPrepEqual, deepPrepIndexOf } from '../Validation/deepPrepSearch';
@@ -24,7 +28,6 @@ import validateWholeNumberInput from '../Validation/validateWholeNumberInput';
 // initialize firebase app
 import { getFirestore, doc, writeBatch, collection } from 'firebase/firestore';
 import { app } from '../../firebase.config';
-import Fraction from 'fraction.js';
 const db = getFirestore(app);
 
 
@@ -35,30 +38,30 @@ const MealSearchModal = ({
 }) => {
 
 
-///////////////////////////////// KEYBOARD /////////////////////////////////
+  ///////////////////////////////// KEYBOARD /////////////////////////////////
 
-const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
-const [keyboardType, setKeyboardType] = useState("");
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [keyboardType, setKeyboardType] = useState("");
 
-// keyboard listener
-useEffect(() => {
+  // keyboard listener
+  useEffect(() => {
 
-  // listens for keyboard show event
-  const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
-    setIsKeyboardOpen(true);
-  });
+    // listens for keyboard show event
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setIsKeyboardOpen(true);
+    });
 
-  // listens for keyboard hide event
-  const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-    setIsKeyboardOpen(false);
-  });
+    // listens for keyboard hide event
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardOpen(false);
+    });
 
-  // cleans up listeners on unmount
-  return () => {
-    keyboardDidShowListener.remove();
-    keyboardDidHideListener.remove();
-  };
-}, [keyboardType]);
+    // cleans up listeners on unmount
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, [keyboardType]);
 
 
   ///////////////////////////////// ON OPEN /////////////////////////////////
@@ -385,6 +388,7 @@ useEffect(() => {
 
   const [editVariantIndices, setEditVariantIndices] = useState({"prep": -1, "variant": -1});
   const [editedVariant, setEditedVariant] = useState(null);
+  const [ogVariant, setOgVariant] = useState(null);
 
   const [editedVariantType, setEditedVariantType] = useState("");
   const [ogVariantType, setOgVariantType] = useState("");
@@ -431,6 +435,12 @@ useEffect(() => {
         curr.ingredientData[curr.ingredientStore].unit = extractUnit(curr.ingredientData?.[curr.ingredientStore].unit, fixedEditedVariant.currentAmounts[index]);
       }
     });
+    
+    // strips the ids from currentData items before saving
+    const cleanPrepData = {
+      ...fixedEditedVariant,
+      currentData: fixedEditedVariant.currentData?.map(({ id, ...item }) => item),
+    };
 
     // maps over all of the old plans
     const newSnapshot = plansSnapshot.map((plan) => {
@@ -447,7 +457,7 @@ useEffect(() => {
           ...newData.meals,
           lunch: {
             ...newData.meals.lunch,
-            prepData: fixedEditedVariant,
+            prepData: cleanPrepData,
             prepId: editedVariantType === "simple" ? `LUNCH ${formattedDate}` : "." + doc(collection(db, 'PREPS')).id, 
           }
         };
@@ -459,7 +469,7 @@ useEffect(() => {
           ...newData.meals,
           dinner: {
             ...newData.meals.dinner,
-            prepData: fixedEditedVariant,
+            prepData: cleanPrepData,
             prepId: editedVariantType === "simple" ? `DINNER ${formattedDate}` : "." + doc(collection(db, 'PREPS')).id, 
           }
         };
@@ -473,7 +483,7 @@ useEffect(() => {
     setEditedVariant(null);
 
     // reloads data
-    loadPreps(newSnapshot, fixedEditedVariant.prepName);
+    loadPreps(newSnapshot, cleanPrepData.prepName);
 
     // closes the editor
     setEditVariantIndices({"prep": -1, "variant": -1});
@@ -507,6 +517,7 @@ useEffect(() => {
       ingredientStore: "-", 
       ingredientTypes: [], 
       unitPrice: "",
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
     };
     
     // null new data to set
@@ -581,14 +592,15 @@ useEffect(() => {
     const oldSnapshot = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
 
     // maps over all of the updated plans to find changes
-    plansSnapshot.map((plan) => {
+    plansSnapshot.forEach((plan) => {
       if (plan.data.meals !== undefined) {
 
         let newData = plan.data.meals;
-        const oldData = oldSnapshot.find(doc => doc.id === plan.data.date).data.meals;
+        const oldDoc = oldSnapshot.find(doc => doc.id === plan.data.date);
+        const oldData = oldDoc?.data?.meals;
         
         // if the data has changed, adds update to the batch - INCLUDES NOTES
-        if (!deepPrepEqual(newData, oldData) || oldData.lunch?.prepData?.prepNote !== newData.lunch?.prepData?.prepNote || oldData.dinner?.prepData?.prepNote !== newData.dinner?.prepData?.prepNote) {
+        if (!deepPrepEqual(newData, oldData) || oldData?.lunch?.prepData?.prepNote !== newData.lunch?.prepData?.prepNote || oldData?.dinner?.prepData?.prepNote !== newData.dinner?.prepData?.prepNote) {
           batch.update(doc(db, 'PLANS', plan.id), { meals: newData });
         }
       }
@@ -821,7 +833,7 @@ useEffect(() => {
                               value={editedName}
                               onChangeText={(value) => setEditedName(value.replaceAll('\'', '’'))}
                               placeholder={filteredPrepNames[index]}
-                              placeholderTextColor={colors.zinc500}
+                              placeholderTextColor={colors.zinc450}
                               className="flex-1 text-left text-[13px] italic bg-zinc200 ml-[-5px] pl-[5px] pr-1 py-0.5 border border-zinc300 rounded-md"
                               multiline={true}
                               blurOnSubmit={true}
@@ -888,9 +900,25 @@ useEffect(() => {
                               size={15}
                               color="black"
                               onPress={() => {
+                                // attaches ids to currentData items
+                                const selectedVariant = filteredPrepData[index][currIndex];
+                                setEditedVariant({
+                                  ...selectedVariant,
+                                  currentData: selectedVariant?.currentData?.map((item) => ({
+                                    ...item,
+                                    id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+                                  })) || [],
+                                });
+                                setOgVariant({
+                                  ...selectedVariant,
+                                  currentData: selectedVariant?.currentData?.map((item) => ({
+                                    ...item,
+                                    id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+                                  })) || [],
+                                });
+
                                 setEditVariantIndices({"prep": index, "variant": currIndex});
-                                setEditedVariant(filteredPrepData[index][currIndex]);
-                                setNumIngredients(filteredPrepData[index][currIndex].currentData.length);
+                                setNumIngredients(selectedVariant?.currentData?.length || 0);
                                 setEditedVariantType(openSimpleIndex === index ? "simple" : (openComplexIndex === index || openPrepIndex === index) && "complex");
                                 setOgVariantType(
                                   (filteredPrepIds[index]?.[(openDatesIndex === index || openComplexIndex === index || openSimpleIndex === index || openPrepIndex === index) ? currIndex : 0]?.includes("LUNCH") 
@@ -1242,13 +1270,13 @@ useEffect(() => {
                 <>
                   {/* simple create without ingredients */}
                   <View className="flex flex-col w-full justify-center items-center">
-                    <View className="flex flex-row justify-evenly content-center mb-4 w-full h-[65px] px-5">
+                    <View className="flex flex-row justify-evenly content-center mb-4 w-full h-[70px] px-5">
                       
                       {/* Prep Name Input */}
                       <View className="flex justify-center items-center h-full w-1/2 bg-white rounded-md py-1 px-2 border-0.5 border-zinc500">
                         <TextInput
                           className="w-full text-center mb-1 text-[14px] leading-[17px]"
-                          placeholder={editedVariant.prepName === "" ? "meal prep name" : editedVariant.prepName}
+                          placeholder={ogVariant?.prepName === "" ? "meal prep name" : ogVariant?.prepName}
                           placeholderTextColor={colors.zinc400}
                           multiline={true}
                           blurOnSubmit={true}
@@ -1269,12 +1297,13 @@ useEffect(() => {
             
                         {/* Calories */}
                         <View className="flex flex-row h-[25px] w-full space-x-1 px-2 justify-center items-center border-[1px] border-zinc450 bg-zinc400">
-                          {/* amount input */}
+                          {/* user input */}
                           <TextInput
-                            className="flex-auto text-right bg-transparent italic text-[12px] leading-[15px]"
-                            placeholder={editedVariant?.prepCal === "" ? "0" : editedVariant?.prepCal || ""}
-                            placeholderTextColor='black'
+                            className="flex-auto text-right italic text-[12px] leading-[14.5px]"
+                            placeholder={ogVariant?.prepCal === "" ? "0" : ogVariant?.prepCal}
+                            placeholderTextColor={colors.zinc500}
                             value={editedVariant?.prepCal || ""}
+                            style={{ width: getInputWidth(editedVariant?.prepCal === "" ? (ogVariant?.prepCal === "" ? "0" : ogVariant?.prepCal) : editedVariant?.prepCal || "") + 6 }}
                             onChangeText={(value) => {
                               setEditedVariant((prev) => {
                                 const updated = { ...prev }; 
@@ -1283,25 +1312,31 @@ useEffect(() => {
                               })
                             }}
                           />
-                          {/* label */}
-                          <Text className="flex-auto text-left italic text-[12px]">
-                            calories
-                          </Text>
+                          {/* dummy label */}
+                          <TextInput
+                            className="flex-auto text-left italic text-[12px] leading-[15px]"
+                            placeholder="calories"
+                            placeholderTextColor={(editedVariant?.prepCal === "") ? colors.zinc500 : "black"}
+                            editable={false}
+                          />
                         </View>
             
                         {/* Price */}
                         <View className="flex flex-row w-full h-[25px] justify-center items-center border-[1px] border-zinc450 bg-zinc400">
-                          {/* label */}
-                          <Text className="flex-auto text-right justify-center pl-1 italic text-[12px]">
-                            $
-                          </Text>
-                          
+                          {/* dummy label */}
+                          <TextInput
+                            className="flex-auto text-right pl-1 italic text-[12px] leading-[15px]"
+                            placeholder="$"
+                            placeholderTextColor={(editedVariant?.prepPrice === "") ? colors.zinc500 : "black"}
+                            editable={false}
+                          />
                           {/* price input */}
                           <TextInput
-                            className="flex-auto bg-transparent text-left pr-1 italic text-[12px] leading-[15px]"
-                            placeholder={editedVariant?.prepPrice === "" ? "0.00" : editedVariant?.prepPrice || ""}
-                            placeholderTextColor='black'
+                            className="flex-auto text-left pr-1 italic text-[12px] leading-[15px]"
+                            placeholder={ogVariant?.prepPrice === "" ? "0.00" : ogVariant?.prepPrice}
+                            placeholderTextColor={colors.zinc500}
                             value={editedVariant?.prepPrice || ""}
+                            style={{ width: getInputWidth(editedVariant?.prepPrice === "" ? (ogVariant?.prepPrice === "" ? "0.00" : ogVariant?.prepPrice) : editedVariant?.prepPrice || "") + 6 }}
                             onChangeText={(value) => {
                               setEditedVariant((prev) => {
                                 const updated = { ...prev }; 
@@ -1325,8 +1360,8 @@ useEffect(() => {
                     <View className="flex w-11/12 mb-4 bg-theme100 rounded-md py-0 px-2 border-[1px] border-theme200">
                       <TextInput
                         className="w-full text-center mb-1 italic text-[12px] text-zinc900"
-                        placeholder={editedVariant?.prepNotes === "meal prep notes" ? "0.00" : editedVariant?.prepNotes || ""}
-                        placeholderTextColor={colors.theme600}
+                        placeholder={ogVariant?.prepNote === "" ? "meal prep notes" : ogVariant?.prepNote}
+                        placeholderTextColor={colors.theme500}
                         multiline={true}
                         onFocus={() => setKeyboardType("note")}
                         onBlur={() => setKeyboardType("")}
@@ -1341,7 +1376,7 @@ useEffect(() => {
                       />
   
                       {(keyboardType === "note") && (
-                        <View className="absolute right-1.5 bottom-0.5">
+                        <View className="absolute right-1.5 bg-theme100 bottom-0.5">
                           <Icon
                             name="chevron-down"
                             size={14}
@@ -1384,7 +1419,7 @@ useEffect(() => {
                       <View className="flex justify-center items-center px-1.5 w-7/12 border-r-0.5 bg-zinc700">
                         <TextInput
                           className="w-full text-[13px] font-semibold text-white text-center py-2 leading-[16px]"
-                          placeholder={editedVariant?.prepName === "" ? "meal prep name" : editedVariant?.prepName || ""}
+                          placeholder={ogVariant?.prepName === "" ? "meal prep name" : ogVariant?.prepName}
                           placeholderTextColor={colors.zinc400}
                           multiline={true}
                           blurOnSubmit={true}
@@ -1405,20 +1440,24 @@ useEffect(() => {
                         {/* calories */}
                         <View className="flex-auto items-end pl-2">
                           <Text className="text-center text-[11px] text-white">
-                              {editedVariant.prepCal === "" ? "0" : editedVariant.prepCal || "0"}{" cal"}
+                            {editedVariant.prepCal === "" ? "0" : editedVariant.prepCal || "0"}{" cal"}
                           </Text>
                         </View>
 
                         {/* price */}
                         <View className="flex flex-auto flex-row pr-2">
-                          <Text className={`flex text-right text-[11px] ${editedVariant.prepPrice === "" ? "text-zinc400" : "text-white"}`}>
-                            $
-                          </Text>
                           <TextInput
-                            className="flex text-left text-[11px] text-white leading-[13px]"
-                            placeholder={editedVariant?.prepPrice === "" ? "0.00" : editedVariant?.prepPrice || ""}
+                            className="flex text-right text-[11px] leading-[14.5px]"
+                            placeholder="$"
+                            placeholderTextColor={(editedVariant.prepPrice === "") ? colors.zinc400 : "white"}
+                            editable={false}
+                          />
+                          <TextInput
+                            className="flex text-left text-[11px] text-white leading-[14px]"
+                            placeholder={ogVariant?.prepPrice === "" ? "0.00" : ogVariant?.prepPrice}
                             placeholderTextColor={colors.zinc400}
                             value={editedVariant?.prepPrice || ""}
+                            style={{ width: getInputWidth(editedVariant?.prepPrice === "" ? (ogVariant?.prepPrice === "" ? "0.00" : ogVariant?.prepPrice) : editedVariant?.prepPrice || "") + 6 }}
                             onChangeText={(value) => {
                               setEditedVariant((prev) => {
                                 const updated = { ...prev }; 
@@ -1444,8 +1483,8 @@ useEffect(() => {
                         
                         {/* Frozen Columns */}
                         {Array.from({ length: numIngredients }, (_, index) => index < numIngredients && (
-                          <View key={`frozen-${index}`} className="flex flex-row min-h-[30px]">
-
+                          <View key={editedVariant?.currentData?.[index]?.id} className="flex flex-row min-h-[30px]">
+                            
                             {/* Add Indicator */}
                             <View className="w-[20px] h-[10px] mt-[-5px] mx-[-5px] pr-1 z-50 justify-end items-center">
                               {(showNewIndex) && (
@@ -1468,7 +1507,7 @@ useEffect(() => {
                                   <TextInput
                                     className="w-full text-white font-semibold text-[10px] text-center px-2 py-2"
                                     placeholder="ingredient name"
-                                    placeholderTextColor={colors.zinc350} 
+                                    placeholderTextColor={colors.zinc400} 
                                     value={editedVariant?.currentData?.[index]?.ingredientName || ""}
                                     onChangeText={(value) => {
                                       setEditedVariant((prev) => {
@@ -1494,7 +1533,7 @@ useEffect(() => {
                               <View className="flex flex-row px-1 space-x-0.5 items-center justify-center bg-zinc100 w-1/4 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc400">
                                 {/* Amount Input */}
                                 <TextInput
-                                  className="text-[9px] flex text-center h-full pl-4"
+                                  className="flex text-center text-[9px] leading-[12px] pl-4 py-1"
                                   placeholder="_"
                                   placeholderTextColor={colors.zinc450}
                                   value={editedVariant?.currentAmounts?.[index] || ""}
@@ -1514,7 +1553,7 @@ useEffect(() => {
                                 
                                 {/* Unit Input */}
                                 <TextInput
-                                  className="text-[9px] leading-[12px] flex text-center pr-4 py-1"
+                                  className="flex text-center text-[9px] leading-[12px] pr-4 py-1"
                                   placeholder="unit(s)"
                                   placeholderTextColor={colors.zinc450}
                                   value={editedVariant?.currentData?.[index]?.ingredientData?.[editedVariant?.currentData?.[index]?.ingredientStore]?.unit || ""}
@@ -1548,7 +1587,7 @@ useEffect(() => {
                                 />
 
                                 {/* ellipses for cutoff */}
-                                {(currUnit !== index && editedVariant?.currentAmounts?.[index]?.length + 1 + editedVariant?.currentData?.[index]?.ingredientData?.[editedVariant?.currentData?.[index]?.ingredientStore]?.unit?.length > 10) && (
+                                {(currUnit !== index && (getInputWidth(editedVariant?.currentAmounts?.[index] + " " + editedVariant?.currentData?.[index]?.ingredientData?.[editedVariant?.currentData?.[index]?.ingredientStore]?.unit)) > 60) && (
                                   <Text className="flex items-end absolute bg-black right-0 pr-1 text-black bg-zinc100">
                                     ...
                                   </Text>
@@ -1557,13 +1596,12 @@ useEffect(() => {
 
                               {/* calories */}
                               <View className="flex flex-row px-1 space-x-0.5 items-center justify-center bg-white w-1/6 border-b-0.5 border-b-zinc400">
-                                
-                                {/* Amount Input */}
+                                {/* user input */}
                                 <TextInput
                                   className="text-[9px] flex-auto text-right"
-                                  placeholder="_"
+                                  placeholder="0"
                                   placeholderTextColor={colors.zinc400}
-                                  value={editedVariant?.currentCals?.[index]?.toString() || ""}
+                                  value={isFraction(editedVariant?.currentCals?.[index]?.toString()) ? new Fraction(editedVariant?.currentCals?.[index]?.toString()).valueOf().toFixed(0) : ""}
                                   onChangeText={(value) => {
                                     setEditedVariant((prev) => {
                                       const updatedCals = [...prev.currentCals];
@@ -1578,11 +1616,13 @@ useEffect(() => {
                                   onFocus={() => setKeyboardType("grid")}
                                   onBlur={() => setKeyboardType("")}
                                 />
-
                                 {/* Label */}
-                                <Text className="text-[9px] flex-auto text-left">
-                                  {"cal"}
-                                </Text>
+                                <TextInput
+                                  className="text-[9px] flex-auto text-left"
+                                  placeholder="cal"
+                                  placeholderTextColor={(editedVariant?.currentCals?.[index]?.toString() === "") ? colors.zinc400 : "black"}
+                                  editable={false}
+                                />
                               </View>
                             </View>
 

@@ -20,6 +20,7 @@ import storeImages from '../../assets/storeImages';
 import Fraction from 'fraction.js';
 
 // validation
+import getInputWidth from '../Validation/getInputWidth';
 import isFraction from '../Validation/isFraction';
 import extractUnit from '../Validation/extractUnit';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
@@ -94,8 +95,15 @@ const MealDetailsModal = ({
         setPrepCurrentAmounts(data.currentAmounts);
         setPrepCurrentCals(data.currentCals);
         setPrepCurrentPrices(data.currentPrices);
-        setPrepCurrentData(data.currentData);
-        setNumIngredients(data.currentData?.length || 0);
+        
+        // attaches ids on prepCurrentData
+        const formattedData = data.currentData?.map((item) => ({
+          ...item,
+          id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        })) || [];
+
+        setPrepCurrentData(formattedData);
+        setNumIngredients(formattedData.length);
       }
     }
   }, [modalVisible]);
@@ -203,7 +211,25 @@ const MealDetailsModal = ({
   const addPrepIngredient = (index) => {
 
     // null new data to set
-    let newData = Array(numIngredients + 1).fill(null);
+    let data = { '-': { calServing: "", servingSize: "", unit: "" } };
+    storeKeys.forEach(storeKey => { data[storeKey] = { brand: "", calContainer: "", calServing: "", link: "", priceContainer: "", priceServing: "", servingContainer: "", servingSize: "", totalYield: "", unit: "" }; }); 
+
+    let newData = Array(numIngredients + 1).fill({
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      amountLeft: "?", 
+      amountTotal: "", 
+      archive: false, 
+      check: false, 
+      containerPrice: "", 
+      ingredientData: data, 
+      ingredientId: "", 
+      ingredientName: "", 
+      ingredientStore: "-", 
+      ingredientTypes: [], 
+      unitPrice: "",
+    });
+
+    // null new specifics to set
     let newAmounts = Array(numIngredients + 1).fill("");
     let newCals = Array(numIngredients + 1).fill("");
     let newPrices = Array(numIngredients + 1).fill("");
@@ -225,10 +251,10 @@ const MealDetailsModal = ({
     }
 
     // stores shifts
-    setPrepCurrentData(newData);        // the current's data
-    setPrepCurrentAmounts(newAmounts);  // the current's amounts
-    setPrepCurrentCals(newCals);        // the current's calories
-    setPrepCurrentPrices(newPrices);        // the current's prices
+    setPrepCurrentData(newData);          // the current's data
+    setPrepCurrentAmounts(newAmounts);    // the current's amounts
+    setPrepCurrentCals(newCals);          // the current's calories
+    setPrepCurrentPrices(newPrices);      // the current's prices
 
     // increments the number of ingredients
     setNumIngredients(numIngredients + 1);
@@ -294,6 +320,9 @@ const MealDetailsModal = ({
         }
       });
       
+      // strips ids from currentData before adding to db
+      const cleanCurrentData = newCurrentData.map(({ id, ...item }) => item);
+      
       // current meal info
       const meal = date.split(" ")[0];
       const [month, day, year] = date.split(" ")[1].split("/");
@@ -308,12 +337,12 @@ const MealDetailsModal = ({
         prepCal: !isFraction(prepCal) ? "0" : new Fraction(prepCal).valueOf().toFixed(0), 
         prepPrice: !isFraction(prepPrice) ? "0.00" : new Fraction(prepPrice).valueOf().toFixed(2), 
         prepId: newId,
-        currentData: newCurrentData, 
-        currentIds: Array(newCurrentData.length).fill(""), 
-        currentAmounts: newCurrentAmounts, 
-        currentCals: prepCurrentCals.map(cal => !isFraction(cal) ? 0 : new Fraction(cal).valueOf()), 
-        currentPrices: prepCurrentPrices.map(price => !isFraction(price) ? 0 : new Fraction(price).valueOf()),
-        currentIncluded: Array(newCurrentData.length).fill(""),
+        currentData: cleanCurrentData.map((data, index) => (!cleanCurrentData[index] || Object.keys(cleanCurrentData[index]).length === 0) ? null : data), 
+        currentIds: Array(cleanCurrentData.length).fill(""), 
+        currentAmounts: newCurrentAmounts.map((amt, index) => (!cleanCurrentData[index] || Object.keys(cleanCurrentData[index]).length === 0) ? "" : amt), 
+        currentCals: prepCurrentCals.map((cal, index) => (!cleanCurrentData[index] || Object.keys(cleanCurrentData[index]).length === 0) ? "" : !isFraction(cal) ? 0 : new Fraction(cal).valueOf()), 
+        currentPrices: prepCurrentPrices.map((price, index) => (!cleanCurrentData[index] || Object.keys(cleanCurrentData[index]).length === 0)? "" : !isFraction(price) ? 0 : new Fraction(price).valueOf()),
+        currentIncluded: Array(cleanCurrentData.length).fill(""),
       };
 
       // prepares the doc data
@@ -514,19 +543,25 @@ const MealDetailsModal = ({
       if (meal === "LUNCH") { data = prepDoc.data()?.meals?.lunch || null; } 
       else if (meal === "DINNER") { data = prepDoc.data()?.meals?.dinner || null; }
       
+      // formatted currentData with ids attached
+      const formattedCurrentData = data.prepData?.currentData?.map((item) => ({
+        ...item,
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      })) ?? [];
+      
       // stores it for copying
       setCopyData(data); 
       // stores it for creating (simple)
-      setPrepName(data.prepData?.prepName ?? "");
-      setPrepCal(data.prepData?.prepCal ?? "");
-      setPrepPrice(data.prepData?.prepPrice ?? "");
-      setPrepNote(data.prepData?.prepNote ?? "");
+      setPrepName(data?.prepData?.prepName ?? "");
+      setPrepCal(data?.prepData?.prepCal ?? "");
+      setPrepPrice(data?.prepData?.prepPrice ?? "");
+      setPrepNote(data?.prepData?.prepNote ?? "");
       // stores it for creating (complex)
-      setPrepCurrentAmounts(data.prepData?.currentAmounts ?? []);
-      setPrepCurrentData(data.prepData?.currentData ?? []);
-      setPrepCurrentCals(data.prepData?.currentCals.map(cal => cal === "" ? "" : Math.round(cal)) ?? []);
-      setPrepCurrentPrices(data.prepData?.currentPrices ?? []);
-      setNumIngredients(data.prepData?.currentData?.length || 0);
+      setPrepCurrentAmounts(data?.prepData?.currentAmounts ?? []);
+      setPrepCurrentData(formattedCurrentData);
+      setPrepCurrentCals(data?.prepData?.currentCals?.map(cal => cal === "" ? "" : Math.round(cal)) ?? []);
+      setPrepCurrentPrices(data?.prepData?.currentPrices ?? []);
+      setNumIngredients(formattedCurrentData.length || 0);
     
     // otherwise, not valid
     } else { setCopyData(null); }
@@ -726,20 +761,26 @@ const MealDetailsModal = ({
     // stores values in state
     setCopyMeal(filteredPrepMeals[index][currIndex][filteredPrepMeals[index][currIndex]?.length - 1]);
     setCopyDate(filteredPrepDates[index][currIndex][filteredPrepMeals[index][currIndex]?.length - 1]);
+    
+    // formatted currentData with ids attached
+    const formattedCurrentData = newData?.prepData?.currentData?.map((item) => ({
+      ...item,
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+    })) ?? [];
 
     // stores data for copying
     setCopyData(newData);
     // stores data for creating (simple)
-    setPrepName(newData.prepData.prepName);
-    setPrepCal(newData.prepData.prepCal);
-    setPrepPrice(newData.prepData.prepPrice);
-    setPrepNote(newData.prepData.prepNote);
+    setPrepName(newData?.prepData?.prepName ?? "");
+    setPrepCal(newData?.prepData?.prepCal ?? "");
+    setPrepPrice(newData?.prepData?.prepPrice ?? "");
+    setPrepNote(newData?.prepData?.prepNote ?? "");
     // stores data for creating (complex)
-    setPrepCurrentAmounts(newData.prepData.currentAmounts);
-    setPrepCurrentData(newData.prepData.currentData);
-    setPrepCurrentCals(newData.prepData.currentCals.map(cal => Math.round(cal)));
-    setPrepCurrentPrices(newData.prepData.currentPrices);
-    setNumIngredients(newData?.prepData?.currentData?.length || 0);
+    setPrepCurrentAmounts(newData?.prepData?.currentAmounts ?? []);
+    setPrepCurrentData(formattedCurrentData);
+    setPrepCurrentCals(newData?.prepData?.currentCals?.map(cal => cal === "" ? "" : Math.round(cal)) ?? []);
+    setPrepCurrentPrices(newData?.prepData?.currentPrices ?? []);
+    setNumIngredients(formattedCurrentData?.length || 0);
     
     // goes back to calendar section
     setOpenPrepIndex(-1);
@@ -785,6 +826,7 @@ const MealDetailsModal = ({
                             
     // adds this ingredient to the list
     setPrepCurrentData([...prepCurrentData, {
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       amountLeft: "?", 
       amountTotal: "", 
       archive: false, 
@@ -826,6 +868,7 @@ const MealDetailsModal = ({
         storeKeys.forEach(storeKey => { data[storeKey] = { brand: "", calContainer: "", calServing: "", link: "", priceContainer: "", priceServing: "", servingContainer: "", servingSize: "", totalYield: "", unit: "" }; }); 
 
         updated[index] = {
+          id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
           amountLeft: "?", 
           amountTotal: "", 
           archive: false, 
@@ -864,6 +907,7 @@ const MealDetailsModal = ({
         storeKeys.forEach(storeKey => { data[storeKey] = { brand: "", calContainer: "", calServing: "", link: "", priceContainer: "", priceServing: "", servingContainer: "", servingSize: "", totalYield: "", unit: "" }; }); 
 
         updated[index] = {
+          id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
           amountLeft: "?", 
           amountTotal: "", 
           archive: false, 
@@ -1057,7 +1101,7 @@ const MealDetailsModal = ({
               <ScrollView className={`flex flex-col max-h-1/2 z-10 border-[1px] bg-zinc700 border-zinc700 ${(numIngredients > data?.currentData?.filter((ingredient => ingredient !== null)).length) && "pb-2"}`}>
                 {/* Frozen Columns */}
                 {Array.from({ length: numIngredients }, (_, index) => (
-                  <View key={`frozen-${index}`} className={`flex flex-row ${(data?.currentData?.[index] ? "min-h-[30px] bg-white" : "h-0")}`}>
+                  <View key={`frozen-${index}`} className={`flex flex-row ${((data?.currentData?.[index] && data?.currentData?.[index] !== null) ? "min-h-[30px] bg-white" : "h-0")}`}>
                     <View className="bg-black w-full flex-row">
 
                       {/* ingredient names */}
@@ -1234,7 +1278,7 @@ const MealDetailsModal = ({
                     <View className="flex justify-center items-center h-full w-1/2 bg-white rounded-md py-1 px-2 border-0.5 border-zinc500">
                       <TextInput
                         className="w-full text-center mb-1 text-[14px] leading-[17px]"
-                        placeholder={prepName === "" ? "meal prep name" : prepName}
+                        placeholder="meal prep name"
                         placeholderTextColor={colors.zinc400}
                         multiline={true}
                         blurOnSubmit={true}
@@ -1249,33 +1293,40 @@ const MealDetailsModal = ({
           
                       {/* Calories */}
                       <View className="flex flex-row h-[25px] w-full space-x-1 px-2 justify-center items-center border-[1px] border-zinc450 bg-zinc400">
-                        {/* amount input */}
+                        {/* user input */}
                         <TextInput
-                          className="flex-auto text-right bg-transparent italic text-[12px] leading-[15px]"
-                          placeholder={prepCal === "" ? "0" : prepCal}
-                          placeholderTextColor='black'
+                          className="flex-auto text-right italic text-[12px] leading-[14.5px]"
+                          placeholder="0"
+                          placeholderTextColor={colors.zinc500}
                           value={prepCal}
+                          style={{ width: getInputWidth(prepCal === "" ? "0" : prepCal || "") + 6 }}
                           onChangeText={(value) => setPrepCal(validateWholeNumberInput(value))}
                         />
-                        {/* label */}
-                        <Text className="flex-auto text-left italic text-[12px]">
-                          calories
-                        </Text>
+                        {/* dummy label */}
+                        <TextInput
+                          className="flex-auto text-left italic text-[12px] leading-[15px]"
+                          placeholder="calories"
+                          placeholderTextColor={(prepCal === "") ? colors.zinc500 : "black"}
+                          editable={false}
+                        />
                       </View>
           
                       {/* Price */}
                       <View className="flex flex-row w-full h-[25px] justify-center items-center border-[1px] border-zinc450 bg-zinc400">
-                        {/* label */}
-                        <Text className="flex-auto text-right justify-center pl-1 italic text-[12px]">
-                          $
-                        </Text>
-                        
-                        {/* price input */}
+                        {/* dummy label */}
                         <TextInput
-                          className="flex-auto bg-transparent text-left pr-1 italic text-[12px] leading-[15px]"
-                          placeholder={prepPrice === "" ? "0.00" : prepPrice}
-                          placeholderTextColor='black'
+                          className="flex-auto text-right pl-1 italic text-[12px] leading-[15px]"
+                          placeholder="$"
+                          placeholderTextColor={(prepPrice === "") ? colors.zinc500 : "black"}
+                          editable={false}
+                        />
+                        {/* user input */}
+                        <TextInput
+                          className="flex-auto text-left pr-1 italic text-[12px] leading-[15px]"
+                          placeholder="0.00"
+                          placeholderTextColor={colors.zinc500}
                           value={prepPrice}
+                          style={{ width: getInputWidth(prepPrice === "" ? "0.00" : prepPrice || "") + 6 }}
                           onChangeText={(value) => setPrepPrice(validateDecimalInput(value))}
                           onBlur={() => {
                             setPrepPrice((prev) => {
@@ -1292,8 +1343,8 @@ const MealDetailsModal = ({
                   <View className="flex w-11/12 mb-4 bg-theme100 rounded-md py-0 px-2 border-[1px] border-theme200">
                     <TextInput
                       className="w-full text-center mb-1 italic text-[12px] text-zinc900"
-                      placeholder={prepNote === "" ? "meal prep notes" : prepNote}
-                      placeholderTextColor={colors.theme600}
+                      placeholder="meal prep notes"
+                      placeholderTextColor={colors.theme500}
                       multiline={true}
                       onFocus={() => setKeyboardType("note")}
                       onBlur={() => setKeyboardType("")}
@@ -1302,7 +1353,7 @@ const MealDetailsModal = ({
                     />
 
                     {(keyboardType === "note") && (
-                      <View className="absolute right-1.5 bottom-0.5">
+                      <View className="absolute right-1.5 bg-theme100 bottom-0.5">
                         <Icon
                           name="chevron-down"
                           size={14}
@@ -1347,7 +1398,7 @@ const MealDetailsModal = ({
                     <View className="flex justify-center items-center px-1.5 w-7/12 border-r-0.5 bg-zinc700">
                       <TextInput
                         className="w-full text-[13px] font-semibold text-white text-center py-2 px-1 leading-[16px]"
-                        placeholder={prepName === "" ? "meal prep name" : prepName}
+                        placeholder="meal prep name"
                         placeholderTextColor={colors.zinc400}
                         multiline={true}
                         blurOnSubmit={true}
@@ -1361,21 +1412,27 @@ const MealDetailsModal = ({
 
                       {/* calories */}
                       <View className="flex-auto items-end pl-2">
-                        <Text className="text-center text-[11px] text-white">
-                            {prepCal === "" ? "0" : prepCal || "0"}{" cal"}
+                        <Text className="text-center text-[11px] leading-[13px] text-white">
+                          {prepCal === "" ? "0" : prepCal || "0"}{" cal"}
                         </Text>
                       </View>
 
                       {/* price */}
                       <View className="flex flex-auto flex-row pr-2">
-                        <Text className={`flex text-right text-[11px] ${prepPrice === "" ? "text-zinc400" : "text-white"}`}>
-                          $
-                        </Text>
+                        {/* dummy label */}
                         <TextInput
-                          className="flex text-left text-[11px] text-white leading-[13px] min-w-[25px]"
-                          placeholder={prepPrice === "" ? "0.00" : prepPrice}
+                          className="flex text-right text-[11px] leading-[14.5px]"
+                          placeholder="$"
+                          placeholderTextColor={(prepPrice === "") ? colors.zinc400 : "white"}
+                          editable={false}
+                        />
+                        {/* user input */}
+                        <TextInput
+                          className="flex text-left text-[11px] text-white leading-[14px]"
+                          placeholder="0.00"
                           placeholderTextColor={colors.zinc400}
                           value={prepPrice}
+                          style={{ width: getInputWidth(prepPrice === "" ? "0.00" : prepPrice || "") + 6 }}
                           onChangeText={(text) => setPrepPrice(validateDecimalInput(text))}
                           onBlur={() => {
                             setPrepPrice((prev) => {
@@ -1394,8 +1451,8 @@ const MealDetailsModal = ({
                       
                       {/* Frozen Columns */}
                       {Array.from({ length: numIngredients }, (_, index) => index < numIngredients && (
-                        <View key={`frozen-${index}`} className="flex flex-row min-h-[30px]">
-
+                        <View key={prepCurrentData?.[index]?.id} className="flex flex-row min-h-[30px]">
+                          
                           {/* Add Indicator */}
                           <View className="w-[20px] h-[10px] mt-[-5px] mx-[-5px] pr-1 z-50 justify-end items-center">
                             {(showNewIndex) && (
@@ -1418,7 +1475,7 @@ const MealDetailsModal = ({
                                 <TextInput
                                   className="w-full text-white font-semibold text-[10px] text-center px-2 py-2"
                                   placeholder="ingredient name"
-                                  placeholderTextColor={colors.zinc350}
+                                  placeholderTextColor={colors.zinc400}
                                   value={prepCurrentData?.[index]?.ingredientName || ""}
                                   onChangeText={(value) => changeName(index, value.replaceAll('\'', '’'))}
                                   multiline={true}
@@ -1433,9 +1490,9 @@ const MealDetailsModal = ({
                             <View className="flex flex-row px-1 space-x-0.5 items-center justify-center bg-zinc100 w-1/4 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc400">
                               {/* Amount Input */}
                               <TextInput
-                                className="text-[9px] flex text-center h-full pl-4"
+                                className="flex text-center text-[9px] leading-[12px] pl-4 py-1"
                                 placeholder="_"
-                                placeholderTextColor={colors.zinc450}
+                                placeholderTextColor={colors.zinc500}
                                 value={prepCurrentAmounts?.[index]}
                                 onChangeText={(value) => {
                                   setPrepCurrentAmounts((prev) => {
@@ -1450,10 +1507,10 @@ const MealDetailsModal = ({
                               
                               {/* Unit Input */}
                               <TextInput
-                                className="text-[9px] leading-[12px] text-center pr-4 py-1"
+                                className="flex text-center text-[9px] leading-[12px] pr-4 py-1"
                                 placeholder="unit(s)"
-                                placeholderTextColor={colors.zinc450}
-                                value={prepCurrentData?.[index]?.ingredientData[prepCurrentData?.[index]?.ingredientStore]?.unit || ""}
+                                placeholderTextColor={colors.zinc500}
+                                value={prepCurrentData?.[index]?.ingredientData?.[prepCurrentData?.[index]?.ingredientStore]?.unit || ""}
                                 onChangeText={(value) => changeUnit(index, value.replaceAll('\'', '’'))}
                                 blurOnSubmit={true}
                                 onFocus={() => {
@@ -1467,7 +1524,7 @@ const MealDetailsModal = ({
                               />
 
                               {/* ellipses for cutoff */}
-                              {(currUnit !== index && prepCurrentAmounts?.[index]?.length + 1 + prepCurrentData?.[index]?.ingredientData[prepCurrentData?.[index]?.ingredientStore]?.unit?.length > 10) && (
+                              {(currUnit !== index && getInputWidth(prepCurrentAmounts?.[index] + " " + prepCurrentData?.[index]?.ingredientData?.[prepCurrentData?.[index]?.ingredientStore]?.unit) > 60) && (
                                 <Text className="flex items-end absolute bg-black right-0 pr-1 text-black bg-zinc100">
                                   ...
                                 </Text>
@@ -1475,15 +1532,15 @@ const MealDetailsModal = ({
                             </View>
       
                             {/* Details */}
-                              <View className="flex flex-col bg-white w-1/6 items-center justify-center border-b-0.5 border-b-zinc400 px-1">
+                            <View className="flex flex-col bg-white w-1/6 items-center justify-center border-b-0.5 border-b-zinc400 px-1">
 
                               {/* calories */}
                               <View className="flex flex-row space-x-0.5">
-                                {/* Amount Input */}
+                                {/* user input */}
                                 <TextInput
                                   className="text-[9px] flex-auto text-right"
-                                  placeholder="_"
-                                  placeholderTextColor={colors.zinc400}
+                                  placeholder="0"
+                                  placeholderTextColor={colors.zinc450}
                                   value={prepCurrentCals?.[index]?.toString()}
                                   onChangeText={(value) => {
                                     setPrepCurrentCals((prev) => {
@@ -1495,23 +1552,29 @@ const MealDetailsModal = ({
                                   onFocus={() => setKeyboardType("grid")}
                                   onBlur={() => setKeyboardType("")}
                                 />
-                                {/* Label */}
-                                <Text className="text-[9px] flex-auto text-left">
-                                  {"cal"}
-                                </Text>
+                                {/* dummy label */}
+                                <TextInput
+                                  className="text-[9px] flex-auto text-left"
+                                  placeholder="cal"
+                                  placeholderTextColor={(prepCurrentCals?.[index]?.toString() === "") ? colors.zinc450 : "black"}
+                                  editable={false}
+                                />
                               </View>
 
 
                               {/* price */}
                               <View className="flex flex-row">
-                                {/* Label */}
-                                <Text className="text-[9px] flex-auto text-right">
-                                  {"$"}
-                                </Text>
-                                {/* Amount Input */}
+                                {/* dummy label */}
+                                <TextInput
+                                  className="text-[9px] flex-auto text-right"
+                                  placeholder="$"
+                                  placeholderTextColor={(prepCurrentPrices?.[index]?.toString() === "") ? colors.zinc450 : "black"}
+                                  editable={false}
+                                />
+                                {/* user input */}
                                 <TextInput
                                   className="text-[9px] flex-auto text-left"
-                                  placeholder="_"
+                                  placeholder="0.00"
                                   placeholderTextColor={colors.zinc400}
                                   value={prepCurrentPrices?.[index].toString()}
                                   onChangeText={(value) => {
@@ -1751,12 +1814,12 @@ const MealDetailsModal = ({
                     </View>
 
                     {/* Details */}
-                    <View className="flex flex-row w-3/5">
+                    <View className="flex flex-row w-3/5 overflow-hidden">
                       <View className="flex flex-1 flex-col z-40 justify-center items-center space-y-1 py-2 px-2">
 
                         {/* amount */}
                         <View className="flex flex-row items-center space-x-2">
-                          {/* total */}
+                          {/* user input */}
                           <TextInput
                             className="text-[12px] text-center text-zinc900"
                             placeholder="_"
@@ -1764,10 +1827,13 @@ const MealDetailsModal = ({
                             value={selectedIngredientAmount || ""}
                             onChangeText={(value) => setSelectedIngredientAmount(validateFractionInput(value))}
                           />
-                          {/* unit */}
-                          <Text className="text-[12px] text-center text-zinc900">
-                            {selectedIngredient?.ingredientData[selectedStore]?.unit}
-                          </Text>
+                          {/* dummy unit */}
+                          <TextInput
+                            className="text-[12px] text-center"
+                            placeholder={selectedIngredient?.ingredientData[selectedStore]?.unit}
+                            placeholderTextColor={colors.zinc900}
+                            editable={false}
+                          />
                         </View>
 
                         {/* per serving */}

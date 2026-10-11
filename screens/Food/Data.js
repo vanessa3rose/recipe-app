@@ -21,6 +21,7 @@ import storeLabels from '../../assets/storeLabels';
 import Fraction from 'fraction.js';
 
 // validation
+import getInputWidth from '../../components/Validation/getInputWidth';
 import isFraction from '../../components/Validation/isFraction';
 
 // modals
@@ -777,7 +778,7 @@ export default function Data ({ isSelectedTab }) {
                 <TextInput
                   value={excludeQuery}
                   onChangeText={(value) => setExcludeQuery(value.replaceAll('\'', '’'))}
-                  placeholder={`exclude from search`}
+                  placeholder="exclude from search"
                   placeholderTextColor={colors.zinc400}
                   className={`flex-1 text-zinc800 bg-zinc100 rounded-[5px] border-[1px] italic border-zinc350 pl-8 pr-[60px] text-[14px] leading-[16px] ml-2.5 z-10 ${(excludeQuery !== "") && "line-through decoration-mauve500"}`}
                   onFocus={() => setKeyboardType("")}
@@ -1262,7 +1263,8 @@ export default function Data ({ isSelectedTab }) {
                     {/* Page Number */}
                     <View className="flex flex-row justify-center items-center h-full">
                       <TextInput
-                        className={`text-center text-[13px] italic font-medium text-zinc200 ${dataPage > 9 ? "min-w-[20px]" : dataPage > 99 && "min-w-[30px]"}`}
+                        style={{ width: getInputWidth(dataPage) + 6 }}
+                        className="text-center text-[13px] italic font-medium text-zinc200"
                         placeholderTextColor={colors.zinc400}
                         value={dataPage}
                         onChangeText={(value) => 
@@ -1281,9 +1283,12 @@ export default function Data ({ isSelectedTab }) {
                           )
                         }}
                       />
-                      <Text className="text-center text-[13px] leading italic font-medium text-zinc200">
-                        {` / ${Math.ceil(dataLength / NUM_PER_PAGE) === 0 ? "1" : Math.ceil(dataLength / NUM_PER_PAGE)}`}
-                      </Text>
+                      <TextInput
+                        className="text-center text-[13px] italic font-medium"
+                        placeholder={` / ${Math.ceil(dataLength / NUM_PER_PAGE) === 0 ? "1" : Math.ceil(dataLength / NUM_PER_PAGE)}`}
+                        placeholderTextColor={colors.zinc200}
+                        editable={false}
+                      />
                     </View>
                     
                     {/* Page Forward */}

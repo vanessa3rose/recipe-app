@@ -434,7 +434,7 @@ const ModBrandModal = ({
                   onChangeText={(value) => filterBrandList("-", value.replaceAll('\'', '’'))}
                   placeholder="brand"
                   placeholderTextColor={colors.zinc500}
-                  className="flex w-full p-2 pl-1 pr-6 text-[14px] text-center leading-[17px]"
+                  className="flex w-full p-2 pl-1 pr-8 text-[14px] text-center leading-[17px]"
                   onFocus={() => filterBrandList("-", brand["-"])}
                   onContentSizeChange={(e) => {
                     const { width, height } = e.nativeEvent.contentSize;

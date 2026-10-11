@@ -17,6 +17,7 @@ import colors from '../../assets/colors';
 import Fraction from 'fraction.js';
 
 // validation
+import getInputWidth from '../../components/Validation/getInputWidth';
 import isFraction from '../../components/Validation/isFraction';
 import validateFractionInput from '../../components/Validation/validateFractionInput';
 import validateWholeNumberInput from '../../components/Validation/validateWholeNumberInput';
@@ -124,7 +125,26 @@ export default function MealPrep ({ isSelectedTab }) {
 
       // gets the prep data
       const prepDoc = prepSnapshot.docs.find(doc => doc.id === prepId);
-      const prepData = prepDoc?.data() || null;
+      const rawPrepData = prepDoc?.data() || null;
+      const prepIndex = prepGlobal.data().preps.map((doc) => doc.id).indexOf(prepId);
+      const prepCustomMap = prepGlobal.data().preps.map((doc) => doc.custom)?.[prepIndex];
+
+      // format variants to attach ids only if complex
+      const prepData = rawPrepData ? {
+        ...rawPrepData,
+        variants: rawPrepData.variants?.map((variant) => {
+          const isComplex = prepCustomMap?.[variant.variantId] === "complex";
+          if (!isComplex) return variant;
+
+          return {
+            ...variant,
+            currentData: variant.currentData?.map((item) => ({
+              ...item,
+              id: item?.id || `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+            })) ?? [],
+          };
+        }) ?? [],
+      } : null;
       
       setSelectedPrepId(prepId);
       setSelectedPrepData(prepData);
@@ -134,6 +154,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
         // finds the first empty ingredient
         setSelectedCurrentIndex(variantData.currentData.findIndex(x => !x) + 1 || 1);
+        
         // sets the note
         setSelectedNote(variantData.prepNote);
         // updates the amounts of each current ingredient left
@@ -152,8 +173,20 @@ export default function MealPrep ({ isSelectedTab }) {
             ...updatedVariants[selectedPrepVariant],
             ...calcData,
           };
+
+          // remove ids from variants before writing to db
+          const dbVariants = updatedVariants.map((v) => ({
+            ...v,
+            ...(v.currentData ? {
+              currentData: v.currentData.map((item) => {
+                if (!item) return item;
+                const { id, ...cleanItem } = item;
+                return cleanItem;
+              })
+            } : {})
+          }));
           
-          await updateDoc(doc(db, 'PREPS', prepId), { variants: updatedVariants });
+          await updateDoc(doc(db, 'PREPS', prepId), { variants: dbVariants });
           setSelectedPrepData({ ...prepData, variants: updatedVariants });
         }
       }
@@ -216,13 +249,36 @@ export default function MealPrep ({ isSelectedTab }) {
 
       // gets the current data
       const docSnap = await getDoc(doc(db, 'PREPS', prepId));
-      const data = docSnap.exists() ? docSnap.data() : null;
-      const variant = data.variants[varIdx];
+      const rawData = docSnap.exists() ? docSnap.data() : null;
 
+      if (!rawData) {
+        setSelectedPrepData(null);
+        return null;
+      }
+
+      // attaches ids up front to all complex variants in rawData
+      const prepCustomMap = prepsCustom?.[prepsIds?.indexOf(prepId)];
+      const idData = {
+        ...rawData,
+        variants: rawData.variants?.map((v) => {
+          const isComplex = prepCustomMap?.[v.variantId] === "complex";
+          if (!isComplex) return v;
+
+          return {
+            ...v,
+            currentData: v.currentData?.map((item) => (item ? {
+              ...item,
+              id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+            } : item)) ?? [],
+          };
+        }) ?? [],
+      };
+      
       // sets the current prep card placeholders
-      setCurrCurrentAmounts(variant.currentAmounts);
-      setCurrPrepMult(variant.prepMult);
-      setSelectedNote(variant.prepNote);
+      const variant = idData.variants[varIdx];
+      setCurrCurrentAmounts(variant?.currentAmounts ?? []);
+      setCurrPrepMult(variant?.prepMult ?? 0);
+      setSelectedNote(variant?.prepNote ?? "");
       
       // if there are amounts of ingredients, update them
       if (variant.currentAmounts && prepsCustom.map((p) => p[variant.variantId]).find(p => p) === "currents") {
@@ -240,22 +296,34 @@ export default function MealPrep ({ isSelectedTab }) {
         // updates the amounts of each current ingredient that are left
         updateEnoughLeft(calcData);
 
-        // updates prep data
-        const updatedVariants = [...data.variants];
+        // updates prep data (preserving ids)
+        const updatedVariants = [...idData.variants];
         updatedVariants[varIdx] = {
           ...updatedVariants[varIdx],
           ...calcData,
         };
+
+        // strips ids from all variants before updating db
+        const dbVariants = updatedVariants.map((v) => ({
+          ...v,
+          ...(v.currentData ? {
+            currentData: v.currentData.map((item) => {
+              if (!item) return item;
+              const { id, ...cleanItem } = item;
+              return cleanItem;
+            })
+          } : {})
+        }));
         
-        await updateDoc(doc(db, 'PREPS', prepId), { variants: updatedVariants });
-        setSelectedPrepData({ ...data, variants: updatedVariants });
-        return { ...data, variants: updatedVariants };
+        await updateDoc(doc(db, 'PREPS', prepId), { variants: dbVariants });
+        setSelectedPrepData({ ...idData, variants: updatedVariants });
+        return { ...idData, variants: updatedVariants };
 
       } else if (variant.currentAmounts) {
-        setSelectedPrepData(data);
-        return data;
+        setSelectedPrepData(idData);
+        return idData;
 
-      } else { return data; }
+      } else { return idData; }
 
     // if a meal prep is not selected, set default data
     } else {
@@ -310,7 +378,6 @@ export default function MealPrep ({ isSelectedTab }) {
   const changeVariant = (index) => {
     setSelectedPrepVariant(index);
 
-
     // loops over the 12 ingredients backwards to find the first empty one
     for (let i = 11; i >= 0; i--) {
       if (!selectedPrepData?.variants?.[index].currentData[i]) {
@@ -349,10 +416,25 @@ export default function MealPrep ({ isSelectedTab }) {
         ...selectedPrepData,
         variants: selectedPrepData.variants.map((v, i) => i === selectedPrepVariant ? { ...v, prepMult: newMult } : v ),
       };
+      
+      // strips transient ids from all variants before updating db
+      const dbPrepData = {
+        ...updatedPrep,
+        variants: updatedPrep.variants.map((v) => ({
+          ...v,
+          ...(v.currentData ? {
+            currentData: v.currentData.map((item) => {
+              if (!item) return item;
+              const { id, ...cleanItem } = item;
+              return cleanItem;
+            })
+          } : {})
+        }))
+      };
 
       // stores the meal prep data
       setSelectedPrepData(updatedPrep);
-      await updateDoc(doc(db, 'PREPS', selectedPrepId), updatedPrep);
+      await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
       
       // calculates the amounts that are left of all current ingredients
       await calcAllAmountsLeft();
@@ -378,13 +460,28 @@ export default function MealPrep ({ isSelectedTab }) {
         ...selectedPrepData,
         variants: selectedPrepData.variants.map((v, i) => i === selectedPrepVariant ? { ...v, prepMult: decMult } : v ),
       };
+      
+      // strips transient ids from all variants before updating db
+      const dbPrepData = {
+        ...updatedPrep,
+        variants: updatedPrep.variants.map((v) => ({
+          ...v,
+          ...(v.currentData ? {
+            currentData: v.currentData.map((item) => {
+              if (!item) return item;
+              const { id, ...cleanItem } = item;
+              return cleanItem;
+            })
+          } : {})
+        }))
+      };
 
       // stores the multiplicity in the state
       setCurrPrepMult(decMult);
 
       // stores the meal prep data in the firebase
       setSelectedPrepData(updatedPrep);
-      await updateDoc(doc(db, 'PREPS', selectedPrepId), updatedPrep);
+      await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
       // when a meal prep is finished, open a popup asking if you want the prep to be deleted
       if (decMult === 0) {
@@ -424,10 +521,25 @@ export default function MealPrep ({ isSelectedTab }) {
         setCurrCurrentAmounts(prepData.variants[0].currentAmounts); 
         setSelectedNote(prepData.variants[0].prepNote);
         updateEnoughLeft(prepData.variants[0]); 
+        
+        // strips ids from all variants before updating db
+        const dbPrepData = {
+          ...prepData,
+          variants: prepData.variants.map((v) => ({
+            ...v,
+            ...(v.currentData ? {
+              currentData: v.currentData.map((item) => {
+                if (!item) return item;
+                const { id, ...cleanItem } = item;
+                return cleanItem;
+              })
+            } : {})
+          }))
+        };
 
         // updates local & db
         setSelectedPrepData(prepData);
-        await updateDoc(doc(db, 'PREPS', selectedPrepId), prepData);
+        await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
         // reload settings if the modal wasn't canceled
         refreshPreps();
@@ -534,13 +646,28 @@ export default function MealPrep ({ isSelectedTab }) {
       ...selectedPrepData,
       variants: selectedPrepData.variants.map((v, i) => i === selectedPrepVariant ? { ...v, prepMult: incMult } : v ),
     };
+    
+    // strips ids from all variants before updating db
+    const dbPrepData = {
+      ...updatedPrep,
+      variants: updatedPrep.variants.map((v) => ({
+        ...v,
+        ...(v.currentData ? {
+          currentData: v.currentData.map((item) => {
+            if (!item) return item;
+            const { id, ...cleanItem } = item;
+            return cleanItem;
+          })
+        } : {})
+      }))
+    };
 
     // update local states
     setCurrPrepMult(incMult);
     setSelectedPrepData(updatedPrep);
 
     // updates db
-    await updateDoc(doc(db, 'PREPS', selectedPrepId), updatedPrep);
+    await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
     // calculates both the amounts left and total for all current ingredients
     await calcCurrAmountsTotal(true);
@@ -553,7 +680,7 @@ export default function MealPrep ({ isSelectedTab }) {
   ///////////////////////////////// INGREDIENT AMOUNT LOGIC /////////////////////////////////
 
   // for the placeholders of the amount textinputs
-  const [currCurrentAmounts, setCurrCurrentAmounts] = useState(["", "", "", "", "", "", "", "", "", "", "", ""]);
+  const [currCurrentAmounts, setCurrCurrentAmounts] = useState(new Array(12).fill(""));
 
   // to store the entered amount in the current ingredient's data if it is valid
   const setAmount = async (value, index) => {
@@ -589,10 +716,25 @@ export default function MealPrep ({ isSelectedTab }) {
       ...selectedPrepData,
       variants: selectedPrepData.variants.map((v, i) => i === selectedPrepVariant ? calcData : v ),
     };
+    
+    // strips ids from all variants before updating db
+    const dbPrepData = {
+      ...updatedPrep,
+      variants: updatedPrep.variants.map((v) => ({
+        ...v,
+        ...(v.currentData ? {
+          currentData: v.currentData.map((item) => {
+            if (!item) return item;
+            const { id, ...cleanItem } = item;
+            return cleanItem;
+          })
+        } : {})
+      }))
+    };
 
     // store in Firestore and state
     setSelectedPrepData(updatedPrep);
-    await updateDoc(doc(db, 'PREPS', selectedPrepId), updatedPrep);
+    await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
     // recalc amounts left globally
     await calcAllAmountsLeft();
@@ -827,10 +969,25 @@ export default function MealPrep ({ isSelectedTab }) {
       // updates variant's note
       let prepData = {...selectedPrepData};
       prepData.variants[selectedPrepVariant].prepNote = selectedNote;
+      
+      // strips ids from all variants before updating db
+      const dbPrepData = {
+        ...prepData,
+        variants: prepData.variants.map((v) => ({
+          ...v,
+          ...(v.currentData ? {
+            currentData: v.currentData.map((item) => {
+              if (!item) return item;
+              const { id, ...cleanItem } = item;
+              return cleanItem;
+            })
+          } : {})
+        }))
+      };
 
       // stores updates
       setSelectedPrepData(prepData);
-      await updateDoc(doc(db, 'PREPS', selectedPrepId), prepData);
+      await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
       // reload settings
       refreshPreps();
@@ -846,9 +1003,24 @@ export default function MealPrep ({ isSelectedTab }) {
       let prepData = {...selectedPrepData};
       prepData.variants[selectedPrepVariant].prepNote = "";
 
+      // strips ids from all variants before updating db
+      const dbPrepData = {
+        ...prepData,
+        variants: prepData.variants.map((v) => ({
+          ...v,
+          ...(v.currentData ? {
+            currentData: v.currentData.map((item) => {
+              if (!item) return item;
+              const { id, ...cleanItem } = item;
+              return cleanItem;
+            })
+          } : {})
+        }))
+      };
+
       // stores updates
       setSelectedPrepData(prepData);
-      await updateDoc(doc(db, 'PREPS', selectedPrepId), prepData);
+      await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
       // reload settings
       refreshPreps();
@@ -870,7 +1042,7 @@ export default function MealPrep ({ isSelectedTab }) {
   // to submit a new meal prep
   const submitNewPrep = async (docId, prepData) => {
     setSelectedPrepVariant(0);
-
+    
     // stores the data
     setSelectedPrepData(prepData);
     reloadPrep(docId, true);
@@ -923,14 +1095,14 @@ export default function MealPrep ({ isSelectedTab }) {
   }, [modModalVisible]);
 
   // when closing the mod modal to edit
-  const closeModModal = async (type, variantAdded) => {
+  const closeModModal = async (type) => {
     setModModalVisible(false);
     let prepData = null;
     
     // reload settings if the modal wasn't canceled
     if (type !== "") {
       refreshPreps();
-      setSelectedNote(selectedPrepData ? selectedPrepData.prepNote : "");
+      setSelectedNote(selectedPrepData?.variants?.[selectedPrepVariant] ? selectedPrepData?.variants?.[selectedPrepVariant]?.prepNote : "");
 
       // calculates amounts
       calcAllAmountsLeft();
@@ -978,7 +1150,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
       // goes to the most recent variant
       if (type.includes("variant")) {
-        setSelectedPrepVariant(vIds.length - 1);
+        setSelectedPrepVariant(Number(type.split(" ")[2]));
         await calcAllAmountsLeft();
       }
     }
@@ -1067,9 +1239,24 @@ export default function MealPrep ({ isSelectedTab }) {
         variants: selectedPrepData.variants.map((v, i) => i === selectedPrepVariant ? updatedVariant : v ),
       };
 
+      // strips ids from all variants before updating db
+      const dbPrepData = {
+        ...updatedPrep,
+        variants: updatedPrep.variants.map((v) => ({
+          ...v,
+          ...(v.currentData ? {
+            currentData: v.currentData.map((item) => {
+              if (!item) return item;
+              const { id, ...cleanItem } = item;
+              return cleanItem;
+            })
+          } : {})
+        }))
+      };
+
       // updates state and db
       setSelectedPrepData(updatedPrep);
-      await updateDoc(doc(db, "PREPS", selectedPrepId), updatedPrep);
+      await updateDoc(doc(db, "PREPS", selectedPrepId), dbPrepData);
 
       // recalculates the amount of each current left
       calcAllAmountsLeft();
@@ -1149,12 +1336,27 @@ export default function MealPrep ({ isSelectedTab }) {
 
     // update the variant inside prepData
     prepData.variants[selectedPrepVariant] = calcData;
-
+    
     // update amounts left and more
     updateEnoughLeft(calcData);
 
+    // strips transient ids from all variants before updating db
+    const dbPrepData = {
+      ...prepData,
+      variants: prepData.variants.map((v) => ({
+        ...v,
+        ...(v.currentData ? {
+          currentData: v.currentData.map((item) => {
+            if (!item) return item;
+            const { id, ...cleanItem } = item;
+            return cleanItem;
+          })
+        } : {})
+      }))
+    };    
+
     // update Firestore
-    await updateDoc(doc(db, 'PREPS', selectedPrepId), prepData);
+    await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
     // update local state
     setSelectedPrepData(prepData);
@@ -1247,8 +1449,23 @@ export default function MealPrep ({ isSelectedTab }) {
       // updates the amount left and more
       updateEnoughLeft(calcData);
 
+      // strips transient ids from all variants before updating db
+      const dbPrepData = {
+        ...prepData,
+        variants: prepData.variants.map((v) => ({
+          ...v,
+          ...(v.currentData ? {
+            currentData: v.currentData.map((item) => {
+              if (!item) return item;
+              const { id, ...cleanItem } = item;
+              return cleanItem;
+            })
+          } : {})
+        }))
+      };
+
       // stores the meal prep data in the firebase
-      await updateDoc(doc(db, 'PREPS', selectedPrepId), prepData);
+      await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
       // updates the selected meal prep's data
       setSelectedPrepData(prepData);
@@ -1352,15 +1569,28 @@ export default function MealPrep ({ isSelectedTab }) {
 
       // updates the amount left and more
       updateEnoughLeft(calcData);
+
+      // strips transient ids from all variants before updating db
+      const dbPrepData = {
+        ...prepData,
+        variants: prepData.variants.map((v) => ({
+          ...v,
+          ...(v.currentData ? {
+            currentData: v.currentData.map((item) => {
+              if (!item) return item;
+              const { id, ...cleanItem } = item;
+              return cleanItem;
+            })
+          } : {})
+        }))
+      };
       
       // stores the meal prep data in the firebase
-      await updateDoc(doc(db, 'PREPS', selectedPrepId), prepData);
+      await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
       // updates the selected meal prep's data
       setSelectedPrepData(prepData);
-
-      // clears the current storage of the amounts so the placeholders aren't janky
-      setCurrCurrentAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);
+      setCurrCurrentAmounts(calcData.currentAmounts);
   
       // calculates the amounts that are left of all current ingredients
       await calcAllAmountsLeft();
@@ -1383,10 +1613,7 @@ export default function MealPrep ({ isSelectedTab }) {
     variant.currentAmounts[selectedCurrentIndex - 1] = "";
     variant.currentCals[selectedCurrentIndex - 1] = "";
     variant.currentPrices[selectedCurrentIndex - 1] = "";
-    variant.currentIncluded[selectedCurrentIndex - 1] = "";
-
-    // sets the current storage of the data so the placeholders aren't janky
-    setCurrCurrentAmounts(["", "", "", "", "", "", "", "", "", "", "", ""]);     
+    variant.currentIncluded[selectedCurrentIndex - 1] = "";  
 
     // calculates the details and totals
     let calcData = calcAmounts(variant);
@@ -1401,12 +1628,28 @@ export default function MealPrep ({ isSelectedTab }) {
 
     // updates the amount left and more
     updateEnoughLeft(calcData);
+
+    // strips transient ids from all variants before updating db
+    const dbPrepData = {
+      ...prepData,
+      variants: prepData.variants.map((v) => ({
+        ...v,
+        ...(v.currentData ? {
+          currentData: v.currentData.map((item) => {
+            if (!item) return item;
+            const { id, ...cleanItem } = item;
+            return cleanItem;
+          })
+        } : {})
+      }))
+    };
     
     // stores the meal prep data in the firebase
-    await updateDoc(doc(db, 'PREPS', selectedPrepId), prepData);
+    await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
     // updates the selected meal prep's data
     setSelectedPrepData(prepData);
+    setCurrCurrentAmounts(calcData.currentAmounts);
       
     // clears the search
     clearCurrentSearch();
@@ -1618,12 +1861,12 @@ export default function MealPrep ({ isSelectedTab }) {
     // gets the new prep data
     let data = {...selectedPrepData};
     data.variants[selectedPrepVariant] = {
-      currentAmounts: value === "currents" ? ["", "", "", "", "", "", "", "", "", "", "", ""] : [], 
-      currentCals: value === "currents" ? ["", "", "", "", "", "", "", "", "", "", "", ""] : [], 
-      currentData: value === "currents" ? [null, null, null, null, null, null, null, null, null, null, null, null] : [], 
-      currentIds: value === "currents" ? ["", "", "", "", "", "", "", "", "", "", "", ""] : [], 
-      currentPrices: value === "currents" ? ["", "", "", "", "", "", "", "", "", "", "", ""] : [],
-      currentIncluded: value === "currents" ? ["", "", "", "", "", "", "", "", "", "", "", ""] : [],
+      currentAmounts: value === "currents" ? new Array(12).fill("") : [], 
+      currentCals: value === "currents" ? new Array(12).fill("") : [], 
+      currentData: value === "currents" ? new Array(12).fill(null) : [], 
+      currentIds: value === "currents" ? new Array(12).fill("") : [], 
+      currentPrices: value === "currents" ? new Array(12).fill("") : [],
+      currentIncluded: value === "currents" ? new Array(12).fill("") : [],
       prepCal: "0", 
       prepMult: data.variants[selectedPrepVariant].prepMult,
       prepName: data.variants[selectedPrepVariant].prepName,
@@ -1633,9 +1876,24 @@ export default function MealPrep ({ isSelectedTab }) {
       variantId: data.variants[selectedPrepVariant].variantId,
     }
 
+    // strips ids from all variants before updating db
+    const dbPrepData = {
+      ...data,
+      variants: data.variants.map((v) => ({
+        ...v,
+        ...(v.currentData ? {
+          currentData: v.currentData.map((item) => {
+            if (!item) return item;
+            const { id, ...cleanItem } = item;
+            return cleanItem;
+          })
+        } : {})
+      }))
+    };
+
     // stores it 
     setSelectedPrepData(data);
-    await updateDoc(doc(db, 'PREPS', selectedPrepId), data);
+    await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
     // reloads
     setPrepDropdownOpen(false);
@@ -1690,6 +1948,7 @@ export default function MealPrep ({ isSelectedTab }) {
 
     // formats currentData
     const currentData = {
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       ingredientId: "", 
       ingredientData: {"-": { calServing: "", servingSize: "", unit: ""}}, 
       ingredientName: "", 
@@ -1725,9 +1984,24 @@ export default function MealPrep ({ isSelectedTab }) {
       currentIncluded: insertAtIndex(variant.currentIncluded, true),
     };
 
+    // strips ids from all variants before updating db
+    const dbPrepData = {
+      ...data,
+      variants: data.variants.map((v) => ({
+        ...v,
+        ...(v.currentData ? {
+          currentData: v.currentData.map((item) => {
+            if (!item) return item;
+            const { id, ...cleanItem } = item;
+            return cleanItem;
+          })
+        } : {})
+      }))
+    };
+
     // stores it 
     setSelectedPrepData(data);
-    await updateDoc(doc(db, 'PREPS', selectedPrepId), data);
+    await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
     // reloads
     setPrepDropdownOpen(false);
@@ -1778,9 +2052,24 @@ export default function MealPrep ({ isSelectedTab }) {
     // updates totals
     data = updateTotals(data);
 
+    // strips ids from all variants before updating db
+    const dbPrepData = {
+      ...data,
+      variants: data.variants.map((v) => ({
+        ...v,
+        ...(v.currentData ? {
+          currentData: v.currentData.map((item) => {
+            if (!item) return item;
+            const { id, ...cleanItem } = item;
+            return cleanItem;
+          })
+        } : {})
+      }))
+    };
+
     // stores it 
     setSelectedPrepData(data);
-    await updateDoc(doc(db, 'PREPS', selectedPrepId), data);
+    await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
     // reloads
     setPrepDropdownOpen(false);
@@ -1791,16 +2080,32 @@ export default function MealPrep ({ isSelectedTab }) {
   }
 
   // when blurred text inputs
-  const updateComplexPrep = async (index) => {
-    let prepData = {...selectedPrepData};
-
+  const updateCustomPrep = async (data, index) => {
+    let prepData = {...data};
+    
     // updates numerical values
     if (index !== -1) {
       prepData.variants[selectedPrepVariant].currentCals[index] = Number(prepData.variants[selectedPrepVariant].currentCals[index]);
     }
+
+    // strips transient ids from all variants before updating db
+    const dbPrepData = {
+      ...prepData,
+      variants: data.variants.map((v) => ({
+        ...v,
+        ...(v.currentData ? {
+          currentData: v.currentData.map((item) => {
+            if (!item) return item;
+            const { id, ...cleanItem } = item;
+            return cleanItem;
+          })
+        } : {})
+      }))
+    };
     
     // stores data
-    await updateDoc(doc(db, 'PREPS', selectedPrepId), prepData);
+    setSelectedPrepData(prepData);
+    await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
     // reload settings
     refreshPreps();
@@ -1833,17 +2138,27 @@ export default function MealPrep ({ isSelectedTab }) {
   
   // when the copy modal is submitted
   const closeCopyModal = async (data, copyName) => {
-    const nulls = data.currentData.map(curr => curr !== null);
+    const nulls = data?.currentData ? data.currentData.map(curr => curr !== null) : [];
     const type = prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId];
     
     const cals = data.currentCals.map(c => c === "" ? 0 : c).filter((_, i) => nulls[i]).map(c => Number(c.toFixed(0)));
     const prices = data.currentPrices.map(p => p === "" ? 0 : p).filter((_, i) => nulls[i]).map(p => Number(p.toFixed(2)));
     
+    // formats currentData with ids if complex for useState
+    const formattedCurrentData = (type === "complex")
+      ? data.currentData
+          .filter((_, i) => nulls[i])
+          .map((item) => ({
+            ...item,
+            id: item?.id || `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          }))
+      : [];
+
     let prepData = {...selectedPrepData};
     prepData.variants[selectedPrepVariant] = {
       currentAmounts: (type === "complex") ? data.currentAmounts.filter((_, i) => nulls[i]) : [],
       currentCals: (type === "complex") ? cals : [],
-      currentData: (type === "complex") ? data.currentData.filter((_, i) => nulls[i]) : [],
+      currentData: (type === "complex") ? formattedCurrentData : [],
       currentIds: (type === "complex") ? data.currentIds.filter((_, i) => nulls[i]) : [],
       currentIncluded: (type === "complex") ? data.currentIncluded.filter((_, i) => nulls[i]) : [],
       currentPrices: (type === "complex") ? prices.map(_ => "") : [],
@@ -1864,9 +2179,24 @@ export default function MealPrep ({ isSelectedTab }) {
       }));
     }
     
+    // strips ids from all variants for db
+    const dbPrepData = {
+      ...prepData,
+      variants: prepData.variants.map((v) => ({
+        ...v,
+        ...(v.currentData ? {
+          currentData: v.currentData.map((item) => {
+            if (!item) return item;
+            const { id, ...cleanItem } = item;
+            return cleanItem;
+          })
+        } : {})
+      }))
+    };
+    
     // stores data
     setSelectedPrepData(prepData);
-    await updateDoc(doc(db, 'PREPS', selectedPrepId), prepData);
+    await updateDoc(doc(db, 'PREPS', selectedPrepId), dbPrepData);
 
     // closes modal
     setCopyModalVisible(false);
@@ -1874,14 +2204,6 @@ export default function MealPrep ({ isSelectedTab }) {
     // reload settings
     refreshPreps();
   }
-  
-  
-  ///////////////////////////////// DYNAMIC WIDTHS /////////////////////////////////
-  
-  const [normalInputWidth, setNormalInputWidth] = useState(new Array(12).fill(6));
-  const [customUnitWidth, setCustomUnitWidth] = useState([6]);
-  const [customAmtWidth, setCustomAmtWidth] = useState([6]);
-  const [customCalWidth, setCustomCalWidth] = useState([6]);
   
   
   ///////////////////////////////// SCROLLING /////////////////////////////////
@@ -1970,7 +2292,7 @@ export default function MealPrep ({ isSelectedTab }) {
             <Icon
               name={prepsStarred?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] ? "star" : "star-outline"}
               color={prepsStarred?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] ? colors.zinc700 : colors.zinc450}
-              size={14}
+              size={(prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "currents") ? 14 : 20}
               onPress={changeStarred}
             />
           </View>
@@ -2196,8 +2518,8 @@ export default function MealPrep ({ isSelectedTab }) {
                         updateMult(text);
                         setCurrentDropdownOpen(false);
                       }}
-                      placeholder={selectedPrepData ? String(selectedPrepData?.variants?.[selectedPrepVariant]?.prepMult) : "0"}
-                      placeholderTextColor={'white'}
+                      placeholder="0"
+                      placeholderTextColor={colors.zinc300}
                       className="flex-1 text-center text-white font-bold text-[14px] leading-[17px]"
                     />
 
@@ -2250,21 +2572,21 @@ export default function MealPrep ({ isSelectedTab }) {
                 <>
                   {/* ingredient header */}
                   <View className="flex items-center justify-center w-5/12 border-r-0.5">
-                      <Text className="text-white text-xs font-bold">
+                      <Text className="text-white text-[12px] font-bold">
                         INGREDIENT
                       </Text>
                   </View>
 
                   {/* amount header */}
                   <View className="flex items-center justify-center w-1/3 border-r-0.5">
-                      <Text className="text-white text-xs font-bold">
+                      <Text className="text-white text-[12px] font-bold">
                         AMOUNT
                       </Text>
                   </View>
 
                   {/* details header */}
                   <View className="flex items-center justify-center w-1/4">
-                      <Text className="text-white text-xs font-bold">
+                      <Text className="text-white text-[12px] font-bold">
                         DETAILS
                       </Text>
                   </View>
@@ -2282,7 +2604,7 @@ export default function MealPrep ({ isSelectedTab }) {
               <View className="flex justify-center items-center w-full bg-white rounded-t-lg py-6 border-0.5 border-zinc500">
                 <TextInput
                   className="w-full text-center text-[12px] leading-[15px]"
-                  placeholder={"meal prep notes"}
+                  placeholder="meal prep notes"
                   placeholderTextColor={colors.zinc400}
                   multiline={true}
                   blurOnSubmit={true}
@@ -2290,16 +2612,14 @@ export default function MealPrep ({ isSelectedTab }) {
                   onChangeText={(value) => {
                     setSelectedPrepData(prev => {
                       if (!prev) return prev;
-
                       const updatedVariants = [...prev.variants];
                       updatedVariants[selectedPrepVariant].prepNote = value.replaceAll('\'', '’');
-                      
                       return { ...prev, variants: updatedVariants, };
                     });
                   }}
                   onBlur={() => {
                     setIsKeyboardOpen(false);
-                    updateComplexPrep(-1);
+                    updateCustomPrep(selectedPrepData, -1);
                   }}
                 />
 
@@ -2319,49 +2639,62 @@ export default function MealPrep ({ isSelectedTab }) {
               {/* Details Input */}
               <View className="flex flex-row w-full justify-center items-center rounded-b-lg bg-theme200">
                 {/* calories */}
-                <View className="flex w-1/2 flex-row justify-center items-center bg-theme200 space-x-1 py-2 border-0.5 border-zinc500">
+                <View className="flex w-1/2 flex-row justify-center items-center bg-theme200 space-x-1 py-3 border-0.5 border-zinc500">
                   <TextInput
-                    className="italic text-center text-[12px] pb-[5.5px]"
-                    placeholder={"_"}
-                    placeholderTextColor={colors.zinc400}
-                    multiline={true}
-                    blurOnSubmit={true}
+                    className="flex-auto italic text-right text-[12px] leading-[15px]"
+                    placeholder="0"
+                    placeholderTextColor={colors.zinc450}
                     value={selectedPrepData?.variants?.[selectedPrepVariant]?.prepCal || ""}
+                    style={{ width: getInputWidth(selectedPrepData?.variants?.[selectedPrepVariant]?.prepCal === "" ? "0" : selectedPrepData?.variants?.[selectedPrepVariant]?.prepCal) + 6 }}
                     onChangeText={(value) => {
                       setSelectedPrepData(prev => {
                         if (!prev) return prev;
-
                         const updatedVariants = [...prev.variants];
                         updatedVariants[selectedPrepVariant].prepCal = validateWholeNumberInput(value);
-                        
                         return { ...prev, variants: updatedVariants, };
                       });
                     }}
+                    blurOnSubmit={true}
                     onBlur={() => {
                       const value = selectedPrepData?.variants?.[selectedPrepVariant]?.prepCal;
                       setSelectedPrepData(prev => {
                         if (!prev) return prev;
                         const updatedVariants = [...prev.variants];
-                        updatedVariants[selectedPrepVariant].prepCal = isFraction(value) ? value : "0";
+                        updatedVariants[selectedPrepVariant].prepCal = isFraction(value) ? new Fraction(value).valueOf().toFixed(0) : "0";
                         return { ...prev, variants: updatedVariants, };
                       });
                       setIsKeyboardOpen(false);
-                      updateComplexPrep(-1);
+                      updateCustomPrep({
+                        ...selectedPrepData,
+                        variants: selectedPrepData?.variants?.map((v, i) =>
+                          i === selectedPrepVariant
+                            ? { ...v, prepCal: isFraction(value) ? value : "0" }
+                            : v
+                      )}, -1);
                     }}
                   />
-                  <Text className="text-center text-[12px] italic">calories</Text>
+                  <TextInput
+                    className="flex-auto italic text-left text-[12px] leading-[15px]"
+                    placeholder="calories"
+                    placeholderTextColor={(selectedPrepData?.variants?.[selectedPrepVariant]?.prepCal === "") ? colors.zinc500 : "black"}
+                    editable={false}
+                  />
                 </View>
 
                 {/* price */}
-                <View className="flex w-1/2 h-full flex-row justify-center items-center bg-theme200 py-2 border-0.5 border-zinc500">
-                  <Text className="text-center text-[12px] italic">$</Text>
+                <View className="flex w-1/2 flex-row justify-center items-center bg-theme200 py-3 border-0.5 border-zinc500">
                   <TextInput
-                    className="text-center text-[12px] italic pb-[4.5px]"
-                    placeholder={"0.00"}
-                    placeholderTextColor={colors.zinc400}
-                    multiline={true}
-                    blurOnSubmit={true}
+                    className="flex-auto italic text-right text-[12px] leading-[15px]"
+                    placeholder="$"
+                    placeholderTextColor={(selectedPrepData?.variants?.[selectedPrepVariant]?.prepPrice === "") ? colors.zinc500 : "black"}
+                    editable={false}
+                  />
+                  <TextInput
+                    className="flex-auto italic text-left text-[12px] leading-[15px]"
+                    placeholder="0.00"
+                    placeholderTextColor={colors.zinc450}
                     value={selectedPrepData?.variants?.[selectedPrepVariant]?.prepPrice || ""}
+                    style={{ width: getInputWidth(selectedPrepData?.variants?.[selectedPrepVariant]?.prepPrice === "" ? "0.00" : selectedPrepData?.variants?.[selectedPrepVariant]?.prepPrice) + 6 }}
                     onChangeText={(value) => {
                       setSelectedPrepData(prev => {
                         if (!prev) return prev;
@@ -2372,16 +2705,17 @@ export default function MealPrep ({ isSelectedTab }) {
                         return { ...prev, variants: updatedVariants, };
                       });
                     }}
+                    blurOnSubmit={true}
                     onBlur={() => {
                       const value = selectedPrepData?.variants?.[selectedPrepVariant]?.prepPrice;
-                      setSelectedPrepData(prev => {
-                        if (!prev) return prev;
-                        const updatedVariants = [...prev.variants];
-                        updatedVariants[selectedPrepVariant].prepPrice = isFraction(value) ? new Fraction(value).valueOf().toFixed(2) : "0.00";
-                        return { ...prev, variants: updatedVariants, };
-                      });
                       setIsKeyboardOpen(false);
-                      updateComplexPrep(-1);
+                      updateCustomPrep({
+                        ...selectedPrepData,
+                        variants: selectedPrepData?.variants?.map((v, i) =>
+                          i === selectedPrepVariant
+                            ? { ...v, prepPrice: isFraction(value) ? new Fraction(value).valueOf().toFixed(2) : "0.00" }
+                            : v
+                      )}, -1);
                     }}
                   />
                 </View>
@@ -2396,7 +2730,7 @@ export default function MealPrep ({ isSelectedTab }) {
               onScroll={syncScroll}
             >
               {(selectedPrepData?.variants?.[selectedPrepVariant]?.currentData?.map((current, index) => (
-                <View key={`frozen-${index}`} className="flex flex-row w-full min-h-[30px] bg-white">
+                <View key={current.id} className="flex flex-row w-full min-h-[30px] bg-white">
                   
                   {/* ingredient names */}
                   <View className="flex items-center justify-center w-5/12 bg-theme600 border-b-0.5 border-r-0.5 border-zinc700 z-10">
@@ -2412,7 +2746,6 @@ export default function MealPrep ({ isSelectedTab }) {
 
                           const updatedVariants = [...prev.variants];
                           const updatedCurrentData = [...updatedVariants[selectedPrepVariant].currentData];
-
                           updatedCurrentData[index] = { ...updatedCurrentData[index], ingredientName: value.replaceAll('\'', '’'), };
                           updatedVariants[selectedPrepVariant] = { ...updatedVariants[selectedPrepVariant], currentData: updatedCurrentData, };
 
@@ -2424,7 +2757,7 @@ export default function MealPrep ({ isSelectedTab }) {
                       onFocus={() => setIsKeyboardOpen(true)}
                       onBlur={() => {
                         setIsKeyboardOpen(false);
-                        updateComplexPrep(index);
+                        updateCustomPrep(selectedPrepData, index);
                       }}
                     />
                   </View>
@@ -2434,11 +2767,10 @@ export default function MealPrep ({ isSelectedTab }) {
 
                     {/* amount and units */}
                     {selectedPrepData?.variants?.[selectedPrepVariant]?.currentData?.[index] ?
-                      <View className="flex flex-row space-x-[3px] justify-center items-center">
+                      <View className="flex flex-row space-x-[3px] justify-center items-center px-3">
                         {/* Amount */}
                         <TextInput
-                          key={`a-${selectedPrepVariant}-${index}`}
-                          className="text-black text-[10px] text-center pl-4"
+                          className="text-black text-[10px] text-center"
                           placeholder="_"
                           placeholderTextColor={colors.zinc450}
                           value={selectedPrepData?.variants?.[selectedPrepVariant]?.currentAmounts?.[index] || ""}
@@ -2454,37 +2786,25 @@ export default function MealPrep ({ isSelectedTab }) {
                               return { ...prev, variants: updatedVariants, };
                             });
                           }}
-                          // onLayout={(e) => {
-                          //   const width = e.nativeEvent.layout.width;
-                          //   console.log(customAmtWidth)
-                          //   setCustomAmtWidth((prevWidths) => {
-                          //     if (prevWidths[index] === width) return prevWidths;
-                          //     const nextWidths = [...prevWidths];
-                          //     nextWidths[index] = width;
-                          //     return nextWidths;
-                          //   });
-                          // }}
-                          // style={{ minWidth: customAmtWidth[index] }}
                           blurOnSubmit={true}
                           onFocus={() => setIsKeyboardOpen(true)}
                           onBlur={() => {
                             const value = selectedPrepData?.variants?.[selectedPrepVariant]?.currentAmounts?.[index];
-                            setSelectedPrepData(prev => {
-                              if (!prev) return prev;
-                              const updatedVariants = [...prev.variants];
-                              const updatedCurrentAmounts = [...updatedVariants[selectedPrepVariant].currentAmounts];
-                              updatedCurrentAmounts[index] = value === "" ? "" : isFraction(value) ? value.trim() : "";
-                              updatedVariants[selectedPrepVariant] = { ...updatedVariants[selectedPrepVariant], currentAmounts: updatedCurrentAmounts, };
-                              return { ...prev, variants: updatedVariants, };
-                            });
                             setIsKeyboardOpen(false);
-                            updateComplexPrep(index);
+                            updateCustomPrep({
+                              ...selectedPrepData,
+                              variants: selectedPrepData?.variants?.map((v, vIndex) =>
+                                vIndex === selectedPrepVariant
+                                  ? { ...v,
+                                      currentAmounts: v?.currentAmounts?.map((amt, aIndex) =>
+                                        aIndex === index ? (value === "" ? "" : isFraction(value) ? value.trim() : "") : amt )}
+                                  : v )
+                            }, index);
                           }}
                         />
                         {/* Unit */}
                         <TextInput
-                          key={`u-${selectedPrepVariant}-${index}`}
-                          className="text-black text-[10px] text-center pr-4"
+                          className="text-black text-[10px] text-center"
                           placeholder="units"
                           placeholderTextColor={colors.zinc450}
                           value={extractUnit(current?.ingredientData?.[current?.ingredientStore]?.unit, selectedPrepData?.variants?.[selectedPrepVariant]?.currentAmounts?.[index]) || ""}
@@ -2501,22 +2821,11 @@ export default function MealPrep ({ isSelectedTab }) {
                               return { ...prev, variants: updatedVariants, };
                             });
                           }}
-                          // onLayout={(e) => {
-                          //   const width = e.nativeEvent.layout.width;
-                          //   console.log(customUnitWidth)
-                          //   setCustomUnitWidth((prevWidths) => {
-                          //     if (prevWidths[index] === width) return prevWidths;
-                          //     const nextWidths = [...prevWidths];
-                          //     nextWidths[index] = width;
-                          //     return nextWidths;
-                          //   });
-                          // }}
-                          // style={{ minWidth: customUnitWidth[index] }}
                           blurOnSubmit={true}
                           onFocus={() => setIsKeyboardOpen(true)}
                           onBlur={() => {
                             setIsKeyboardOpen(false);
-                            updateComplexPrep(index);
+                            updateCustomPrep(selectedPrepData, -1);
                           }}
                         />
                       </View>
@@ -2529,8 +2838,7 @@ export default function MealPrep ({ isSelectedTab }) {
                     {/* calories */}
                     <View className="flex flex-row justify-center items-center space-x-1">
                       <TextInput
-                        key={`c-${selectedPrepVariant}-${index}`}
-                        className="text-black text-[10px]"
+                        className="text-black text-[10px] leading-[12.5px]"
                         placeholder="_"
                         placeholderTextColor={colors.zinc450}
                         value={selectedPrepData?.variants?.[selectedPrepVariant]?.currentCals?.[index].toString() || ""}
@@ -2548,37 +2856,29 @@ export default function MealPrep ({ isSelectedTab }) {
                             return newData;
                           });
                         }}
-                        // onContentSizeChange={(e) => { 
-                        //   const width = e.nativeEvent.contentSize.width; 
-                        //   console.log(customCalWidth);
-                        //   setCustomCalWidth((prevWidths) => {
-                        //     if (prevWidths[index] === width) return prevWidths;
-                        //     const nextWidths = [...prevWidths];
-                        //     nextWidths[index] = width;
-                        //     return nextWidths;
-                        //   });
-                        // }}
-                        // style={{ minWidth: customCalWidth[index] }}
                         blurOnSubmit={true}
                         onFocus={() => setIsKeyboardOpen(true)}
                         onBlur={() => {
-                          const value = selectedPrepData?.variants?.[selectedPrepVariant]?.currentCals?.[index];
-                          setSelectedPrepData(prev => {
-                            if (!prev) return prev;
-                            const updatedVariants = [...prev.variants];
-                            const updatedCurrentCals = [...updatedVariants[selectedPrepVariant].currentCals];
-                            updatedCurrentCals[index] = isFraction(value) ? value : 0;
-                            updatedVariants[selectedPrepVariant] = { ...updatedVariants[selectedPrepVariant], currentCals: updatedCurrentCals, };
-                            const newData = { ...prev, variants: updatedVariants, };
-                            updateTotals(newData);
-                            return newData;
-                          });
                           setIsKeyboardOpen(false);
-                          updateComplexPrep(index);
+                          const value = selectedPrepData?.variants?.[selectedPrepVariant]?.currentCals?.[index] ?? "";
+                          updateCustomPrep({
+                            ...selectedPrepData,
+                            variants: selectedPrepData?.variants?.map((v, vIndex) =>
+                              vIndex === selectedPrepVariant
+                                ? { ...v,
+                                    currentCals: v?.currentCals?.map((cal, cIndex) =>
+                                      cIndex === index ? (isFraction(String(value)) ? value : 0) : cal )}
+                                : v )
+                          }, index);
                         }}
                       />
-                      {/* label */}
-                      <Text className="text-[10px]">cal</Text>
+                      {/* dummy label */}
+                      <TextInput
+                        className="text-[10px] leading-[13px]"
+                        placeholder="cal"
+                        placeholderTextColor="black"
+                        editable={false}
+                      />
                     </View>
                   </View>
             
@@ -2666,20 +2966,10 @@ export default function MealPrep ({ isSelectedTab }) {
                       <View className="flex flex-row space-x-[1px]">
                         {/* Input Amount */}
                         <TextInput
-                          key={`n-${selectedPrepVariant}-${index}`}
-                          onContentSizeChange={(e) => { 
-                            const width = e.nativeEvent.contentSize.width; 
-                            setNormalInputWidth((prevWidths) => {
-                              if (prevWidths[index] === width) return prevWidths;
-                              const nextWidths = [...prevWidths];
-                              nextWidths[index] = width;
-                              return nextWidths;
-                            });
-                          }}
-                          style={{ minWidth: normalInputWidth[index] }}
+                          style={{ width: getInputWidth(currCurrentAmounts[index]) }}
                           className="text-[10px] leading-[12px] text-center"
-                          placeholder={(selectedPrepData?.variants?.[selectedPrepVariant]?.currentData[index] !== null && selectedPrepData?.variants[selectedPrepVariant].currentAmounts[index] !== "") ? selectedPrepData?.variants[selectedPrepVariant].currentAmounts[index] : "_"}
-                          placeholderTextColor="black"
+                          placeholder="_"
+                          placeholderTextColor={colors.zinc450}
                           value={currCurrentAmounts[index]}
                           onChangeText={(value) => {
                             setAmount(validateFractionInput(value), index);
@@ -2687,10 +2977,13 @@ export default function MealPrep ({ isSelectedTab }) {
                           }}
                           onBlur={() => setAmount(currCurrentAmounts[index] === "" ? "" : isFraction(currCurrentAmounts[index]) ? currCurrentAmounts[index].trim() : "", index)}
                         />
-                        {/* Unit */}
-                        <Text className="text-[10px]">
-                          {` ${extractUnit(selectedPrepData.variants[selectedPrepVariant].currentData[index].ingredientData[selectedPrepData.variants[selectedPrepVariant].currentData[index].ingredientStore].unit, currCurrentAmounts[index])}`}
-                        </Text>
+                        {/* Dummy Unit */}
+                        <TextInput
+                          className="text-[10px] leading-[12px]"
+                          placeholder={` ${extractUnit(selectedPrepData.variants[selectedPrepVariant].currentData[index].ingredientData[selectedPrepData.variants[selectedPrepVariant].currentData[index].ingredientStore].unit, currCurrentAmounts[index])}`}
+                          placeholderTextColor="black"
+                          editable={false}
+                        />
                       </View>
                     : null }
                   </View>
@@ -2702,9 +2995,9 @@ export default function MealPrep ({ isSelectedTab }) {
                   >
                     
                     {/* calories */}
-                    {selectedPrepData?.variants?.[selectedPrepVariant]?.currentCals?.[index] ?
+                    {isFraction(selectedPrepData?.variants?.[selectedPrepVariant]?.currentCals?.[index]) ?
                       <Text className="text-[10px]">
-                        {selectedPrepData.variants[selectedPrepVariant].currentCals[index].toFixed(0)} {"cal"}
+                        {new Fraction(selectedPrepData.variants[selectedPrepVariant].currentCals[index]).valueOf().toFixed(0)} {"cal"}
                       </Text>
                     : selectedPrepData?.variants?.[selectedPrepVariant]?.currentData?.[index] ?
                       <Text className="text-[10px]">
@@ -2713,9 +3006,9 @@ export default function MealPrep ({ isSelectedTab }) {
                     : null }
 
                     {/* price */}
-                    {selectedPrepData?.variants?.[selectedPrepVariant]?.currentPrices?.[index] ?
+                    {isFraction(selectedPrepData?.variants?.[selectedPrepVariant]?.currentPrices?.[index]) ?
                       <Text className="text-[10px]">
-                        {"$"}{selectedPrepData.variants[selectedPrepVariant].currentPrices[index].toFixed(2)}
+                        {"$"}{new Fraction(selectedPrepData.variants[selectedPrepVariant].currentPrices[index]).valueOf().toFixed(2)}
                       </Text>
                     : selectedPrepData?.variants?.[selectedPrepVariant]?.currentData?.[index] ?
                       <Text className="text-[10px]">
@@ -2776,7 +3069,7 @@ export default function MealPrep ({ isSelectedTab }) {
                   
                   {/* details */}
                   <View className="flex w-5/12 items-center justify-center">
-                    <Text className="text-white text-xs italic font-bold">
+                    <Text className="text-white text-[12px] italic font-bold">
                       TOTALS
                     </Text>
                   </View>
@@ -2787,11 +3080,11 @@ export default function MealPrep ({ isSelectedTab }) {
                     {/* calories */}
                     <View>
                       {selectedPrepData?.variants?.[selectedPrepVariant]?.prepCal ?
-                        <Text className="text-white text-xs italic">
+                        <Text className="text-white text-[12px] italic">
                           {selectedPrepData.variants[selectedPrepVariant].prepCal} {"cal"}
                         </Text>
                       : 
-                        <Text className="text-white text-xs italic">
+                        <Text className="text-white text-[12px] italic">
                           {"0 cal"}
                         </Text> 
                       }
@@ -2799,24 +3092,29 @@ export default function MealPrep ({ isSelectedTab }) {
 
                     {/* price */}
                     <View>
-                      {selectedPrepData?.variants?.[selectedPrepVariant]?.prepPrice ? (
+                      {(selectedPrepData?.variants?.[selectedPrepVariant]?.prepPrice !== undefined && selectedPrepData?.variants?.[selectedPrepVariant]?.prepPrice !== null) ? (
                         <>
                           {(prepsCustom?.[prepsIds?.indexOf(selectedPrepId)]?.[selectedPrepData?.variants?.[selectedPrepVariant]?.variantId] === "currents") ? (
-                            <Text className="text-white text-xs italic">
+                            <Text className="text-white text-[12px] italic">
                               {"$"}{selectedPrepData.variants[selectedPrepVariant].prepPrice}
                             </Text>
                           ) : (                    
                           <View className="flex flex-row">
-                            {/* label */}
-                            <Text className="text-white text-[12px] leading-[14px] italic">$</Text>
-
+                            {/* dummy label */}
+                            <TextInput
+                              className="text-[12px] leading-[14px] italic"
+                              placeholder="$"
+                              placeholderTextColor={(selectedPrepData?.variants?.[selectedPrepVariant]?.prepPrice === "") ? colors.zinc400 : "white"}
+                              editable={false}
+                            />
+                            {/* input */}
                             <TextInput
                               className="text-white text-[12px] leading-[14px] italic"
                               placeholder="0.00"
-                              placeholderTextColor={colors.zinc450}
+                              placeholderTextColor={colors.zinc400}
+                              style={{ width: getInputWidth(selectedPrepData?.variants?.[selectedPrepVariant]?.prepPrice === "" ? "0.00" : selectedPrepData?.variants?.[selectedPrepVariant]?.prepPrice) + 6 }}
                               value={selectedPrepData?.variants?.[selectedPrepVariant]?.prepPrice || ""}
                               onChangeText={(value) => {
-                                console.log(value)
                                 setSelectedPrepData(prev => {
                                   if (!prev) return prev;
                                   const updatedVariants = [...prev.variants];
@@ -2824,27 +3122,25 @@ export default function MealPrep ({ isSelectedTab }) {
                                   return { ...prev, variants: updatedVariants, };
                                 });
                               }}
+                              onBlur={() => {
+                                setIsKeyboardOpen(false);
+                                const value = selectedPrepData?.variants?.[selectedPrepVariant]?.prepPrice;
+                                updateCustomPrep({
+                                  ...selectedPrepData,
+                                  variants: selectedPrepData?.variants?.map((v, i) =>
+                                    i === selectedPrepVariant
+                                      ? { ...v, prepPrice: isFraction(value) ? new Fraction(value).valueOf().toFixed(2) : "0.00" }
+                                      : v
+                                )}, -1);
+                              }}
                               blurOnSubmit={true}
                               onFocus={() => setIsKeyboardOpen(true)}
-                              onBlur={() => {
-                                console.log("doesnt always catch")
-                                const value = selectedPrepData?.variants?.[selectedPrepVariant]?.prepPrice;
-                                setSelectedPrepData(prev => {
-                                  if (!prev) return prev;
-                                  const updatedVariants = [...prev.variants];
-                                  updatedVariants[selectedPrepVariant].prepPrice = isFraction(value) ? new Fraction(value).valueOf().toFixed(2) : "0.00";
-                                  return { ...prev, variants: updatedVariants, };
-                                });
-                                setIsKeyboardOpen(false);
-                                updateComplexPrep(-1);
-                                console.log(isFraction(value) ? new Fraction(value).valueOf().toFixed(2) : "0.00")
-                              }}
                             />
                           </View>
                           )}
                         </>
                       ) : (
-                        <Text className="text-white text-xs italic">
+                        <Text className="text-white text-[12px] italic">
                           {"$0.00"}
                         </Text> 
                       )}

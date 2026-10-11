@@ -90,7 +90,13 @@ const SnackListModal = ({
   useEffect(() => {
     if (modalVisible) {
       setSnackTitle(data?.snackTitle || "SNACKS");
-      setSnackData(data?.snackData || null);
+      setSnackData(data?.snackData === null ? null : 
+        data?.snackData.map(snack => ({ 
+          ...snack, 
+          // stores an id for each snack ingredient
+          id: snack.id || `${Date.now()}-${Math.random().toString(36).substring(2, 9)}` 
+        })) || null
+      );
       setIsEditing(data === null || data.snackData === null || data?.snackData?.length === 0);
       loadInventory();
     }
@@ -125,6 +131,7 @@ const SnackListModal = ({
     // makes data have one empty snack if null
     if (snackData === null) {
       setSnackData([{
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         name: "",
         amount: "",
         unit: "",
@@ -137,6 +144,7 @@ const SnackListModal = ({
       setSnackData((prev) => {
         const updated = [...prev];
         updated[snackData.length] = {
+          id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
           name: "",
           amount: "",
           unit: "",
@@ -156,6 +164,7 @@ const SnackListModal = ({
       setSnackData((prev) => {
         const updated = [...prev];
         updated[index] = {
+          id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
           name: "",
           amount: "",
           unit: "",
@@ -196,7 +205,7 @@ const SnackListModal = ({
     const isEmpty = JSON.stringify(sortObjectKeys(snackData)) === JSON.stringify(sortObjectKeys([{"amount":"","price":"","name":"","cal":"","unit":""}])) || JSON.stringify(sortObjectKeys(snackData)) === null;
 
     // refactored snackData
-    const newSnackData = snackData?.map((snack) => ({
+    const newSnackData = snackData?.map(({ id, ...snack }) => ({
       ...snack,
       amount: snack.amount === "" ? "1" : snack.amount,
       cal: !isFraction(snack.cal) ? "0" : snack.cal,
@@ -441,16 +450,25 @@ const SnackListModal = ({
 
   // to copy a snack from the snack search
   const copySnack = (variantIndex) => {
+    // adds ids to the snacks
+    const ogSnack = filteredData[openIndex][variantIndex];
+    const copiedSnack = {
+      ...ogSnack,
+      snackData: ogSnack?.snackData?.map((item) => ({
+        ...item,
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      })) || null,
+    };
     
     // makes data have one empty snack if null
     if (snackData === null) {
-      setSnackData([filteredData[openIndex][variantIndex]])
+      setSnackData([copiedSnack]);
     
     // adds empty snack otherwise
     } else {
       setSnackData((prev) => {
         const updated = [...prev];
-        updated[snackData.length] = filteredData[openIndex][variantIndex];
+        updated[snackData.length] = copiedSnack;
         return updated;
       })
     }
@@ -466,8 +484,15 @@ const SnackListModal = ({
 
   // to copy a title from the snack search
   const copyTitle = () => {
-    setSnackTitle(filteredData[openIndex][currIndex].snackTitle);
-    setSnackData(filteredData[openIndex][currIndex].snackData);
+    // adds ids to the snacks
+    const selectedVariant = filteredData[openIndex][currIndex];
+    setSnackTitle(selectedVariant?.snackTitle || "SNACKS");
+    setSnackData(
+      selectedVariant?.snackData?.map((item) => ({
+        ...item,
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      })) || null
+    );
 
     // resets states
     setOpenIndex(-1);
@@ -622,6 +647,7 @@ const SnackListModal = ({
     setSnackData((prev) => {
       const updated = prev === null ? [] : [...prev];
       updated[updated.length] = {
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         name: snack.name,
         amount: snack.currAmount,
         unit: extractUnit(snack.unit, snack.currAmount),
@@ -691,7 +717,7 @@ const SnackListModal = ({
                 <View className="flex justify-center items-center px-1.5 py-1 w-1/2 border-r-0.5 bg-zinc700">
                   <TextInput
                     className="w-full text-center mb-1 font-semibold text-[12px] text-white leading-[15px]"
-                    placeholder={snackTitle === "SNACKS" ? "SNACKS" : snackTitle}
+                    placeholder={data?.snackTitle === "" ? "Snack Title" : data?.snackTitle}
                     placeholderTextColor={colors.zinc400}
                     multiline={true}
                     blurOnSubmit={true}
@@ -737,7 +763,7 @@ const SnackListModal = ({
                     
                   {/* Frozen Columns */}
                   {snackData?.map((snack, index) =>  
-                    <View key={`frozen-${index}`} className="flex flex-row min-h-[30px]">
+                    <View key={snack.id} className="flex flex-row min-h-[30px]">
                     
                       {/* snack */}
                       <View className={`flex-1 flex-row bg-zinc500 border-x-[1px] ${(index === 0) && "border-t-[1px]"} ${(index === snackData.length - 1) && "border-b-[1px]"} border-zinc700`}>
@@ -771,10 +797,10 @@ const SnackListModal = ({
                         </View>
 
                         {/* amount */}
-                        <View className="flex flex-row px-2 w-1/3 space-x-1 items-center justify-center bg-zinc100 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc300">
+                        <View className="flex flex-row px-1 w-1/3 space-x-1 items-center justify-center bg-zinc100 border-b-0.5 border-b-zinc400 border-r-0.5 border-r-zinc300">
                           {/* Amount Input */}
                           <TextInput
-                            className="text-[9px] flex text-center h-full pl-4"
+                            className="text-[9px] flex-auto text-right py-2"
                             placeholder="_"
                             placeholderTextColor={colors.zinc450}
                             value={snack.amount}
@@ -794,7 +820,7 @@ const SnackListModal = ({
                           />
                           {/* Unit Input */}
                           <TextInput
-                            className="text-[9px] leading-[12px] flex text-center pr-4 py-1"
+                            className="text-[9px] flex-auto text-left py-2"
                             placeholder="unit(s)"
                             placeholderTextColor={colors.zinc450}
                             value={snack.unit}
@@ -821,11 +847,10 @@ const SnackListModal = ({
 
                           {/* calories */}
                           <View className="flex flex-row w-full space-x-0.5 justify-center items-center bg-white">
-                            
-                            {/* Amount Input */}
+                            {/* user input */}
                             <TextInput
                               className="text-[8px] flex-auto text-right"
-                              placeholder="_"
+                              placeholder="0"
                               placeholderTextColor={colors.zinc400}
                               value={snack.cal}
                               onChangeText={(value) => {
@@ -842,25 +867,28 @@ const SnackListModal = ({
                               onBlur={() => setKeyboardType("")}
                               editable={isEditing}
                             />
-
-                            {/* Label */}
-                            <Text className="text-[8px] flex-auto text-left">
-                              {"cal"}
-                            </Text>
+                            {/* dummy label */}
+                            <TextInput
+                              className="text-[8px] flex-auto text-left"
+                              placeholder="cal"
+                              placeholderTextColor={(snack.cal === "") ? colors.zinc400 : "black"}
+                              editable={false}
+                            />
                           </View>
 
                           {/* price */}
                           <View className="flex flex-row w-full justify-center items-center bg-white">
-
-                            {/* Label */}
-                            <Text className="text-[8px] flex-auto text-right">
-                              {"$"}
-                            </Text>
-                            
+                            {/* dummy label */}
+                            <TextInput
+                              className="text-[8px] flex-auto text-right"
+                              placeholder="$"
+                              placeholderTextColor={(snack.price === "") ? colors.zinc400 : "black"}
+                              editable={false}
+                            />
                             {/* Amount Input */}
                             <TextInput
                               className="text-[8px] flex-auto text-left"
-                              placeholder="_"
+                              placeholder="0.00"
                               placeholderTextColor={colors.zinc400}
                               value={snack.price}
                               onChangeText={(value) => {
@@ -1293,15 +1321,21 @@ const SnackListModal = ({
                               onChangeText={(value) => updateCurrInventory(idx, snack, validateFractionInput(value))}
                               onFocus={() => setKeyboardType("inventory")}
                             />
-                            {/* remaining */}
-                            <Text className="text-[12px] text-center text-zinc500">
-                              {`| ${snack.totalAmount === "" ? "?" : snack.totalAmount}`}
-                            </Text>
+                            {/* dummy remaining */}
+                            <TextInput
+                              className="text-[12px] text-center"
+                              placeholder={`| ${snack.totalAmount === "" ? "?" : snack.totalAmount}`}
+                              placeholderTextColor={colors.zinc500}
+                              editable={false}
+                            />
                           </View>
-                          {/* unit */}
-                          <Text className="text-[12px] text-center text-zinc900">
-                            {snack.unit}
-                          </Text>
+                          {/* dummy unit */}
+                          <TextInput
+                            className="text-[12px] text-center"
+                            placeholder={snack.unit}
+                            placeholderTextColor={colors.zinc900}
+                            editable={false}
+                          />
                         </View>
 
                         {/* per serving */}
